@@ -1,4 +1,5 @@
 import type { EntityKind, EntityState, MaterialId, ShapeId, Vec2 } from '../core/types.ts';
+import { createMatterAdapter } from './matterAdapter.ts';
 
 /** Physics-layer contract. Implemented by MatterAdapter (M4); other engines can
  * implement the same interface (D1). */
@@ -52,7 +53,7 @@ export interface PhysicsAdapter {
   /** Apply impact damage to an entity's health; emits destroy on the adapter. */
   applyDamage(id: string, amount: number): void;
   /** Non-mutating ballistic preview against the current statics only. */
-  simulateTrajectory(origin: Vec2, velocity: Vec2, maxSteps: number): TrajectorySample[];
+  simulateTrajectory(origin: Vec2, velocity: Vec2, maxSteps: number, radius?: number): TrajectorySample[];
   allSleeping(): boolean;
   wakeAll(): void;
   /** Ids destroyed by damage during the most recent step. */
@@ -63,7 +64,11 @@ export interface PhysicsAdapter {
 // contact, docs/tuning.md) because Matter models no rolling resistance. Bounds-based
 // and low-speed pig removal is a game-layer rule (docs/adr.md D15), not physics.
 
-/** Stub — implemented in M4. */
+/**
+ * Factory indirection so game code depends on the interface rather than on
+ * matter-js directly (docs/adr.md D1). Swapping engines means changing this
+ * function only.
+ */
 export function createPhysicsAdapter(init: WorldInit): PhysicsAdapter {
-  throw new Error('not implemented: createPhysicsAdapter (M4)');
+  return createMatterAdapter(init);
 }

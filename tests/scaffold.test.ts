@@ -5,7 +5,6 @@ import { MATERIALS, healthFor, materialSpec } from '../src/physics/materials.ts'
 import { createEventBus } from '../src/core/eventBus.ts';
 import { createLoop } from '../src/core/loop.ts';
 import { createPhysicsAdapter } from '../src/physics/adapter.ts';
-import { createMatterAdapter } from '../src/physics/matterAdapter.ts';
 import { createRenderer } from '../src/render/renderer.ts';
 import { createGameRules } from '../src/game/rules.ts';
 
@@ -26,11 +25,20 @@ test('healthFor scales with area and clamps at both ends', () => {
   assert.equal(healthFor('glass', 100000), 4 * 3);
 });
 
+test('physics factory returns a working adapter (M4)', () => {
+  const adapter = createPhysicsAdapter({ width: 1600, height: 900, gravityY: 1, frictionAir: 0.001 });
+  assert.equal(typeof adapter.step, 'function');
+  assert.equal(typeof adapter.simulateTrajectory, 'function');
+  adapter.addBody({ id: 'ground', kind: 'ground', shape: 'box', material: 'ground', x: 800, y: 880, halfWidth: 800, halfHeight: 40, isStatic: true });
+  adapter.addBody({ id: 'block', kind: 'block', shape: 'box', material: 'glass', x: 400, y: 300, halfWidth: 20, halfHeight: 20 });
+  const before = adapter.state('block')!.y;
+  adapter.step(1 / 60);
+  assert.ok(adapter.state('block')!.y >= before);
+});
+
 test('unimplemented stubs report their milestone', () => {
   assert.throws(() => createEventBus(), /M5/);
   assert.throws(() => createLoop({ step: () => {}, render: () => {} }), /M5/);
-  assert.throws(() => createPhysicsAdapter({ width: 1600, height: 900, gravityY: 1, frictionAir: 0.001 }), /M4/);
-  assert.throws(() => createMatterAdapter({ width: 1600, height: 900, gravityY: 1, frictionAir: 0.001 }), /M4/);
   assert.throws(() => createRenderer({} as HTMLCanvasElement), /M6/);
   assert.throws(() => createGameRules(), /M8/);
 });
