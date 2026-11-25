@@ -71,3 +71,42 @@ fixed-timestep simulation lets us assert outcomes without a browser.
 **Why.** Node's ESM loader requires extensions for direct TS execution; esbuild
 resolves them when bundling. tsconfig sets `allowImportingTsExtensions` with `noEmit`.
 **Rejected.** Extensionless specifiers (break `node --test`).
+
+## D10 — Damage model: HP-based, any collision above a threshold
+**Decision.** Objects and birds carry health from their material; every collision
+whose impact energy exceeds the material's `damageThreshold` removes health, and an
+entity at 0 health is destroyed. Objects are not one-shot.
+**Why.** Supports knockable towers (a glass block survives a glancing hit and shatters
+on a solid one) and makes structure collapse a legitimate way to kill birds.
+**Rejected.** One-hit destruction (no tower feel, no material differentiation on
+impact); HP tied to entity type instead of material (materials would stop mattering).
+
+## D11 — Birds die from falls and collapse, not only direct hits
+**Decision.** A bird takes damage from any collision above its threshold, including
+landing after a fall or being crushed by a collapsing tower.
+**Why.** Consequence of D10; the damage rule is energy-threshold, not "who hit me".
+**Rejected.** Direct-hit-only death — it makes tall towers pointless and reads as
+arbitrary to the player.
+
+## D12 — Aim constraint: free drag, capped pull, no downward plunge
+**Decision.** Pointer drag sets a pull vector from the cannon origin, clamped to
+`maxPull`. Launch velocity = `-pull * powerScale` (slingshot direction). The launch
+angle is clamped to ±75° from horizontal so a pig cannot be fired into the ground.
+**Why.** Free drag is the familiar Angry Birds interaction; the pull cap bounds
+power and the angle clamp removes the degenerate "shoot at the floor" case.
+**Rejected.** Fixed angle range (too rigid for aiming), unconstrained angle
+(wasted ammo on self-inflicted ground hits).
+
+## D13 — Fixed world units, letterboxed canvas
+**Decision.** World is 1600x900 units; the canvas is CSS-sized to the window and the
+camera fits `bounds`, preserving aspect. Pointer coordinates are mapped back through
+the camera so touch and mouse aim identically at any window size.
+**Why.** Levels and tuning constants stay readable in world units, independent of
+viewport size.
+**Rejected.** World sized to the window (levels would change with browser size).
+
+## D14 — First release scope: 8–12 stages
+**Decision.** Ship 8–12 levels, increasing complexity.
+**Why.** Enough variety to prove the level system and material model without making
+level authoring the bulk of the work.
+**Rejected.** One level (can't evaluate tuning), 20+ levels (content outruns tuning).

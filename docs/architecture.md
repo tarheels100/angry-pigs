@@ -39,3 +39,6 @@ mutates simulation state.
 - Import specifiers use `.ts` extensions (esbuild bundles them; Node runs TS
   directly for tests). The shipped artifact is a single file, so no browser
   module resolution happens at runtime.
+- Contracts are compile-checked by `tests/contracts.test.ts`, which implements
+  `PhysicsAdapter`, `Theme`, and `GameRules` with dummies (M2). If a contract cannot
+  be implemented without Matter or a DOM, it is too wide.

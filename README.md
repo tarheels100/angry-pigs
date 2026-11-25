@@ -314,16 +314,19 @@ gameplay constant has a documented reason.
 - Persistence: progress and best scores in `localStorage`
 - Deterministic replay export for debugging
 
-## Open questions (resolve in M2)
+## Open questions — resolved in M2
 
-1. **Destructible structures vs. single-hit objects.** Angry Birds has knockable
-   towers of material blocks. Do pigs one-shot objects, or do objects take damage and
-   collapse? Current plan: HP-based damage through materials, which supports both.
-2. **Bird death rule.** Die on direct impact, or also die from falls/tower collapse?
-   Current plan: damage on any collision above an energy threshold, so structure
-   collapses can kill birds.
-3. **Aim constraint.** Free drag direction, or an angle range like Angry Birds?
-   Current plan: free direction within a max pull radius, clamp to not fire into the ground.
-4. **Canvas size / aspect.** Fixed aspect letterboxed, or resize to fit the window?
-   Current plan: fixed world units, letterboxed canvas, camera fits the level bounds.
-5. **Level count for first release.** 8–12 seems right for a playable slice; confirm.
+See `docs/adr.md` D10–D14 for the reasoning behind each.
+
+1. **Destructible structures vs. single-hit objects → HP-based damage.** Objects and
+   birds carry material health; collisions above the material's energy threshold
+   remove health. A glass block survives a glancing hit and shatters on a solid one,
+   so knockable towers work.
+2. **Bird death rule → any collision above threshold.** Falls and tower collapse
+   kill birds; the rule keys off impact energy, not "who hit me".
+3. **Aim constraint → free drag, capped pull, ±75° from horizontal.** Launch
+   velocity is `-pull * powerScale`; downward plunges are clamped out.
+4. **Canvas size / aspect → fixed 1600x900 world units, letterboxed canvas, camera
+   fits level bounds.** Pointer coordinates are mapped through the camera so mouse
+   and touch aim identically at any window size.
+5. **Level count → 8–12 stages** for first release.
