@@ -137,7 +137,7 @@ test('PhysicsAdapter contract is implementable', () => {
   assert.equal(adapter.state('p1')?.vx, 8);
   assert.equal(adapter.allSleeping(), false);
   adapter.applyDamage('block', 1);
-  const world: WorldInit = { width: 1600, height: 900, gravityY: 1, airFriction: 0.001 };
+  const world: WorldInit = { width: 1600, height: 900, gravityY: 1, frictionAir: 0.001 };
   assert.equal(world.width, 1600);
   assert.equal(adapter.simulateTrajectory({ x: 0, y: 0 }, { x: 1, y: 0 }, 3).length, 3);
 });

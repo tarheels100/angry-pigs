@@ -13,7 +13,9 @@ import Matter from 'matter-js';
 
 const { Engine, Bodies, Body, Events, Composite } = Matter;
 
-function world(gravityY = 1) {
+type SpikeEngine = ReturnType<typeof Engine.create>;
+
+function world(gravityY = 1): SpikeEngine {
   const engine = Engine.create();
   engine.gravity.y = gravityY;
   engine.enableSleeping = true; // matter-js 0.20 engine flag; per-body threshold is body.sleepThreshold (60)
@@ -28,9 +30,9 @@ function energyOf(pair: Matter.Pair): number {
   return Math.abs(rel) * Math.min(a.mass, b.mass);
 }
 
-function record(engine: Engine): number[] {
+function record(engine: SpikeEngine): number[] {
   const energies: number[] = [];
-  Events.on(engine, 'collisionStart', (e) => {
+  Events.on(engine, 'collisionStart', (e: Matter.IEventCollision<SpikeEngine>) => {
     for (const pair of e.pairs) energies.push(energyOf(pair));
   });
   return energies;
@@ -82,7 +84,7 @@ function report(name: string, ok: boolean, detail: string) {
 
   // Pig friction 0.02 so it keeps momentum instead of grinding to a stop on the
   // ground (Matter uses max(frictionA, frictionB), so a grabby pig + ground kills roll).
-  const pig = Bodies.circle(120, 620, 18, { label: 'pig', density: 0.004, friction: 0.02, frictionStatic: 0.02, restitution: 0.3, airFriction: 0.001 });
+  const pig = Bodies.circle(120, 620, 18, { label: 'pig', density: 0.004, friction: 0.02, frictionStatic: 0.02, restitution: 0.3, frictionAir: 0.001 });
   Composite.add(engine.world, pig);
   Body.setVelocity(pig, { x: 22, y: -3 });
 
@@ -119,7 +121,7 @@ function report(name: string, ok: boolean, detail: string) {
   const engine = world();
   const ground = Bodies.rectangle(800, 860, 1600, 40, { isStatic: true, friction: 0.5, frictionStatic: 0.5 });
   Composite.add(engine.world, [ground]);
-  const pig = Bodies.circle(120, 700, 18, { density: 0.004, friction: 0.02, frictionStatic: 0.02, airFriction: 0.001, restitution: 0.3 });
+  const pig = Bodies.circle(120, 700, 18, { density: 0.004, friction: 0.02, frictionStatic: 0.02, frictionAir: 0.001, restitution: 0.3 });
   Composite.add(engine.world, pig);
   Body.setVelocity(pig, { x: 16, y: 0 });
   for (let i = 0; i < 200; i++) Engine.update(engine, 1000 / 60);
@@ -133,7 +135,7 @@ function report(name: string, ok: boolean, detail: string) {
   const engine = world();
   const ground = Bodies.rectangle(800, 860, 1600, 40, { isStatic: true });
   Composite.add(engine.world, [ground]);
-  const pig = Bodies.circle(120, 480, 18, { density: 0.004, friction: 0.02, frictionStatic: 0.02, restitution: 0.3, airFriction: 0.001 });
+  const pig = Bodies.circle(120, 480, 18, { density: 0.004, friction: 0.02, frictionStatic: 0.02, restitution: 0.3, frictionAir: 0.001 });
   Composite.add(engine.world, pig);
   Body.setVelocity(pig, { x: 22, y: -11 });
   let stepsToGround = 0;

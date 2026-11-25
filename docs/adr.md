@@ -110,3 +110,14 @@ viewport size.
 **Why.** Enough variety to prove the level system and material model without making
 level authoring the bulk of the work.
 **Rejected.** One level (can't evaluate tuning), 20+ levels (content outruns tuning).
+
+## D15 — Pig consumption rules (from M3 spike)
+**Decision.** A pig is removed when any of these is true: it leaves the level bounds,
+its speed stays below 1.2 for 45 consecutive steps, or the settle timeout expires.
+Removed pigs stop colliding and stop counting toward the settle check.
+**Why.** Matter models no rolling resistance, so a pig that lands on flat ground rolls
+forever and never sleeps. Without an explicit consumption rule the world would never
+settle and the phase machine (M8) would hang. Pigs flying past the stage edge also need
+removing, or they fall forever.
+**Rejected.** Raising pig friction (stops pigs ~400 units, too short for a 1600-unit
+stage); relying on sleeping alone (never happens on flat ground).

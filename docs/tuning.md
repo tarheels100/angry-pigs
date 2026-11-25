@@ -15,8 +15,9 @@ file together.
 | sleep threshold | 60 steps per body | `body.sleepThreshold` | A body must be near-still ~1 s before sleeping; measured settle at step 92 for a dropped box. |
 | settle timeout | 240 steps (4 s) | settle detection | Fallback so a jittering body can't block the phase machine forever. |
 | cannon `maxPull` | 90 world units | level data | Pull distance cap; bounds launch power. |
-| cannon `powerScale` | 0.24 | level data | Full pull (90) → speed ~21.6, which measured 1562 units of range — past the far end of a 1600-unit stage, so full pull overshoots slightly. |
-| impact energy formula | `\|relV · normal\| * min(massA, massB)` | adapter | Measured peak 49.7 for a speed-22 pig. Kept on `min(mass)` so a pig hitting a heavy wall does not score the wall's mass as damage. |
+| cannon `powerScale` | 0.14 | level data | Full pull (90) → launch speed ~12.6. Measured landing distance at 45°: speed 12 → 1228 units, 14 → 1582, 22 → 3419. 12.6 puts a full pull near the far end of a 1600-unit stage; 22 overshoots the stage entirely. |
+| pig rolling resistance | ×0.94 per step while grounded | adapter | Matter has no rolling resistance, so a pig on flat ground rolls forever and never sleeps. Damping velocity and angular velocity while in ground contact stops a full-pull pig at ~step 170 instead of never. |
+| impact energy formula | `\|relV · normal\| * min(massA, massB)` | adapter | Measured peak ~84 for a speed-22 pig, ~49 for speed 18. Kept on `min(mass)` so a pig hitting a heavy wall does not score the wall's mass as damage. |
 | glass damageThreshold | 3 | `MATERIALS` | A direct pig hit (~40-50 energy) shatters glass; a rolling graze (~8) does not. |
 | stone damageThreshold | 9 | `MATERIALS` | A full-speed pig removes ~5 health; stone survives roughly three solid hits. |
 | feather damageThreshold | 2 | `MATERIALS` | Birds are fragile: any real hit kills; a gentle nudge does not. |
@@ -24,6 +25,6 @@ file together.
 
 ## Open tuning questions (resolve in M8)
 
-- Impact energy thresholds vs. real launch speeds are calibrated from the spike, but
-  tower-collapse damage (gentle crushes) has not been measured yet.
+- Impact energy thresholds vs. tower-collapse damage (gentle crushes) not measured yet.
+- Whether rolling resistance should also apply to birds/balls that roll on the ground.
 - Remaining-ammo bonus score and star thresholds.

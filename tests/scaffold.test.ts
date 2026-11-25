@@ -29,8 +29,8 @@ test('healthFor scales with area and clamps at both ends', () => {
 test('unimplemented stubs report their milestone', () => {
   assert.throws(() => createEventBus(), /M5/);
   assert.throws(() => createLoop({ step: () => {}, render: () => {} }), /M5/);
-  assert.throws(() => createPhysicsAdapter({ width: 1600, height: 900, gravityY: 1, airFriction: 0.001 }), /M4/);
-  assert.throws(() => createMatterAdapter({ width: 1600, height: 900, gravityY: 1, airFriction: 0.001 }), /M4/);
+  assert.throws(() => createPhysicsAdapter({ width: 1600, height: 900, gravityY: 1, frictionAir: 0.001 }), /M4/);
+  assert.throws(() => createMatterAdapter({ width: 1600, height: 900, gravityY: 1, frictionAir: 0.001 }), /M4/);
   assert.throws(() => createRenderer({} as HTMLCanvasElement), /M6/);
   assert.throws(() => createGameRules(), /M8/);
 });

@@ -36,7 +36,8 @@ export interface WorldInit {
   width: number;
   height: number;
   gravityY: number;
-  airFriction: number;
+  /** Matter body option name: frictionAir (damping). */
+  frictionAir: number;
 }
 
 export interface PhysicsAdapter {
@@ -57,6 +58,10 @@ export interface PhysicsAdapter {
   /** Ids destroyed by damage during the most recent step. */
   destroyedLastStep(): string[];
 }
+
+// Note: the adapter applies pig rolling resistance (×0.94/step while in ground
+// contact, docs/tuning.md) because Matter models no rolling resistance. Bounds-based
+// and low-speed pig removal is a game-layer rule (docs/adr.md D15), not physics.
 
 /** Stub — implemented in M4. */
 export function createPhysicsAdapter(init: WorldInit): PhysicsAdapter {

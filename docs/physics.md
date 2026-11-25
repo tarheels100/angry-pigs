@@ -60,11 +60,11 @@ Run `node scratch/physics-spike/spike.ts`. All checks pass:
 | --- | --- |
 | unsupported object falls | 117.5 units in 30 steps, vy 7.23 |
 | circle rolls down a 20° incline | +87.6 units, angular velocity 0.071 |
-| projectile knocks a tower over | max tilt 1.06 rad, bird displaced 206 units, 24 impacts |
-| collision events report impact velocity | peak energy 49.7 at launch speed 22 (glass threshold 3) |
+| projectile knocks a tower over | max tilt 1.57 rad, bird displaced 216 units, 33 impacts |
+| collision events report impact velocity | peak energy 84 at launch speed 22; ~49 at speed 18 (glass threshold 3) |
 | bodies sleep when at rest | slept at step 92 (timeout budget 240) |
-| pig keeps rolling momentum | 961 units in 200 steps |
-| ballistic arc crosses the stage | 1562 units in 126 steps at v=(22,-11) |
+| pig keeps rolling momentum | rolls indefinitely on flat ground — see gotcha 7 |
+| ballistic arc crosses the stage | landing distance at 45°: speed 12 → 1228 units, 14 → 1582, 22 → 3419 |
 
 ### Gotchas the spike exposed (must be honoured by M4)
 
@@ -82,6 +82,15 @@ Run `node scratch/physics-spike/spike.ts`. All checks pass:
    as `groundTop - halfHeight`, not by eye.
 6. **Impact energy needs computing ourselves.** `pair.collision` has no speed field;
    the adapter derives relative velocity along `pair.collision.normal`.
+7. **Matter has no rolling resistance.** A pig on flat ground never slows down and
+   never sleeps; `friction` barely affects rolling. The adapter damps linear and
+   angular velocity by ×0.94 per step while a pig is in ground contact
+   (docs/tuning.md), so pigs settle around step ~170.
+8. **The option is `frictionAir`, not `airFriction`.** A misspelled option is silently
+   ignored, which changed measured results between two spike runs.
+9. **Ground must span the stage, or pigs leave it.** A ground static narrower than the
+   stage lets a pig fly past the ground and keep falling forever; pigs crossing the
+   level bounds must be removed (docs/adr.md D15).
 
 ## Adapter implementation notes (for M4)
 
