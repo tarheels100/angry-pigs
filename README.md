@@ -6,6 +6,10 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
+**Status:** M1–M5 complete (scaffold, contracts, physics spike validating Matter.js,
+Matter adapter, event bus + fixed-step loop). **Next milestone: M6 renderer**
+(theme-driven Canvas2D).
+
 On each level the player gets a fixed number of launches. Launch pigs from the
 cannon to destroy every bird target on the stage. Destroying all birds within the
 launch budget clears the level; running out of pigs with birds still standing

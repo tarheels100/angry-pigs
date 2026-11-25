@@ -1,4 +1,4 @@
-import type { EntityKind, EntityState, MaterialId, ShapeId, Vec2 } from '../core/types.ts';
+import type { EntityKind, EntityState, Impact, MaterialId, ShapeId, TrajectorySample, Vec2 } from '../core/types.ts';
 import { createMatterAdapter } from './matterAdapter.ts';
 
 /** Physics-layer contract. Implemented by MatterAdapter (M4); other engines can
@@ -18,20 +18,9 @@ export interface BodyInit {
   isStatic?: boolean;
 }
 
-export interface Impact {
-  aId: string;
-  bId: string;
-  point: Vec2;
-  /** Relative speed along the contact normal, scaled by masses. */
-  energy: number;
-}
-
-export interface TrajectorySample {
-  x: number;
-  y: number;
-  /** True once the preview path contacted something. */
-  hit: boolean;
-}
+// Impact and TrajectorySample are core types so the game layer can consume them
+// without importing the physics module's shape definitions.
+export type { Impact, TrajectorySample };
 
 export interface WorldInit {
   width: number;

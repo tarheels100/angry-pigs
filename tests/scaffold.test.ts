@@ -36,9 +36,14 @@ test('physics factory returns a working adapter (M4)', () => {
   assert.ok(adapter.state('block')!.y >= before);
 });
 
+test('core event bus and loop are implemented (M5)', () => {
+  const bus = createEventBus();
+  assert.equal(typeof bus.on, 'function');
+  const loop = createLoop({ step: () => {}, render: () => {} });
+  assert.equal(typeof loop.advance, 'function');
+});
+
 test('unimplemented stubs report their milestone', () => {
-  assert.throws(() => createEventBus(), /M5/);
-  assert.throws(() => createLoop({ step: () => {}, render: () => {} }), /M5/);
   assert.throws(() => createRenderer({} as HTMLCanvasElement), /M6/);
   assert.throws(() => createGameRules(), /M8/);
 });

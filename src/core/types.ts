@@ -25,8 +25,44 @@ export interface EntityState {
   vy: number;
   sleeping: boolean;
   destroyed: boolean;
-  /** 0..1 remaining resilience for this material. */
+  /** Remaining hit points (absolute, D10). Infinity for immovable materials. */
   health: number;
   /** Highest impact energy seen by this entity since it was created. */
   impactEnergy: number;
+}
+
+/** One collision contact measured by the physics layer. */
+export interface Impact {
+  aId: string;
+  bId: string;
+  point: Vec2;
+  /** Relative speed along the contact normal, weighted by the lighter body. */
+  energy: number;
+}
+
+/** A ballistic preview point from physics.simulateTrajectory. */
+export interface TrajectorySample {
+  x: number;
+  y: number;
+  hit: boolean;
+}
+
+/**
+ * Phase machine identifier. Owned by the game layer (M8) but typed in core because
+ * the event bus payload is a core contract.
+ */
+export type GamePhase = 'ready' | 'aiming' | 'flight' | 'settling' | 'won' | 'lost';
+
+/** Everything the game layer broadcasts. The event bus is the only upward channel;
+ * presentation never mutates game state. */
+export interface GameEvents {
+  impact: Impact;
+  damaged: { id: string; amount: number; health: number };
+  destroyed: { id: string; cause: 'impact' | 'crush' | 'fall' };
+  launch: { id: string; velocity: Vec2 };
+  pigConsumed: { id: string; reason: 'settled' | 'outOfBounds' | 'timeout' };
+  levelLoaded: { levelId: string; name: string; ammo: number };
+  phaseChanged: { phase: GamePhase };
+  levelWon: { levelId: string; score: number; stars: number };
+  levelLost: { levelId: string };
 }
