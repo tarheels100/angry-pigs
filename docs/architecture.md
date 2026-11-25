@@ -1,0 +1,41 @@
+# Architecture
+
+Four layers, one-way dependency rule: `presentation → game → physics → core`.
+Nothing writes upward. `game` never issues draw calls; `presentation` never
+mutates simulation state.
+
+| Layer | Modules | Responsibility |
+| --- | --- | --- |
+| core | `src/core/*` | fixed-timestep loop, event bus, entity registry, semantic entity state |
+| physics | `src/physics/*` | Matter.js behind `PhysicsAdapter`, material properties, impacts, settle query |
+| game | `src/game/*` | cannon, ammo, projectiles, targets, rules, scoring |
+| presentation | `src/render/*`, `src/camera/*`, `src/input/*`, `src/ui/*` | theme draw recipes, viewport mapping, pointer input, HUD |
+
+## Data flow
+
+1. `Loop` accumulates real time and calls `Game.step(FIXED_DT)` N times.
+2. `Game.step` calls `PhysicsAdapter.step(dt)`, which returns `Impact[]`.
+3. Impacts are emitted on the `EventBus` as `impact`; damage decisions emit
+   `destroyed`; a settle check emits `settled`, and rules emit `win` / `lose`.
+4. Once per frame `Game.frame()` produces a read-only snapshot (`entities`,
+   `aim`, `trajectory`).
+5. `Renderer.draw(frame, theme, viewport)` paints it. Camera computes `viewport`.
+6. Pointer input feeds `Game.beginAim/dragAim/releaseAim` in world coordinates.
+
+## Contracts (M2)
+
+- `PhysicsAdapter` — `src/physics/adapter.ts`
+- `Theme` / `Viewport` — `src/render/theme.ts`
+- `GameRules` — `src/game/rules.ts`
+- `Game` / `Frame` — `src/game/game.ts`
+
+## Rules of engagement
+
+- Themes map semantic state (`kind`, `material`, `health`, `destroyed`,
+  `impactEnergy`) to appearance. They never read collision data or level logic.
+- Levels are data. Adding a level must not require code changes.
+- Simulation is deterministic: physics is stepped only at `FIXED_DT`, never at
+  frame delta, so headless tests can assert outcomes by step count.
+- Import specifiers use `.ts` extensions (esbuild bundles them; Node runs TS
+  directly for tests). The shipped artifact is a single file, so no browser
+  module resolution happens at runtime.

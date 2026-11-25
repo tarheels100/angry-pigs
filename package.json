@@ -8,12 +8,13 @@
     "watch": "esbuild src/main.ts --bundle --watch --format=iife --outfile=dist/main.js",
     "build": "esbuild src/main.ts --bundle --minify --format=iife --outfile=dist/main.js && node build-html.js",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/"
+    "test": "node --test \"tests/**/*.test.ts\""
   },
   "dependencies": {
     "matter-js": "^0.20.0"
   },
   "devDependencies": {
+    "@types/node": "^26.6.10",
     "esbuild": "^0.28.2",
     "typescript": "^5.9.3"
   }

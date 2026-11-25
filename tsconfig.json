@@ -10,7 +10,7 @@
     "exactOptionalPropertyTypes": true,
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
-    "allowImportingTsExtensions": false,
+    "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true
   },

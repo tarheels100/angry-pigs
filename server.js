@@ -5,7 +5,7 @@
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { extname, resolve, join } from 'node:path';
+import { extname, resolve, join, relative, isAbsolute } from 'node:path';
 
 const PORT = Number(process.env.PORT ?? 5173);
 const ROOT = resolve(process.cwd());
@@ -28,7 +28,8 @@ const server = createServer(async (req, res) => {
   const target = resolve(join(ROOT, pathname === '/' ? '/index.html' : pathname));
 
   // Never escape the repo root.
-  if (target !== ROOT && !target.startsWith(ROOT + resolve('/'))) {
+  const rel = relative(ROOT, target);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
     res.writeHead(403, { 'content-type': 'text/plain' }).end('forbidden');
     return;
   }

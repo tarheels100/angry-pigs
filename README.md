@@ -46,7 +46,7 @@ code change.
 | # | Topic | Decision | Rationale |
 | --- | --- | --- | --- |
 | D1 | Physics | Use **Matter.js** behind a thin `PhysicsAdapter` interface | Rigid bodies, friction/restitution, sleeping, and collision events cover the requirements without hand-writing a solver. The adapter keeps Rapier/plane/custom engines swappable and keeps core testable in Node. |
-| D2 | Language/build | **TypeScript + esbuild** watch mode, plus a ~30-line zero-dependency `server.js` (`node:http`). No Vite, no UI framework. | esbuild bundles in ~8ms, so watch rebuilds are instant; it also produces the release bundle, so one tool covers dev and build. A hand-written static server keeps the repo at one dev dependency. HMR adds little for a canvas game that redraws the whole scene each frame; a framework would add state management we don't need. |
+| D2 | Language/build | **TypeScript + esbuild** watch mode, plus a ~30-line zero-dependency `server.js` (`node:http`). No Vite, no UI framework. | esbuild bundles in ~8ms, so watch rebuilds are instant; it also produces the release bundle, so one tool covers dev and build. A hand-written static server keeps the repo at one dev dependency. HMR adds little for a canvas game that redraws the whole scene each frame; a framework would add state management we don't need. `typescript` (type-check only) and `@types/node` are the only other dev deps — esbuild strips types without checking them. |
 | D3 | Entities | Small entity registry + per-entity behavior modules (not a full ECS) | Object count is low (dozens of bodies per level); a full ECS is unnecessary complexity. |
 | D4 | Rendering | Canvas 2D, single canvas + DOM overlay for HUD | Glow/bloom compositing is straightforward in 2D; DOM is cheaper than canvas-drawn UI for HUD. WebGL deferred as an optimization (M10). |
 | D5 | Themes | Theme = data: palette, glyph/sprite sets, draw recipes per entity type | Swapping style becomes swapping a theme manifest. See "Theme contract" below. |
@@ -92,18 +92,20 @@ development convenience, but the shipped build must not depend on it (see
 ## Running & deployment
 
 **Dev:** `npm run dev` starts the static server, `npm run watch` runs esbuild in
-watch mode. Two processes, one dev dependency (esbuild). Editing a file rebuilds
+watch mode. Two processes, esbuild is the only build tool (`typescript` and
+`@types/node` exist solely for `npm run typecheck`). Editing a file rebuilds
 `dist/main.js`; reload the page manually. Run the two scripts in separate terminals
 (no process manager dependency). Because esbuild bundles, import specifiers do not
 need `.js` extensions — but the shipped artifact is a single file, so no browser
-module resolution happens at runtime.
+module resolution happens at runtime. Source specifiers use `.ts` extensions so
+`node --test` can run TS directly.
 
 ```jsonc
 "scripts": {
   "dev":   "node server.js",   // static server, no-cache headers
   "watch": "esbuild src/main.ts --bundle --watch --format=iife --outfile=dist/main.js",
   "build": "esbuild src/main.ts --bundle --minify --format=iife && node build-html.js",
-  "test":  "node --test"
+  "test":  "node --test \"tests/**/*.test.ts\""
 }
 ```
 
@@ -165,7 +167,8 @@ done only when its check passes.
 ### 1. Repo scaffold, tooling, stubs
 
 **Deliverables:** TS project with the scripts from "Running & deployment"
-(`package.json`, tsconfig, esbuild as the only dev dependency), the ~30-line
+(`package.json`, tsconfig, esbuild + `typescript` + `@types/node` as dev
+dependencies), the ~30-line
 `server.js` static server with a MIME map and no-cache headers, `build-html.js`
 that inlines the bundle into a single self-contained `index.html`, `.gitignore`,
 directory skeleton (`src/core`, `src/physics`, `src/game`, `src/render/themes`,
