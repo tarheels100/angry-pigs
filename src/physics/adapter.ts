@@ -33,6 +33,8 @@ export interface WorldInit {
 export interface PhysicsAdapter {
   addBody(init: BodyInit): void;
   removeBody(id: string): void;
+  /** Remove all bodies from the world; used when rebuilding a level. */
+  clear(): void;
   /** Advance one fixed step; returns impacts that occurred during it. */
   step(dt: number): Impact[];
   snapshot(): EntityState[];

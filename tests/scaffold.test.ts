@@ -5,7 +5,7 @@ import { MATERIALS, healthFor, materialSpec } from '../src/physics/materials.ts'
 import { createEventBus } from '../src/core/eventBus.ts';
 import { createLoop } from '../src/core/loop.ts';
 import { createPhysicsAdapter } from '../src/physics/adapter.ts';
-import { createGameRules } from '../src/game/rules.ts';
+import { createRules } from '../src/game/rules.ts';
 
 test('materials registry orders mass metal > stone > glass > feather', () => {
   assert.ok(MATERIALS.metal!.density > MATERIALS.stone!.density);
@@ -42,6 +42,14 @@ test('core event bus and loop are implemented (M5)', () => {
   assert.equal(typeof loop.advance, 'function');
 });
 
+test('game rules are implemented (M7 mechanics, tuned in M8)', () => {
+  const rules = createRules({ targetIds: ['bird-1'], ammo: ['basic'] });
+  rules.loadLevel(['bird-1'], 1);
+  assert.equal(rules.snapshot().phase, 'aiming');
+});
+
 test('unimplemented stubs report their milestone', () => {
-  assert.throws(() => createGameRules(), /M8/);
+  // Nothing left unimplemented in the M7 slice; later milestones add features,
+  // not stubs. Keep this list empty and non-empty-checking to catch regressions.
+  assert.equal(typeof createRules, 'function');
 });

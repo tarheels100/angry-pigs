@@ -28,7 +28,24 @@
       font: 600 14px/1.4 ui-monospace, monospace;
       color: #6ef3ff;
       letter-spacing: 0.08em;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
+    #hud .hud-row { display: flex; gap: 16px; }
+    #hud .hud-message { min-height: 1.4em; }
+    #hud .hud-restart {
+      pointer-events: auto;
+      align-self: flex-start;
+      background: transparent;
+      border: 1px solid #6ef3ff;
+      color: #6ef3ff;
+      font: 600 12px/1 ui-monospace, monospace;
+      letter-spacing: 0.1em;
+      padding: 6px 10px;
+      cursor: pointer;
+    }
+    #hud .hud-restart:hover { background: rgba(110, 243, 255, 0.12); }
   </style>
 </head>
 <body>

@@ -214,6 +214,15 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
     return base;
   }
 
+  function clear(): void {
+    // Level rebuild: drop every body and its tracked record so addBody can insert
+    // fresh ones. staticInits stay for trajectory previews built from data.
+    Composite.clear(engine.world, false);
+    tracked.clear();
+    groundedPigs.clear();
+    destroyedThisStep = [];
+  }
+
   function launch(id: string, velocity: Vec2): void {
     const t = tracked.get(id);
     if (!t) return;
@@ -294,6 +303,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
   return {
     addBody,
     removeBody,
+    clear,
     step,
     snapshot: () => [...tracked.keys()].map((id) => state(id)).filter((s): s is EntityState => s !== undefined),
     state,

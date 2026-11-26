@@ -91,6 +91,18 @@ Run `node scratch/physics-spike/spike.ts`. All checks pass:
 9. **Ground must span the stage, or pigs leave it.** A ground static narrower than the
    stage lets a pig fly past the ground and keep falling forever; pigs crossing the
    level bounds must be removed (docs/adr.md D15).
+10. **Gravity dominates the arc.** At gravity 1.0 the pig falls ~0.26 units per step²,
+    so a flat launch from y=480 reaches the ground after ~52 steps and ~1000 units of
+    travel at speed 19.8. An upward aim does not buy range — the drop grows with t².
+    Keep targets within roughly 700 units of the cannon for a direct hit, or kill
+    elevated ones with structural collapse (docs/tuning.md).
+
+## What the M7 slice proved
+
+Running the real level through the game layer in headless steps (`tests/game.test.ts`):
+a flat full-pull shot shatters the tower and crushes the bird on the beam, a +16° shot
+kills the bird standing in the open, pigs are consumed within ~100 steps, and the phase
+machine reaches `won` / `lost` without hitting the timeout.
 
 ## Adapter implementation notes (for M4)
 

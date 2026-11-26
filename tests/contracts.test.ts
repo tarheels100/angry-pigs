@@ -38,6 +38,9 @@ function fakeAdapter(): PhysicsAdapter {
     removeBody(id: string): void {
       bodies.delete(id);
     },
+    clear(): void {
+      bodies.clear();
+    },
     step(_dt: number): Impact[] {
       return impacts.splice(0);
     },
@@ -116,28 +119,34 @@ function fakeTheme(): Theme {
 }
 
 function fakeRules(): GameRules {
-  let snap: RulesSnapshot = { phase: 'aiming', ammoLeft: 3, targetsAlive: 1, score: 0, launches: 0 };
+  let targets = new Set<string>(['bird-1']);
+  let snap: RulesSnapshot = { phase: 'aiming', ammoLeft: 3, targetsAlive: 1, targetsTotal: 1, score: 0, launches: 0 };
+
+  function loadLevel(targetIds: string[], ammo: number): void {
+    targets = new Set(targetIds);
+    snap = { phase: 'aiming', ammoLeft: ammo, targetsAlive: targetIds.length, targetsTotal: targetIds.length, score: 0, launches: 0 };
+  }
+
   return {
     snapshot: () => snap,
-    onImpact(a: string, b: string, energy: number, _point: Vec2): void {
-      const hitBird = a === 'bird-1' || b === 'bird-1';
-      if (hitBird && energy > 2 && snap.targetsAlive > 0) {
-        snap = { ...snap, targetsAlive: 0, score: snap.score + 1000 };
-      }
+    loadLevel,
+    launch(): void {
+      if (snap.phase !== 'aiming' || snap.ammoLeft <= 0) return;
+      snap = { ...snap, phase: 'in_flight', ammoLeft: snap.ammoLeft - 1, launches: snap.launches + 1 };
     },
-    onSettled(timedOut: boolean): void {
-      if (timedOut) {
-        snap = { ...snap, phase: 'lost' };
-      } else if (snap.targetsAlive === 0) {
-        snap = { ...snap, phase: 'won' };
-      } else if (snap.ammoLeft > 0) {
-        snap = { ...snap, phase: 'aiming', ammoLeft: snap.ammoLeft - 1, launches: snap.launches + 1 };
-      } else {
-        snap = { ...snap, phase: 'no_ammo' };
-      }
+    pigsSettled(): void {
+      if (snap.phase === 'in_flight') snap = { ...snap, phase: 'settling' };
+    },
+    worldSettled(won: boolean): void {
+      if (snap.phase !== 'settling') return;
+      snap = won ? { ...snap, phase: 'won' } : snap.ammoLeft > 0 ? { ...snap, phase: 'aiming' } : { ...snap, phase: 'lost' };
+    },
+    targetDestroyed(id: string): void {
+      if (!targets.has(id)) return;
+      snap = { ...snap, targetsAlive: Math.max(0, snap.targetsAlive - 1), score: snap.score + 1000 };
     },
     restart(): void {
-      snap = { phase: 'aiming', ammoLeft: 3, targetsAlive: 1, score: 0, launches: 0 };
+      loadLevel([...targets], 3);
     },
   };
 }
@@ -182,34 +191,36 @@ function fakeCamera(): CameraApi {
 
 test('GameRules contract covers every phase', () => {
   const rules = fakeRules();
-  const phases: Phase[] = ['ready', 'aiming', 'in_flight', 'settling', 'won', 'lost', 'no_ammo'];
-  assert.equal(phases.length, 7);
+  const phases: Phase[] = ['ready', 'aiming', 'in_flight', 'settling', 'won', 'lost'];
+  assert.equal(phases.length, 6);
 
-  // Missed bird: back to aiming, ammo consumed.
-  rules.onImpact('pig-1', 'block-1', 1, { x: 0, y: 0 });
-  rules.onSettled(false);
+  // Missed shot: back to aiming, one launch consumed.
+  rules.launch();
+  rules.pigsSettled();
+  rules.worldSettled(false);
   assert.equal(rules.snapshot().phase, 'aiming');
   assert.equal(rules.snapshot().ammoLeft, 2);
 
   // Killed bird: win.
-  rules.onImpact('pig-2', 'bird-1', 5, { x: 0, y: 0 });
-  rules.onSettled(false);
+  rules.launch();
+  rules.targetDestroyed('bird-1');
+  rules.pigsSettled();
+  rules.worldSettled(true);
   assert.equal(rules.snapshot().phase, 'won');
   assert.ok(rules.snapshot().score > 0);
 
-  // Timeout: lose.
+  // A destroyed block is not a target.
   rules.restart();
-  rules.onSettled(true);
-  assert.equal(rules.snapshot().phase, 'lost');
+  rules.targetDestroyed('block-1');
+  assert.equal(rules.snapshot().targetsAlive, 1);
 
-  // Out of ammo with the bird standing: three launches, then no_ammo.
+  // Out of ammo with the bird standing: three launches, then lost.
   rules.restart();
   for (let i = 0; i < 3; i++) {
-    rules.onImpact('pig', 'block-1', 1, { x: 0, y: 0 });
-    rules.onSettled(false);
+    rules.launch();
+    rules.pigsSettled();
+    rules.worldSettled(false);
   }
   assert.equal(rules.snapshot().ammoLeft, 0);
-  rules.onImpact('pig-4', 'block-1', 1, { x: 0, y: 0 });
-  rules.onSettled(false);
-  assert.equal(rules.snapshot().phase, 'no_ammo');
+  assert.equal(rules.snapshot().phase, 'lost');
 });

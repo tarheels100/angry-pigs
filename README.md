@@ -6,10 +6,11 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
-**Status:** M1–M6 complete (scaffold, contracts, physics spike validating Matter.js,
-Matter adapter, event bus + fixed-step loop, theme-driven renderer + camera math).
-**Next milestone: M7 vertical slice** — cannon, drag aim, trajectory preview, ammo,
-pig destroys bird on impact, one playable level.
+**Status:** M1–M7 complete (scaffold, contracts, physics spike validating Matter.js,
+Matter adapter, event bus + fixed-step loop, theme-driven renderer + camera math,
+and a playable vertical slice: stage 01, drag aim, trajectory preview, ammo, impact
+damage, settle, win/lose). **Next milestone: M8** — damage/crush tuning, star scoring,
+live tuning UI.
 
 On each level the player gets a fixed number of launches. Launch pigs from the
 cannon to destroy every bird target on the stage. Destroying all birds within the

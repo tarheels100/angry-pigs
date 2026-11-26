@@ -19,8 +19,13 @@ mutates simulation state.
    `destroyed`; a settle check emits `settled`, and rules emit `win` / `lose`.
 4. Once per frame `Game.frame()` produces a read-only snapshot (`entities`,
    `aim`, `trajectory`).
-5. `Renderer.draw(frame, theme, viewport)` paints it. Camera computes `viewport`.
+5. `Renderer.draw(frame, entities)` paints it through the active theme; `Camera`
+   supplies `frame.camera` and maps screen input into world coordinates.
 6. Pointer input feeds `Game.beginAim/dragAim/releaseAim` in world coordinates.
+
+`src/main.ts` is the wiring root: it owns canvas, camera, renderer, pointer, HUD, and
+the loop, and subscribes to the event bus for messages. Simulation code (`core`,
+`physics`, `game`, `levels`) never touches the DOM, which keeps it headless-testable.
 
 ## Contracts (M2)
 
