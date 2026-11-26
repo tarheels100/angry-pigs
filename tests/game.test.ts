@@ -177,3 +177,19 @@ test('aiming is ignored outside the aiming phase', () => {
   game.beginAim(pullFor(level, 16));
   assert.equal(game.cannon.aim(), null, 'no aiming mid-flight');
 });
+
+test('the cannon and the waiting pig are visible before a launch', () => {
+  const { game } = makeGame();
+  assert.ok(game.entities.all().some((e) => e.kind === 'cannon'), 'the cannon is an entity while aiming');
+  const waiting = game.entities.get('cannon-pig');
+  assert.ok(waiting && waiting.kind === 'pig' && !waiting.destroyed, 'the next pig rests on the cannon');
+  assert.equal(game.entities.byKind('pig').length, 1, 'no physics pig exists before the launch');
+
+  game.beginAim(pullFor(level, 0));
+  game.releaseAim();
+  game.step(DT);
+
+  assert.equal(game.entities.get('cannon-pig'), undefined, 'the waiting pig is gone once fired');
+  assert.ok(game.entities.byKind('pig').some((e) => e.id === 'pig-1'), 'the launched pig is a physics body');
+  assert.ok(game.entities.all().some((e) => e.kind === 'cannon'), 'the cannon stays visible');
+});

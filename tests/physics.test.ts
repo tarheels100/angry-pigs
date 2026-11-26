@@ -120,3 +120,24 @@ test('pig rolling resistance makes a grounded pig settle', () => {
   }
   assert.notEqual(stopped, -1, 'pig stops rolling within the settle timeout');
 });
+
+test('destroying a support makes what rested on it fall', () => {
+  const adapter = stage();
+  adapter.addBody({ id: 'leg-a', kind: 'block', shape: 'box', material: 'glass', x: 400, y: 780, halfWidth: 15, halfHeight: 60 });
+  adapter.addBody({ id: 'leg-b', kind: 'block', shape: 'box', material: 'glass', x: 480, y: 780, halfWidth: 15, halfHeight: 60 });
+  adapter.addBody({ id: 'beam', kind: 'block', shape: 'box', material: 'glass', x: 440, y: 708, halfWidth: 70, halfHeight: 12 });
+  adapter.addBody({ id: 'bird', kind: 'bird', shape: 'circle', material: 'feather', x: 440, y: 676, radius: 20 });
+
+  for (let i = 0; i < 120; i++) adapter.step(DT);
+  const resting = adapter.state('beam')!;
+  assert.ok(resting.sleeping, 'a settled tower sleeps');
+  const yBefore = resting.y;
+
+  adapter.applyDamage('leg-a', 1000);
+  assert.ok(adapter.state('leg-a')!.destroyed, 'the struck leg leaves the world');
+
+  for (let i = 0; i < 60; i++) adapter.step(DT);
+  const fallen = adapter.state('beam')!;
+  assert.ok(fallen.y > yBefore + 20, `beam must fall when its support is removed (moved ${(fallen.y - yBefore).toFixed(1)} units)`);
+  assert.equal(fallen.sleeping, false, 'a body whose support vanished must not stay asleep');
+});

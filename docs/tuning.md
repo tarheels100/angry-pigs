@@ -17,6 +17,7 @@ file together.
 | cannon `maxPull` | 90 world units | level data | Pull distance cap; bounds launch power. |
 | cannon `powerScale` | 0.22 | level data | Full pull (90) → launch speed ~19.8. Measured landing distance at 45°: speed 12 → 1228 units, 14 → 1582, 16 → 1977, 22 → 3419. 19.8 makes a flat shot from y=480 touch ground around x=1250, so a 1600-unit stage is reachable without overshoot. 0.14 (speed 12.6) was too weak: no aim angle reached a target (scratch/slice-probe.ts). |
 | pig removal | speed < 1.2 for 45 steps, out of bounds, or 240 steps in flight | game (D15) | Pigs are consumed, not damaged; the dwell guard stops a pig nudging along forever. |
+| `wakeNear` margin | 40 world units | adapter | When a body is destroyed or removed, dynamic bodies whose bounds overlap it (expanded by this margin) are woken. Matter does not wake a body whose support disappears, so a beam with no leg floats (docs/physics.md gotcha 11). |
 | pig rolling resistance | ×0.94 per step while grounded | adapter | Matter has no rolling resistance, so a pig on flat ground rolls forever and never sleeps. Damping velocity and angular velocity while in ground contact stops a full-pull pig at ~step 170 instead of never. |
 | impact energy formula | `\|relV · normal\| * min(massA, massB)` | adapter | Measured peak ~84 for a speed-22 pig, ~49 for speed 18. Kept on `min(mass)` so a pig hitting a heavy wall does not score the wall's mass as damage. |
 | glass damageThreshold | 3 | `MATERIALS` | A direct pig hit (~40-50 energy) shatters glass; a rolling graze (~8) does not. |

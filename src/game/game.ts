@@ -1,7 +1,7 @@
 import type { PhysicsAdapter } from '../physics/adapter.ts';
 import type { EventBus } from '../core/eventBus.ts';
 import type { EntityRegistry } from '../core/entities.ts';
-import type { GamePhase, TrajectorySample, Vec2 } from '../core/types.ts';
+import type { GamePhase, TrajectorySample, Vec2, EntityState } from '../core/types.ts';
 import type { LoadedLevel } from '../levels/index.ts';
 import { createEntityRegistry } from '../core/entities.ts';
 import { createCannon, type Cannon } from './cannon.ts';
@@ -71,7 +71,34 @@ export function createGame(options: GameOptions): Game {
     for (const body of level.bodies) adapter.addBody(body);
     bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length });
     rules.loadLevel(level.targetIds, level.ammo.length);
+    refreshDisplay();
     bus.emit('phaseChanged', { phase: rules.snapshot().phase });
+  }
+
+  /**
+   * Display-only entities: the cannon, and the next pig resting on it while the
+   * player is aiming. They are not physics bodies and never collide, so they cannot
+   * affect the simulation (docs/architecture.md).
+   */
+  function refreshDisplay(): void {
+    const origin = cannon.config().origin;
+    const list: EntityState[] = [
+      {
+        id: 'cannon', kind: 'cannon', shape: 'box', material: 'metal',
+        x: origin.x, y: origin.y + 16, angle: 0, vx: 0, vy: 0,
+        sleeping: true, destroyed: false, health: Infinity, impactEnergy: 0,
+        halfWidth: 30, halfHeight: 14,
+      },
+    ];
+    if (rules.snapshot().phase === 'aiming' && cannon.ammoLeft() > 0) {
+      list.push({
+        id: 'cannon-pig', kind: 'pig', shape: 'circle', material: 'light',
+        x: origin.x, y: origin.y, angle: 0, vx: 0, vy: 0,
+        sleeping: true, destroyed: false, health: Infinity, impactEnergy: 0,
+        radius: PIG_RADIUS,
+      });
+    }
+    entities.setExtras(list);
   }
 
   function targetsAlive(): number {
@@ -157,6 +184,7 @@ export function createGame(options: GameOptions): Game {
     }
     updatePigs();
     advancePhase();
+    refreshDisplay();
   }
 
   function refreshTrajectory(): void {
@@ -199,6 +227,7 @@ export function createGame(options: GameOptions): Game {
     trajectory = [];
     bus.emit('launch', { id, velocity });
     bus.emit('phaseChanged', { phase: rules.snapshot().phase });
+    refreshDisplay();
     return true;
   }
 
@@ -222,6 +251,7 @@ export function createGame(options: GameOptions): Game {
     trajectory = [];
     pigCounter = 0;
     for (const body of level.bodies) adapter.addBody(body);
+    refreshDisplay();
     bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length });
     bus.emit('phaseChanged', { phase: rules.snapshot().phase });
   }
@@ -235,11 +265,14 @@ export function createGame(options: GameOptions): Game {
     rules,
     cannon,
     step,
-    frame: () => ({
-      entities,
-      aim: cannon.aim() ? { origin: cannon.config().origin, pull: cannon.aim()!.pull } : null,
-      trajectory,
-    }),
+    frame: () => {
+      refreshDisplay();
+      return {
+        entities,
+        aim: cannon.aim() ? { origin: cannon.config().origin, pull: cannon.aim()!.pull } : null,
+        trajectory,
+      };
+    },
     beginAim,
     dragAim,
     cancelAim,

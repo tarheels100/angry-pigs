@@ -160,11 +160,34 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
   function removeBody(id: string): void {
     const t = tracked.get(id);
     if (!t) return;
+    wakeNear(t.body);
     Composite.remove(engine.world, t.body);
     const si = staticInits.findIndex((s) => s.id === id);
     if (si >= 0) staticInits.splice(si, 1);
     groundedPigs.delete(id);
     tracked.delete(id);
+  }
+
+  /**
+   * Matter does not wake a sleeping body when its support disappears: removal
+   * produces no collision, so a beam resting on a destroyed column floats in place
+   * (docs/physics.md gotcha 11). Wake dynamic bodies overlapping the departing body.
+   */
+  function wakeNear(body: BodyT): void {
+    const margin = 40;
+    const minX = body.bounds.min.x - margin;
+    const maxX = body.bounds.max.x + margin;
+    const minY = body.bounds.min.y - margin;
+    const maxY = body.bounds.max.y + margin;
+    for (const other of engine.world.bodies) {
+      if (other.isStatic || other === body) continue;
+      if (other.bounds.min.x > maxX || other.bounds.max.x < minX) continue;
+      if (other.bounds.min.y > maxY || other.bounds.max.y < minY) continue;
+      // Wake even when the body is not asleep yet: a body resting on a support that
+      // is about to vanish is idle, so its sleep counter is close to the threshold
+      // and it would fall asleep before gravity can move it.
+      Sleeping.set(other, false);
+    }
   }
 
   function step(dt: number): Impact[] {
@@ -240,6 +263,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
       t.health = 0;
       // Destroyed bodies leave the physics world; the registry keeps their state so
       // the renderer can flash them before they fade (M11).
+      wakeNear(t.body);
       Composite.remove(engine.world, t.body);
       destroyedThisStep.push(id);
     }

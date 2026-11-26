@@ -38,6 +38,10 @@ the loop, and subscribes to the event bus for messages. Simulation code (`core`,
 
 - Themes map semantic state (`kind`, `material`, `health`, `destroyed`,
   `impactEnergy`) to appearance. They never read collision data or level logic.
+- The entity registry is physics-backed plus a small set of display-only extras
+  (the cannon and the pig waiting on it). Extras have no body, so they cannot
+  influence the simulation; they exist only so the cannon reads as a cannon
+  before the first launch.
 - Levels are data. Adding a level must not require code changes.
 - Simulation is deterministic: physics is stepped only at `FIXED_DT`, never at
   frame delta, so headless tests can assert outcomes by step count.

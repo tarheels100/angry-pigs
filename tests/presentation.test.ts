@@ -96,6 +96,7 @@ test('aiming frame paints background, level, cannon, and the aim guide', () => {
   assert.ok(calls.some((c) => c.color === theme.palette.materials.glass), 'glass blocks are painted');
   assert.equal(birdArcs(ctx), 2, 'both birds are painted while alive');
   assert.ok(calls.some((c) => c.color === theme.palette.cannon), 'cannon is painted');
+  assert.ok(calls.some((c) => c.color === theme.palette.pig), 'the pig waiting on the cannon is painted');
   assert.ok(calls.some((c) => c.op === 'stroke' && c.color === theme.palette.aimGuide), 'aim guide / trajectory is stroked');
   assert.ok(calls.some((c) => c.op === 'lineTo'), 'trajectory samples are emitted');
   // The camera transform is scoped: every save is matched by a restore.

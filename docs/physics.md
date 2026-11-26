@@ -96,6 +96,13 @@ Run `node scratch/physics-spike/spike.ts`. All checks pass:
     travel at speed 19.8. An upward aim does not buy range — the drop grows with t².
     Keep targets within roughly 700 units of the cannon for a direct hit, or kill
     elevated ones with structural collapse (docs/tuning.md).
+11. **Removing a support does not wake what rested on it.** A settled tower sleeps,
+    and destroying a body produces no collision event, so a beam left with no leg
+    keeps floating. `wakeNear` wakes every dynamic body whose bounds overlap the
+    departing body, expanded by 40 units, before removal — and it wakes bodies that
+    are *not yet* asleep, because an idle body sitting on a support has a sleep
+    counter near the threshold and would fall asleep before gravity could move it.
+    Measured: beam with one leg destroyed moved 708 → 771.6 with the fix, 708.4 without.
 
 ## What the M7 slice proved
 

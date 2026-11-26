@@ -16,8 +16,8 @@ export const basePalette: ThemePalette = {
   } satisfies Record<MaterialId, string>,
   pig: '#4f8f6f',
   bird: '#b8563f',
-  cannon: '#6f7d86',
-  aimGuide: '#6f7d86',
+  cannon: '#7d8b95',
+  aimGuide: '#6ef3ff',
   flash: '#ffffff',
 };
 
