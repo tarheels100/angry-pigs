@@ -5,10 +5,11 @@ expected result. Record findings where each step says, so the next milestone has
 measurements instead of guesses.
 
 Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a problem.
+				`[/]` couldn't test or chose not to
 
 ## 0. Baseline gate
 
-- [ ] `npm run check` — typecheck, tests, build in one command (script not added yet;
+- [x] `npm run check` — typecheck, tests, build in one command (script not added yet;
       meanwhile run `npm run typecheck && npm test && npm run build`).
       **Expected:** 57 tests pass, `dist/index.html` written.
 
@@ -17,28 +18,28 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 Headless tests cannot cover these (`tests/browser.*` does not exist yet — see
 `docs/browser-testing.md`). Serve with `npm run dev`, then reload after each edit.
 
-- [ ] **Offline artifact.** Open `dist/index.html` directly with `file://`, no server.
+- [x] **Offline artifact.** Open `dist/index.html` directly with `file://`, no server.
       **Expected:** canvas renders, drag fires pigs, zero console errors, zero network
       requests (D6: levels are embedded, nothing fetches).
-- [ ] **Resize during a drag.** Press and hold mid-drag, then resize the window
+- [x] **Resize during a drag.** Press and hold mid-drag, then resize the window
       (or toggle device emulation).
       **Expected:** the pull stays coherent — it must not jump because `refit()`
       rebuilds the camera. If the aim snaps, fix by re-deriving the pull in screen
       space or re-fitting without discarding the gesture.
-- [ ] **High-DPR display.** Load on a 2x screen (or force `devicePixelRatio`).
+- [/] **High-DPR display.** Load on a 2x screen (or force `devicePixelRatio`).
       **Expected:** pointer mapping matches the drawn geometry; the guide and the pig
       line up. Mapping uses CSS pixels via `getBoundingClientRect`, so this should be
       correct — confirm, don't assume.
-- [ ] **Touch.** Finger-drag past a canvas edge; trigger a browser gesture cancel;
+- [/] **Touch.** Finger-drag past a canvas edge; trigger a browser gesture cancel;
       tap Restart.
       **Expected:** moves keep arriving (pointer capture), a cancelled gesture never
       fires a shot, Restart works on tap.
-- [ ] **Tab hidden, then resumed.** Hide the tab for ~10s during flight.
+- [/] **Tab hidden, then resumed.** Hide the tab for ~10s during flight.
       **Expected:** pigs resume in place, no teleport (loop discards surplus time).
-- [ ] **Theme cycling mid-flight.** Press `t` while a pig is in the air.
+- [/] **Theme cycling mid-flight.** Press `t` while a pig is in the air.
       **Expected:** the second theme looks visibly different; destroyed entities are
       not painted.
-- [ ] **Watch workflow.** Edit a source file, reload manually, confirm the new bundle
+- [/] **Watch workflow.** Edit a source file, reload manually, confirm the new bundle
       is served (no HMR by design).
 - [ ] **Pages deploy.** Publish `dist/`, load the deployed URL.
       **Expected:** no 404s, only relative paths in the shipped file.
@@ -67,6 +68,17 @@ Re-run `scratch/sweep-probe.ts` (`node scratch/sweep-probe.cjs` after bundling, 
 - [ ] **Partial destruction.** Block destruction is currently binary (0 or 3 blocks).
       **Goal for M8:** intermediate states (tilt, partial shatter). Re-measure the
       sweep after the crush model lands.
+
+### Deferred to milestone 11 (known, deliberately not half-fixed)
+
+- **White silhouettes linger where things died.** `applyDamage` marks a body
+  `destroyed` and removes it from the physics world, but it stays in the adapter's
+  `tracked` map, and `snapshot()` iterates `tracked` — so a destroyed bird or block
+  keeps producing entity state forever, and the placeholder theme paints it
+  `palette.flash` (white). Intended behaviour is a brief flash, not a permanent
+  marker. Fix belongs in milestone 11: destroyed bodies leave the snapshot, and the
+  flash becomes a short-lived overlay keyed on elapsed steps. Fixing it now would
+  mean inventing the fade twice.
 
 ## 3. Baseline data to tune against
 

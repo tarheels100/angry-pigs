@@ -298,7 +298,10 @@ contains no collision, HP, or level logic.
 **Deliverables:** impact sparks and debris particles, destroyed-target burst, launch
 pulse, WebAudio synthesized SFX (launch, impact by material, destroy, win/lose) and
 optional ambient tone, subtle screen shake, a debug overlay toggled by key (`F2`)
-showing collider wireframes, body velocities, and sleep state.
+showing collider wireframes, body velocities, and sleep state, and the destroyed-entity
+treatment: destroyed bodies leave the entity snapshot and the white flash becomes a
+short-lived overlay keyed on elapsed steps, so no theme paints a permanent silhouette
+where something died.
 
 **Acceptance:** effects are driven purely by semantic events; audio muted toggle works;
 overlay reveals no visual artifacts in shipped levels.
