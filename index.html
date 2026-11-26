@@ -34,7 +34,8 @@
     }
     #hud .hud-row { display: flex; gap: 16px; }
     #hud .hud-message { min-height: 1.4em; }
-    #hud .hud-restart {
+    #hud .hud-actions { display: flex; gap: 10px; }
+    #hud .hud-restart, #hud .hud-menu {
       pointer-events: auto;
       align-self: flex-start;
       background: transparent;
@@ -45,7 +46,51 @@
       padding: 6px 10px;
       cursor: pointer;
     }
-    #hud .hud-restart:hover { background: rgba(110, 243, 255, 0.12); }
+    #hud .hud-restart:hover, #hud .hud-menu:hover { background: rgba(110, 243, 255, 0.12); }
+
+    /* Title + options overlays (M19). DOM chrome over the canvas; hidden by default
+       so the release artifact needs no script to show the game. */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(8, 9, 12, 0.86);
+      font: 600 14px/1.5 ui-monospace, monospace;
+      color: #6ef3ff;
+      letter-spacing: 0.08em;
+    }
+    .overlay .panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 22px 26px;
+      border: 1px solid #6ef3ff;
+      background: rgba(8, 9, 12, 0.6);
+      max-width: 460px;
+    }
+    .overlay .overlay-title {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .overlay .stage-list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .overlay .opt-list { display: flex; flex-direction: column; gap: 8px; }
+    .overlay .opt-row { display: flex; gap: 12px; align-items: center; }
+    .overlay .opt-row span { min-width: 72px; opacity: 0.75; }
+    .overlay-actions { display: flex; gap: 12px; margin-top: 6px; }
+    .overlay-button {
+      background: transparent;
+      border: 1px solid #6ef3ff;
+      color: #6ef3ff;
+      font: 600 12px/1 ui-monospace, monospace;
+      letter-spacing: 0.1em;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    .overlay-button:hover { background: rgba(110, 243, 255, 0.12); }
   </style>
 </head>
 <body>

@@ -10,6 +10,8 @@ import { createPixelTheme } from './render/themes/pixel.ts';
 import { createPointerSource } from './input/pointer.ts';
 import { createGame } from './game/game.ts';
 import { createHud } from './ui/hud.ts';
+import { createScreens, bestLabel } from './ui/screens.ts';
+import { loadOptions, saveOptions, type Options } from './ui/options.ts';
 import { createParticleSystem } from './fx/particles.ts';
 import { createTrail } from './fx/trail.ts';
 import { createDebris } from './fx/debris.ts';
@@ -27,9 +29,10 @@ import { pigType } from './game/pigs.ts';
 
 const canvas = document.getElementById('stage') as HTMLCanvasElement | null;
 const hudEl = document.getElementById('hud') as HTMLElement | null;
+const appEl = document.getElementById('app') as HTMLElement | null;
 
-if (!canvas || !hudEl) {
-  console.error('angry-pigs: missing #stage or #hud');
+if (!canvas || !hudEl || !appEl) {
+  console.error('angry-pigs: missing #stage, #hud or #app');
 } else {
   // Themes are registered here; switching one is the M12 acceptance check.
   registerTheme(createTronTheme());
@@ -37,8 +40,11 @@ if (!canvas || !hudEl) {
   registerTheme(createPlaceholderTheme({ background: '#151a20', pig: '#7fd6a0', bird: '#ff8a5c' }, 'placeholder-dark'));
   // Second theme through the contract only (M12): no pipeline change was needed.
   registerTheme(createPixelTheme());
-  // Tron is the product look (M10); the placeholders stay selectable for contract checks.
-  let theme: Theme = getTheme('tron');
+
+  const store = browserStore();
+  // Player options (M19): persisted settings pick the theme, sound, and effects we start with.
+  let options: Options = loadOptions(store);
+  let theme: Theme = getTheme(listThemes().includes(options.themeId) ? options.themeId : 'tron');
 
   const bus = createEventBus();
   // The simulation world is fixed (D13); level bounds only change framing.
@@ -89,6 +95,10 @@ if (!canvas || !hudEl) {
     return record ? `best ${'★'.repeat(record.stars)} ${record.score}` : '';
   }
 
+  function hudBest(record: { stars: number; score: number } | null): string | null {
+    return record ? bestLabel(record) : null;
+  }
+
   function levelLabel(index: number): string {
     return `stage ${index + 1}/${LEVELS.length}`;
   }
@@ -107,13 +117,13 @@ if (!canvas || !hudEl) {
   bus.on('levelLoaded', (e) => {
     camera.setWorld(e.bounds);
     camera.setZoom(camera.fitZoom());
-    hud.setBest(bestLabel(save.best(e.levelId)));
+    hud.setBest(hudBest(save.best(e.levelId)));
     hud.message(`${e.name} — ${e.ammo} pigs · drag to aim, release to fire`);
   });
 
   bus.on('levelWon', (e) => {
     const best = save.record(e.levelId, { score: e.score, stars: e.stars, launches: game.rules.snapshot().launches });
-    hud.setBest(bestLabel(best));
+    hud.setBest(hudBest(best));
     hud.message(`stage cleared: ${e.levelId} · ${e.score} · ${e.stars} stars · best ${best.score}`);
     if (levelIndex + 1 < LEVELS.length) {
       advanceTimer = window.setTimeout(() => loadLevelIndex(levelIndex + 1), 1400);
@@ -143,7 +153,7 @@ if (!canvas || !hudEl) {
   function announceTrack(levelId: string, ammo: number): void {
     music.start(levelId);
     hud.message(
-      `${levelId} · ${music.flavour()?.name ?? 'no sound'} · ${ammo} pigs · drag to aim, release to fire`,
+      `${levelId} · ${music.flavour()?.name ?? 'no sound'} · ${ammo} pigs · drag to aim, release to fire · Esc menu`,
     );
   }
   // Registered after the game is built, so the first stage is announced explicitly.
@@ -157,6 +167,8 @@ if (!canvas || !hudEl) {
     __music?: unknown;
     /** Blasts observed since load; the browser test asserts a bomb actually detonated. */
     __explosions?: number;
+    /** Current persisted options, read as a snapshot (M19). */
+    __options?: () => Options;
   };
 
   bus.on('levelLoaded', (e) => announceTrack(e.levelId, e.ammo));
@@ -174,11 +186,13 @@ if (!canvas || !hudEl) {
     debug.__explosions = (debug.__explosions ?? 0) + 1;
     particles.spawnBurst({ x: e.x, y: e.y }, theme.palette.flash, 26, e.radius * 2.2);
     camera.shake(1);
-    debris.spawnFrom(
-      { id: 'blast', kind: 'block', shape: 'box', material: 'glass', x: e.x, y: e.y, angle: 0, vx: 0, vy: 0, sleeping: false, destroyed: true, health: 0, impactEnergy: 0, halfWidth: e.radius / 3, halfHeight: e.radius / 3 },
-      8,
-      e.radius,
-    );
+    if (options.debris) {
+      debris.spawnFrom(
+        { id: 'blast', kind: 'block', shape: 'box', material: 'glass', x: e.x, y: e.y, angle: 0, vx: 0, vy: 0, sleeping: false, destroyed: true, health: 0, impactEnergy: 0, halfWidth: e.radius / 3, halfHeight: e.radius / 3 },
+        8,
+        e.radius,
+      );
+    }
   });
 
   bus.on('destroyed', (e) => {
@@ -187,7 +201,7 @@ if (!canvas || !hudEl) {
       particles.spawnBurst({ x: at.x, y: at.y }, theme.palette.flash, 14, 300);
       // Crumble: fragment count follows the block's size, spread follows its width.
       const span = (at.halfWidth ?? at.radius ?? 12) * 2;
-      debris.spawnFrom(at, Math.min(8, 3 + Math.round(span / 20)), span);
+      if (options.debris) debris.spawnFrom(at, Math.min(8, 3 + Math.round(span / 20)), span);
     }
     camera.shake(0.45);
   });
@@ -219,6 +233,56 @@ if (!canvas || !hudEl) {
     hud.message(null);
   });
 
+  // Title + options overlays (M19). DOM chrome, not canvas: the theme contract has no
+  // notion of a menu. While a menu is open the loop is stopped, so an overlay can never
+  // step physics (docs/adr.md D35).
+  function applyOptions(next: Options): void {
+    options = next;
+    saveOptions(store, options);
+    // An id that is no longer registered (a theme removed in a later build) falls back.
+    const themeId = listThemes().includes(options.themeId) ? options.themeId : 'tron';
+    theme = getTheme(themeId);
+    renderer.setTheme(theme);
+    sfx.setMuted(!options.sound);
+    // Turning an effect off also removes what is already on screen.
+    if (!options.trail) trail.reset();
+    if (!options.debris) debris.clear();
+  }
+
+  const screens = createScreens(appEl, {
+    stages: () => LEVELS.map((def, index) => ({ index, name: def.name, best: save.best(def.name) })),
+    themes: () => listThemes().map((id) => ({ id, name: getTheme(id).name })),
+    options: () => options,
+    pickStage: (index) => {
+      loadLevelIndex(index);
+      closeOverlay();
+    },
+    changeOptions: (next) => {
+      applyOptions(next);
+      screens.showOptions();
+    },
+    resetBest: () => {
+      save.clear(LEVELS.map((def) => def.name));
+      hud.setBest(null);
+      hud.message('best scores forgotten');
+      screens.showTitle();
+    },
+    onClose: () => hud.message(null),
+  });
+
+  function openOverlay(kind: 'title' | 'options'): void {
+    loop.stop();
+    if (kind === 'title') screens.showTitle();
+    else screens.showOptions();
+  }
+
+  function closeOverlay(): void {
+    screens.hide();
+    loop.start();
+  }
+
+  hud.onMenu(() => openOverlay('title'));
+
   window.addEventListener('wheel', (e) => {
     // Wheel zooms; aiming stays pointer-driven so zoom cannot change a pull.
     camera.zoomBy(e.deltaY > 0 ? 0.9 : 1.1);
@@ -229,9 +293,8 @@ if (!canvas || !hudEl) {
     switch (e.key) {
       case 't': {
         const ids = listThemes();
-        const next = ids[(ids.indexOf(theme.id) + 1) % ids.length]!;
-        theme = getTheme(next);
-        renderer.setTheme(theme);
+        const next = ids[(ids.indexOf(options.themeId) + 1) % ids.length]!;
+        applyOptions({ ...options, themeId: next });
         hud.message(`theme: ${theme.name}`);
         break;
       }
@@ -247,9 +310,27 @@ if (!canvas || !hudEl) {
         break;
       case 'm':
         sfx.unlock();
-        sfx.setMuted(!sfx.muted());
-        hud.message(sfx.muted() ? 'sound: off' : 'sound: on');
+        applyOptions({ ...options, sound: !options.sound });
+        hud.message(options.sound ? 'sound: on' : 'sound: off');
         break;
+      case 'Escape':
+        // The menu is the way out of a stage you cannot clear; Esc also closes it.
+        if (screens.openKind() !== null) closeOverlay();
+        else openOverlay('title');
+        break;
+      case 'o':
+        openOverlay(screens.openKind() === 'options' ? 'title' : 'options');
+        break;
+      case '1':
+      case '2':
+      case '3': {
+        const index = Number(e.key) - 1;
+        if (index < LEVELS.length) {
+          loadLevelIndex(index);
+          if (screens.openKind() !== null) closeOverlay();
+        }
+        break;
+      }
       case 'F2':
         renderer.setDebug(!renderer.debugEnabled(), () => ({ fps: lastFps, steps: loop.stepsTaken(), elapsed: performance.now() / 1000 }));
         break;
@@ -271,9 +352,10 @@ if (!canvas || !hudEl) {
       camera.follow(followTarget(), dt);
       camera.update(dt);
       particles.update(dt);
-      // Trail ages by fixed step, so a recorded run replays identically.
-      trail.update(game.entities.all());
-      debris.update();
+      // Trail ages by fixed step, so a recorded run replays identically. Off means the
+      // system is neither updated nor painted (M19).
+      if (options.trail) trail.update(game.entities.all());
+      if (options.debris) debris.update();
       // The soundtrack advances on simulated time, so a recorded run sounds the same.
       music.tick(loop.stepsTaken() * (1000 / 60));
     },
@@ -291,8 +373,8 @@ if (!canvas || !hudEl) {
         {
           // Trail and debris sit behind entities; particles and flashes sit above them.
           behind: [
-            { paint: (ctx: CanvasRenderingContext2D) => trail.paint(ctx, pigColour) },
-            { paint: (ctx: CanvasRenderingContext2D) => debris.paint(ctx, theme.palette.materials) },
+            ...(options.trail ? [{ paint: (ctx: CanvasRenderingContext2D) => trail.paint(ctx, pigColour) }] : []),
+            ...(options.debris ? [{ paint: (ctx: CanvasRenderingContext2D) => debris.paint(ctx, theme.palette.materials) }] : []),
           ],
           front: [particles],
         },
@@ -314,6 +396,8 @@ if (!canvas || !hudEl) {
   debug.__debris = debris;
   // Same seam for the generated soundtrack (M17): the HUD and tests read the track name.
   debug.__music = music;
+  // Options are asserted across a reload by the browser test (M19).
+  debug.__options = () => options;
 
   console.log(`angry-pigs: ${LEVELS.length} level(s), themes: ${listThemes().join(', ')}`);
 }

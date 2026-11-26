@@ -344,3 +344,20 @@ detonating on a timer or on the first contact after launch (a timer makes the sh
 independent of where it lands, which is the whole point of aiming); applying blast damage in
 normalized `energy/threshold` units (there is no impact energy at a blast — the centre is a
 chosen point, not a collision).
+
+## D35 — Menus are DOM chrome, and an open menu pauses the loop
+**Decision.** The title screen and options screen are DOM overlays (`src/ui/screens.ts`)
+inside `#app`, not canvas art, and options are persisted through the same `KeyValueStore`
+the best results use (D24). While an overlay is open `src/main.ts` stops the loop
+(`loop.stop()`), and closing it restarts the loop.
+**Why.** The theme contract (docs/theme-contract.md) is about *entity and background art*;
+a menu is a list of buttons with text, which no theme should have to draw, and a theme swap
+must not change what a menu looks like. Pausing is the honest way to keep a menu from being
+a gameplay surface: the overlay covers the canvas so pointer input cannot aim, but stopping
+the loop also means steps, the soundtrack scheduler, and score cannot advance behind a menu
+that looks like it did.
+**Rejected:** drawing the menu through the theme pipeline (it would push UI state into the
+contract and make every theme implement a menu); leaving the loop running while a menu is
+open (steps and music would advance during a pause, which is exactly the bug D32 avoided by
+scheduling on simulated time); a separate settings module with its own storage (two storage
+surfaces would drift).

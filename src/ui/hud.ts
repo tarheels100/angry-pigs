@@ -13,6 +13,8 @@ export interface Hud {
   setNextPig(label: string | null): void;
   /** Wire the restart control; returns an unsubscribe. */
   onRestart(handler: () => void): () => void;
+  /** Wire the menu control, which opens the title screen (M19); returns an unsubscribe. */
+  onMenu(handler: () => void): () => void;
 }
 
 /**
@@ -32,7 +34,10 @@ export function createHud(el: HTMLElement): Hud {
       <span class="hud-stat" data-stat="next-pig"></span>
     </div>
     <div class="hud-message" data-stat="message"></div>
-    <button class="hud-restart" type="button">restart</button>
+    <div class="hud-actions">
+      <button class="hud-restart" type="button">restart</button>
+      <button class="hud-menu" type="button">menu</button>
+    </div>
   `;
 
   const stats = {
@@ -46,6 +51,7 @@ export function createHud(el: HTMLElement): Hud {
     best: el.querySelector('[data-stat="best"]') as HTMLElement | null,
     message: el.querySelector('[data-stat="message"]') as HTMLElement | null,
     restart: el.querySelector('.hud-restart') as HTMLButtonElement | null,
+    menu: el.querySelector('.hud-menu') as HTMLButtonElement | null,
   };
 
   return {
@@ -74,6 +80,12 @@ export function createHud(el: HTMLElement): Hud {
       if (!stats.restart) return () => {};
       stats.restart.addEventListener('click', handler);
       return () => stats.restart!.removeEventListener('click', handler);
+    },
+    onMenu(handler) {
+      // Same unsubscribe contract as onRestart: the button may be rebuilt on reload.
+      if (!stats.menu) return () => {};
+      stats.menu.addEventListener('click', handler);
+      return () => stats.menu!.removeEventListener('click', handler);
     },
   };
 }

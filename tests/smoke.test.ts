@@ -57,9 +57,16 @@ interface StubElement {
   width: number;
   height: number;
   style: Record<string, string>;
+  className: string;
+  dataset: Record<string, string>;
+  children: StubElement[];
+  parentNode: StubElement | null;
+  ownerDocument: { createElement: (tag: string) => StubElement };
+  appendChild(child: StubElement): void;
+  removeChild(child: StubElement): void;
 }
 
-function stubElement(): StubElement {
+function stubElement(owner: { createElement: (tag: string) => StubElement }): StubElement {
   const listeners = new Map<string, Array<(e: unknown) => void>>();
   // innerHTML is never parsed, so querySelector hands out persistent stubs;
   // that is enough to prove the HUD writes text and wires the restart button.
@@ -73,6 +80,20 @@ function stubElement(): StubElement {
     width: 0,
     height: 0,
     style: {},
+    className: '',
+    dataset: {},
+    children: [],
+    parentNode: null,
+    ownerDocument: owner,
+    appendChild(child) {
+      child.parentNode = this;
+      this.children.push(child);
+    },
+    removeChild(child) {
+      const at = this.children.indexOf(child);
+      if (at >= 0) this.children.splice(at, 1);
+      child.parentNode = null;
+    },
     addEventListener(type, handler) {
       const list = listeners.get(type) ?? [];
       list.push(handler);
@@ -87,7 +108,7 @@ function stubElement(): StubElement {
     querySelector(selector: string) {
       const existing = children.get(selector);
       if (existing) return existing;
-      const child = stubElement();
+      const child = stubElement(owner);
       children.set(selector, child);
       return child;
     },
@@ -98,25 +119,33 @@ function stubElement(): StubElement {
 }
 
 test('main.ts wires level + physics + renderer + input without throwing', async () => {
-  const canvas = stubElement();
-  const hud = stubElement();
+  const doc: { createElement(tag: string): StubElement; getElementById(id: string): StubElement | null } = {
+    // `createElement` must point back at this document so screens can build nodes.
+    createElement: (tag: string) => stubElement(doc),
+    getElementById: (id: string) => (id === 'stage' ? canvas : id === 'hud' ? hud : id === 'app' ? app : null),
+  };
+  const canvas = stubElement(doc);
+  const hud = stubElement(doc);
+  const app = stubElement(doc);
   const frameCallbacks: Array<(stamp: number) => void> = [];
 
   const win = {
     devicePixelRatio: 1,
     addEventListener: (type: string, handler: (e: unknown) => void) => canvas.listeners.set(type, [handler]),
   };
-  const doc = { getElementById: (id: string) => (id === 'stage' ? canvas : id === 'hud' ? hud : null) };
 
   const previousWindow = (globalThis as Record<string, unknown>).window;
   const previousDocument = (globalThis as Record<string, unknown>).document;
   const previousRaf = (globalThis as Record<string, unknown>).requestAnimationFrame;
+  const previousCancel = (globalThis as Record<string, unknown>).cancelAnimationFrame;
   (globalThis as Record<string, unknown>).window = win;
   (globalThis as Record<string, unknown>).document = doc;
   (globalThis as Record<string, unknown>).requestAnimationFrame = (cb: (stamp: number) => void) => {
     frameCallbacks.push(cb);
     return frameCallbacks.length;
   };
+  // The paused menu path calls cancelAnimationFrame; the fake queue is drained instead.
+  (globalThis as Record<string, unknown>).cancelAnimationFrame = () => {};
 
   try {
     await import('../src/main.ts');
@@ -130,6 +159,7 @@ test('main.ts wires level + physics + renderer + input without throwing', async 
       cb(stamp);
     }
     assert.ok(hud.innerHTML.includes('hud-restart'), 'HUD markup is installed');
+    assert.ok(hud.innerHTML.includes('hud-menu'), 'HUD menu button is installed (M19)');
     const messageEl = hud.querySelector('[data-stat="message"]');
     assert.ok(messageEl.textContent.includes('stage-01'), 'HUD reports the loaded stage');
 
@@ -148,9 +178,29 @@ test('main.ts wires level + physics + renderer + input without throwing', async 
     assert.ok(ammoEl.textContent.startsWith('pigs'), 'HUD shows remaining pigs');
     assert.ok(phaseEl.textContent && phaseEl.textContent !== 'ready', 'HUD shows a live phase');
     assert.ok(canvas.listeners.has('pointerdown'), 'pointer listeners installed');
+
+    // Options are persisted settings, and the menu pauses the loop (M19).
+    const debug = win as unknown as { __options?: () => { themeId: string; sound: boolean; debris: boolean; trail: boolean } };
+    assert.ok(debug.__options, 'options seam is exposed for tests');
+    const soundBefore = debug.__options!().sound;
+    canvas.dispatch('keydown', { key: 'm' });
+    assert.equal(debug.__options!().sound, !soundBefore, 'M flips sound and stores it');
+
+    canvas.dispatch('keydown', { key: 'Escape' });
+    assert.equal(app.children.length, 1, 'the title overlay is mounted');
+    assert.equal(app.children[0]!.dataset.overlay, 'title');
+    assert.ok(app.children[0]!.children[0]!.children.length > 0, 'the title panel lists stages');
+    // A menu must not step physics: while it is open the loop stops requesting frames.
+    while (frameCallbacks.length > 0) frameCallbacks.shift()?.(stamp += 16.7);
+    assert.equal(frameCallbacks.length, 0, 'the paused loop queues no further frames');
+
+    canvas.dispatch('keydown', { key: 'Escape' });
+    assert.equal(app.children[0]!.dataset.overlay, '', 'Esc closes the overlay');
+    assert.ok(frameCallbacks.length > 0, 'closing the menu resumes the loop');
   } finally {
     (globalThis as Record<string, unknown>).window = previousWindow;
     (globalThis as Record<string, unknown>).document = previousDocument;
     (globalThis as Record<string, unknown>).requestAnimationFrame = previousRaf;
+    (globalThis as Record<string, unknown>).cancelAnimationFrame = previousCancel;
   }
 });

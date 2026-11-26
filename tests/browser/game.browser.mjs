@@ -440,6 +440,17 @@ async function waitShootable(page) {
   );
 }
 
+/** The measured stage-01 winner (docs/tuning.md): pull 90 at 15° above horizontal. */
+async function fireWinner(page) {
+  const rad = (WIN.deg * Math.PI) / 180;
+  await page.evaluate(({ pull, rad }) => {
+    const origin = window.__game.cannon.config().origin;
+    window.__game.beginAim();
+    window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
+    window.__game.releaseAim();
+  }, { pull: WIN.pull, rad });
+}
+
 test('the HUD names the pig waiting in the chamber (M18)', async () => {
   await withPage(async (page) => {
     await open(page, artifactPath());
@@ -478,5 +489,134 @@ test('a bomb detonates against structure (M18)', async () => {
     await page.waitForFunction(() => (window.__explosions ?? 0) > 0, null, { timeout: 4000 });
     const blasts = await page.evaluate(() => window.__explosions ?? 0);
     assert.ok(blasts >= 1, `the bomb must detonate on structure (blasts: ${blasts})`);
+  });
+});
+
+/** Overlay state as the DOM reports it (M19): dataset.overlay is '' when closed. */
+async function overlayKind(page) {
+  return page.evaluate(() => document.querySelector('.overlay')?.dataset.overlay ?? '');
+}
+
+async function overlayLabels(page) {
+  return page.evaluate(() => [...document.querySelectorAll('.overlay .panel button')].map((b) => b.textContent));
+}
+
+test('the title screen lists stages with best scores and starts the picked one (M19)', async () => {
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    assert.equal(await overlayKind(page), '', 'the game opens straight into a stage');
+
+    await page.click('.hud-menu');
+    await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'title');
+    const labels = await overlayLabels(page);
+    assert.match(labels[0] ?? '', /^play stage-01 · no record yet$/, 'a fresh browser has no records');
+    assert.equal(labels.length, 5, 'three stages plus options and resume');
+
+    // Picking a stage loads it and hands control back.
+    await page.click('[data-test="stage-2"]');
+    await waitStat(page, 'level', 'stage 3/3', 'stage 03 loaded from the title screen');
+    assert.equal(await overlayKind(page), '', 'the overlay closes when a stage is picked');
+    assert.equal((await snapshot(page)).phase, 'aiming', 'the loop resumed after the menu');
+    // Stage 03 is the only stage that ships five pigs (src/levels/l03.ts).
+    assert.equal((await snapshot(page)).ammoLeft, 5, 'stage 03 is the live round');
+  });
+});
+
+test('the title screen can be opened and closed with Escape, and digits pick stages (M19)', async () => {
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    await page.keyboard.press('Escape');
+    assert.equal(await overlayKind(page), 'title');
+    await page.keyboard.press('Escape');
+    assert.equal(await overlayKind(page), '', 'Escape closes the menu');
+
+    await page.keyboard.press('2');
+    await waitStat(page, 'level', 'stage 2/3', 'digit keys jump to a stage');
+
+    // The menu pauses simulation: steps must not advance while it is open.
+    await page.keyboard.press('Escape');
+    const before = await page.evaluate(() => window.__game.rules.snapshot().launches);
+    await page.waitForTimeout(300);
+    assert.equal(await page.evaluate(() => window.__game.rules.snapshot().launches), before, 'a paused menu changes no game state');
+    await page.keyboard.press('Escape');
+  });
+});
+
+test('an option change survives a reload (M19)', async () => {
+  const url = await baseUrl();
+  await withPage(async (page) => {
+    await open(page, url);
+    await page.keyboard.press('o');
+    await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'options');
+    const rowsBefore = await overlayLabels(page);
+    assert.deepEqual(rowsBefore.slice(0, 4), ['tron', 'on', 'on', 'on'], 'the option values are current settings');
+
+    const themeBefore = await page.evaluate(() => window.__options().themeId);
+    await page.click('[data-test="opt-theme"]');
+    const themeAfter = await page.evaluate(() => window.__options().themeId);
+    assert.notEqual(themeAfter, themeBefore, 'cycling the theme changes the stored setting');
+    // The theme actually swapped, not just the label.
+    assert.notEqual(
+      await page.evaluate(() => window.__game.entities.all().length),
+      -1,
+      'game still alive after an option change',
+    );
+
+    await page.reload();
+    await page.waitForFunction(() => typeof window.__options !== 'undefined');
+    assert.equal(await page.evaluate(() => window.__options().themeId), themeAfter, 'the setting survived the reload');
+    assert.equal(await overlayKind(page), '', 'a reload goes back to play, not the menu');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-stat="level"]')?.textContent), 'stage 1/3');
+  });
+});
+
+test('turning trail and debris off stops those effects (M19)', async () => {
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    await page.keyboard.press('o');
+    await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'options');
+    await page.click('[data-test="opt-trail"]');
+    await page.click('[data-test="opt-debris"]');
+    await page.keyboard.press('Escape');
+    assert.deepEqual(await page.evaluate(() => window.__options()), {
+      themeId: 'tron',
+      sound: true,
+      debris: false,
+      trail: false,
+    }, 'both effects are recorded as off');
+
+    await fireWinner(page);
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase !== 'in_flight', null, { timeout: 6000 });
+    assert.equal(await page.evaluate(() => window.__trail.points().length), 0, 'a disabled trail records nothing');
+    assert.equal(await page.evaluate(() => window.__debris.fragments().length), 0, 'a disabled heap records nothing');
+  });
+});
+
+test('forgetting best scores clears the title screen records (M19)', async () => {
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    // Clear stage 01 so a record exists.
+    await fireWinner(page);
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won', null, { timeout: 8000 });
+    assert.ok(
+      await page.evaluate(() => localStorage.getItem('angry-pigs:best:stage-01')),
+      'a win writes a best record',
+    );
+
+    await page.keyboard.press('Escape');
+    const listed = await overlayLabels(page);
+    assert.match(listed[0] ?? '', /best ★{1,3} \d+/, 'the title screen shows the record');
+
+    await page.click('[data-test="options"]');
+    await page.click('[data-test="reset-best"]');
+    await page.click('[data-test="resume"]');
+    assert.equal(
+      await page.evaluate(() => localStorage.getItem('angry-pigs:best:stage-01')),
+      null,
+      'forgetting best scores clears storage',
+    );
+    await page.keyboard.press('Escape');
+    const afterReset = await overlayLabels(page);
+    assert.match(afterReset[0] ?? '', /play stage-01 · no record yet/, 'the list rebuilds without records');
   });
 });

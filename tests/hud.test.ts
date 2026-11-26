@@ -111,3 +111,17 @@ test('hud restart wiring can be unsubscribed', () => {
   off();
   assert.equal(clicks.length, 0, 'unsubscribe detaches the HUD handler');
 });
+
+test('hud wires the menu button and can detach it (M19)', () => {
+  const { el, clicks } = fakeElement();
+  const hud = createHud(el);
+  let opened = 0;
+  const off = hud.onMenu(() => {
+    opened++;
+  });
+  assert.equal(clicks.length, 1, 'the menu button wires exactly one handler');
+  clicks[0]!();
+  assert.equal(opened, 1);
+  off();
+  assert.equal(clicks.length, 0);
+});
