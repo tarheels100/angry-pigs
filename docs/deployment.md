@@ -48,9 +48,9 @@ Pages does not build, so publish the built file, not `src/`:
 artifact, and deploys it. It uses Actions' built-in `GITHUB_TOKEN`; no PAT is stored
 in the repo.
 
-One manual step is required, because enabling Pages needs repo settings, not a git
-push (repo settings → Pages → Build and deployment → Source: **GitHub Actions**).
-Until that toggle is set, the workflow builds green and nothing is published.
+Pages source is set to **GitHub Actions** in repo settings (Settings → Pages →
+Build and deployment → Source). A push to `main` now builds and publishes; the toggle
+is repo settings, not something git can do, so it survives only as a note here.
 
 `dist/` stays gitignored: the artifact is produced by CI, not committed, so a stale
 committed copy can never be served instead of a fresh build.

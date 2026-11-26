@@ -43,10 +43,9 @@ Headless tests cannot cover these (`tests/browser.*` does not exist yet — see
       in section 2). Treat that half of this check as pending.
 - [ ] **Watch workflow.** Edit a source file, reload manually, confirm the new bundle
       is served (no HMR by design).
-- [ ] **Pages deploy.** Blocked until Pages is enabled in repo settings
-      (settings → Pages → Build and deployment → Source: **GitHub Actions**).
-      `.github/workflows/deploy.yml` is in place and publishes `dist/` once that is set.
-      **Expected:** no 404s, only relative paths in the shipped file.
+- [ ] **Pages deploy.** Source toggle is set to GitHub Actions; a push to `main`
+      publishes `dist/`. Load the live URL and check the network panel.
+      **Expected:** no 404s, only relative paths in the shipped file, one request.
 
 ## 2. Gameplay and simulation evaluation
 
