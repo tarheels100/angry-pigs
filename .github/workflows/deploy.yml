@@ -31,8 +31,22 @@ jobs:
         with:
           path: dist
 
+  # Browser checks run against the built artifact (docs/browser-testing.md). Kept as a
+  # separate job so `npm run check` stays fast for local iteration.
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:browser
+
   deploy:
-    needs: build
+    needs: [build, browser]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
