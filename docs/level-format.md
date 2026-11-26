@@ -53,6 +53,10 @@ time (D6). Coordinates are world units; the stage is 1600x900 with +y downward.
    reaches the ground first, so distant birds must die by collapse.
 3. **Every stage must be clearable within its authored ammo.** `scratch/greedy-probe.ts`
    is the check: it fires a greedy bot at each stage and asserts a win.
-4. **Do not rely on blocks being fully destroyed.** The sweep shows many runs leave
+4. **Give every bird a failure mode.** A beam balanced on a single column tips when the
+   column is hit, so one well-aimed shot kills; a beam on two columns needs both columns
+   gone, so it is a two-shot puzzle. Pick the support count to set difficulty rather than
+   adding ammo.
+5. **Do not rely on blocks being fully destroyed.** The sweep shows many runs leave
    partially damaged blocks standing (docs/tuning.md), which is intended — damage is
    per impact, not per level.

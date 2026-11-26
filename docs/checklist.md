@@ -78,7 +78,7 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
 - [x] **Determinism (cross-runtime).** `npm run check:determinism` bundles
       `scratch/sweep-entry.ts` twice — ESM for node, IIFE for chromium — and runs the
       same 72 combos (3 pulls × 8 angles × 3 stages) by stepping the game directly.
-      **Result:** 0 mismatches; 4 wins, 12 combos hit the settle timeout. The entry
+      **Result:** 0 mismatches; 3 wins, 11 combos hit the settle timeout. The entry
       records no timing, so there is nothing legitimate that can differ.
       Cross-machine drift would show up as a mismatch in CI, which runs this on Linux.
 - [x] **Score.** Targets pay 1000; a clear pays 500 per unused pig (D23), so a
@@ -96,14 +96,14 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
 
 ## 3. Baseline data to tune against
 
-Greedy bot, full pull, angles −80°…+40°, 495 combinations per stage
-(`scratch/sweep-probe.ts`):
+Single-shot sweep, pull 20…`maxPull` step 5, angle −40°…+40° step 2.5°, 495
+combinations per stage (`scratch/sweep-probe.ts <index>`):
 
 | stage | wins | one-shot clears | birds killed | blocks fully gone | blocks untouched | partially damaged | settle timeouts |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| stage-01 | 92 | 92 | 437/990 | 0–3 | 295 | 216 | 117 |
-| stage-02 | 30 | 30 | 339/990 | 0–3 | 187 | 481 | 144 |
-| stage-03 | 52 | 52 | 238/990 | 0–4 | 309 | 495 | 48 |
+| stage-01 | 94 | 94 | 445/990 | 0–3 | 295 | 215 | 107 |
+| stage-02 | 36 | 36 | 366/990 | 0–4 | 187 | 479 | 49 |
+| stage-03 | 38 | 38 | 229/990 | 0–3 | 306 | 495 | 48 |
 
 Stage 01 reference shots (measured): a flat full pull shatters the columns and drops the
 beam bird (`fall`); a +20° pull clears both birds in one shot (three stars); a −70° pull

@@ -26,7 +26,7 @@ export const MATERIALS: Record<MaterialId, MaterialSpec> = {
   glass: { density: 0.0012, friction: 0.05, frictionStatic: 0.05, restitution: 0.05, health: 4, damageThreshold: 3 },
   stone: { density: 0.0035, friction: 0.4, frictionStatic: 0.4, restitution: 0.02, health: 16, damageThreshold: 9 },
   metal: { density: 0.005, friction: 0.35, frictionStatic: 0.4, restitution: 0.15, health: 24, damageThreshold: 14 },
-  feather: { density: 0.0008, friction: 0.2, frictionStatic: 0.15, restitution: 0.2, health: 2, damageThreshold: 2 },
+  feather: { density: 0.0008, friction: 0.2, frictionStatic: 0.15, restitution: 0.2, health: 2, damageThreshold: 1.4 },
   // Kinetic friction is lower than static so a pig rolls rather than stopping dead
   // (Matter takes max(frictionA, frictionB), so this value governs pig rolling too).
   // Static friction stays high so stacks hold.

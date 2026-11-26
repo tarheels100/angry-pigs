@@ -31,7 +31,7 @@ file together.
 | impact energy formula | `\|relV · normal\| * min(massA, massB)` | adapter | Measured peak ~84 for a speed-22 pig, ~49 for speed 18. Kept on `min(mass)` so a pig hitting a heavy wall does not score the wall's mass as damage. |
 | glass damageThreshold | 3 | `MATERIALS` | A direct pig hit (~40-50 energy) shatters glass; a rolling graze (~8) does not. |
 | stone damageThreshold | 9 | `MATERIALS` | A full-speed pig removes ~5 health; stone survives roughly three solid hits. |
-| feather damageThreshold | 2 | `MATERIALS` | Birds are fragile: any real hit kills; a gentle nudge does not. |
+| feather damageThreshold | 1.4 | `MATERIALS` | Birds are fragile: any real hit kills; a gentle nudge does not. Raised threshold 2 → 1.4 so a bird that rolls off a tilting beam dies instead of surviving at low contact energy (stage 02/03 sweeps left birds alive on broken supports). |
 | health area scaling | `area/4000`, clamped 0.35–3 | `healthFor()` | Large blocks take more hits; clamp stops huge walls becoming immortal. |
 | camera fit padding | 120 world units | camera `fitZoom` | Zoom at load shows the whole level plus margin (D20). |
 | `FOLLOW_RATE` | 6 units/s toward the projectile | camera `follow` | Fast enough to keep a flying pig on screen, slow enough that the camera never jitters. |
@@ -42,16 +42,23 @@ file together.
 
 ## Stage sweeps (scratch/sweep-probe.ts, greedy-probe.ts)
 
-Greedy bot, full pull, angles −80°…+40°, per stage (495 combinations each):
+Single-shot sweep, pull 20…`maxPull` step 5, angle −40°…+40° step 2.5° (495
+combinations per stage). Re-measured after the pedestal redesign and `feather 1.4`:
 
 | stage | wins | one-shot clears | birds killed | blocks fully gone | blocks untouched | partially damaged | settle timeouts |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| stage-01 | 92 | 92 | 437/990 | 0–3 | 295 | 216 | 117 |
-| stage-02 | 30 | 30 | 339/990 | 0–3 | 187 | 481 | 144 |
-| stage-03 | 52 | 52 | 238/990 | 0–4 | 309 | 495 | 48 |
+| stage-01 | 94 | 94 | 445/990 | 0–3 | 295 | 215 | 107 |
+| stage-02 | 36 | 36 | 366/990 | 0–4 | 187 | 479 | 49 |
+| stage-03 | 38 | 38 | 229/990 | 0–3 | 306 | 495 | 48 |
 
 Wins require at least one bird to die; a win is not necessarily a one-shot clear.
-`scratch/greedy-probe.ts` confirms every stage is clearable within its authored ammo.
+`scratch/greedy-probe.ts` confirms every stage is clearable within its authored ammo
+(stage-01 and stage-03 clear in one shot, stage-02 in one).
+
+**Difficulty order holds:** stage 01 is the easiest (94), stage 02 harder (36), stage 03
+hardest (38 with a tall pedestal that only an arc can reach). Stage 03's pedestal was
+first tried at height 220 — that pushed wins to 42 but the greedy bot could not clear it
+within authored ammo, so it was rejected as unfair (docs/level-format.md rule 3).
 
 **Level design rule:** nothing critical may sit under stone. Stone health
 (`area/4000` with a 3 clamp) far exceeds any pig impact energy at `DAMAGE_SCALE 0.35`,
@@ -83,5 +90,6 @@ starting point, not a tuned curve.
   (currently pigs only).
 - Pig damage model: pigs currently ignore damage entirely (D15); decide whether a pig
   takes damage from heavy hits instead.
-- Stage 02 win rate is the lowest (30/495). Its birds sit on beams that survive partial
-  damage; retune beam health or glass thresholds if it feels unfair in playtests.
+- Stage 02 and 03 win rates (~36–38/495 single-shot) are low by design — both birds
+  need structural collapse. If playtests feel unfair, retune beam health or glass
+  thresholds rather than adding more ammo.
