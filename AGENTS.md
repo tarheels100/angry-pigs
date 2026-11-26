@@ -37,9 +37,17 @@ An `autonomous:` request **must** come with:
 3. **Gate discipline** — every commit leaves `npm run check` green; the browser and
    determinism gates run before the push closes.
 
-**Overrides:** any user message sent mid-run is the new instruction. A question gets an
-answer and work stops; a new task replaces the current scope; `stop` ends the push and
-reports the current state.
+**Overrides:** any user message sent mid-run is the new instruction. Read it as one of:
+
+- **Clarification** of the current task (a correction, a preference, an answer to a
+  question I asked) — fold it into the work in progress, keep going, do not restart or
+  re-plan from scratch. If the clarification contradicts something already built, fix
+  that part rather than continuing to build on the wrong assumption.
+- **Addition** to the current task ("also do X") — append it to the plan and its finish
+  line, then continue. This widens scope only because the user asked.
+- **New task** — replaces the current scope; report the state of the abandoned work.
+- **Question** — answer it and stop; do not treat a question as a directive.
+- **`stop`** — end the push and report the current state, including anything half-done.
 
 **Where the mode is recorded:** for a large push, the mode, finish line, and boundary go
 in the push plan's first section (`docs/pushes/<slug>.md`), so the contract survives an
