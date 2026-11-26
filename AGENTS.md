@@ -15,6 +15,44 @@
 4. **Ambiguity → ask, don't expand.** If the request could be read narrowly or broadly,
    do the narrow reading and surface the broader option.
 
+### Work modes: `scoped:` and `autonomous:`
+
+The user marks intent with a leading mode word. If no mode word is present, treat the
+request as **scoped**.
+
+| mode | priority | behaviour |
+| --- | --- | --- |
+| `scoped:` | timely change, quick feedback | Do exactly the named change, run the relevant gate, report. No extra work. |
+| `autonomous:` | continuous work, no check-ins | Keep working across commits until the stated finish line, then stop and report. |
+
+An `autonomous:` request **must** come with:
+
+1. **A finish line** — a milestone, an acceptance criterion, or a budget ("until gates
+   are green", "until deployed", "3 hours of work"). Autonomy without a finish line
+   turns into endless improvement; if the request has none, ask for one before starting.
+2. **A scope boundary, when given** — allowed and forbidden paths, e.g. "touch only
+   `src/render/**` and `docs/theme-contract.md`; do not change physics". Honor it
+   strictly: if real progress requires crossing it, report the blocker instead of
+   crossing it.
+3. **Gate discipline** — every commit leaves `npm run check` green; the browser and
+   determinism gates run before the push closes.
+
+**Overrides:** any user message sent mid-run is the new instruction. A question gets an
+answer and work stops; a new task replaces the current scope; `stop` ends the push and
+reports the current state.
+
+**Where the mode is recorded:** for a large push, the mode, finish line, and boundary go
+in the push plan's first section (`docs/pushes/<slug>.md`), so the contract survives an
+interrupted session and a resumed agent inherits it rather than re-deriving it from chat.
+
+Example:
+
+```
+autonomous: implement the detailed cannon + motion trail from docs/post-m13-notes.md.
+Boundary: src/render/**, src/game/cannon.ts, docs/theme-contract.md. Finish line:
+browser tests green and deployed. Don't check in until done.
+```
+
 ## Push work plans (required for large pushes)
 
 A **large push** is any change that spans more than one milestone area, touches several
@@ -24,6 +62,7 @@ For every large push:
 
 1. **Write the plan before touching code.** Create `docs/pushes/<slug>.md` (slug =
    milestone or feature, e.g. `docs/pushes/M13-browser-tests.md`) containing:
+   - work mode (`scoped:` / `autonomous:`), finish line, and scope boundary
    - goal and acceptance criteria (what must be true when the push is done)
    - the ordered steps, each as a checkbox
    - the gates that must pass (`npm run check`, `npm run test:browser`,
