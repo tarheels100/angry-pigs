@@ -67,7 +67,7 @@ export interface GameEvents {
   destroyed: { id: string; cause: 'impact' | 'crush' | 'fall' };
   launch: { id: string; velocity: Vec2 };
   pigConsumed: { id: string; reason: 'settled' | 'outOfBounds' | 'timeout' };
-  levelLoaded: { levelId: string; name: string; ammo: number };
+  levelLoaded: { levelId: string; name: string; ammo: number; bounds: { width: number; height: number } };
   phaseChanged: { phase: GamePhase };
   levelWon: { levelId: string; score: number; stars: number };
   levelLost: { levelId: string };

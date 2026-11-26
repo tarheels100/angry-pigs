@@ -4,6 +4,8 @@ import type { RulesSnapshot } from '../game/rules.ts';
 export interface Hud {
   update(snapshot: RulesSnapshot | null): void;
   message(text: string | null): void;
+  /** Level label (name + index) — the HUD gets text, never level data. */
+  setLevel(label: string): void;
   /** Wire the restart control; returns an unsubscribe. */
   onRestart(handler: () => void): () => void;
 }
@@ -15,20 +17,24 @@ export interface Hud {
 export function createHud(el: HTMLElement): Hud {
   el.innerHTML = `
     <div class="hud-row">
+      <span class="hud-stat" data-stat="level">stage 1</span>
       <span class="hud-stat" data-stat="phase">ready</span>
       <span class="hud-stat" data-stat="ammo">pigs 0</span>
       <span class="hud-stat" data-stat="targets">birds 0</span>
       <span class="hud-stat" data-stat="score">0</span>
+      <span class="hud-stat" data-stat="stars"></span>
     </div>
     <div class="hud-message" data-stat="message"></div>
     <button class="hud-restart" type="button">restart</button>
   `;
 
   const stats = {
+    level: el.querySelector('[data-stat="level"]') as HTMLElement | null,
     phase: el.querySelector('[data-stat="phase"]') as HTMLElement | null,
     ammo: el.querySelector('[data-stat="ammo"]') as HTMLElement | null,
     targets: el.querySelector('[data-stat="targets"]') as HTMLElement | null,
     score: el.querySelector('[data-stat="score"]') as HTMLElement | null,
+    stars: el.querySelector('[data-stat="stars"]') as HTMLElement | null,
     message: el.querySelector('[data-stat="message"]') as HTMLElement | null,
     restart: el.querySelector('.hud-restart') as HTMLButtonElement | null,
   };
@@ -40,9 +46,14 @@ export function createHud(el: HTMLElement): Hud {
       if (stats.ammo) stats.ammo.textContent = `pigs ${snapshot.ammoLeft}`;
       if (stats.targets) stats.targets.textContent = `birds ${snapshot.targetsAlive}/${snapshot.targetsTotal}`;
       if (stats.score) stats.score.textContent = String(snapshot.score);
+      // Stars only exist for a cleared stage; an empty span keeps the row stable.
+      if (stats.stars) stats.stars.textContent = snapshot.phase === 'won' ? `${'★'.repeat(snapshot.stars)}${'·'.repeat(3 - snapshot.stars)}` : '';
     },
     message(text) {
       if (stats.message) stats.message.textContent = text ?? '';
+    },
+    setLevel(label) {
+      if (stats.level) stats.level.textContent = label;
     },
     onRestart(handler) {
       if (!stats.restart) return () => {};

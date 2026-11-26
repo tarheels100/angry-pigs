@@ -336,3 +336,19 @@ test('a settled round is asleep, whether it slept or hit the timeout', () => {
   settle(game);
   assert.equal(adapter.allSleeping(), true, 'settled must mean at rest (D16)');
 });
+
+test('switching levels reports the new bounds so the camera can re-frame (D20)', () => {
+  const loaded = loadLevel(levelAt(0));
+  const adapter = createPhysicsAdapter({ width: loaded.def.bounds.width, height: loaded.def.bounds.height, gravityY: 1, frictionAir: 0.001 });
+  const bus = createEventBus();
+  const game = createGame({ level: loaded, adapter, bus });
+  const seen: Array<{ levelId: string; bounds: { width: number; height: number } }> = [];
+  bus.on('levelLoaded', (e) => seen.push({ levelId: e.levelId, bounds: e.bounds }));
+
+  game.loadLevel(loadLevel(levelAt(2)));
+  assert.equal(seen.length, 1, 'one load event per load');
+  assert.equal(seen[0]!.levelId, 'stage-03');
+  assert.deepEqual(seen[0]!.bounds, { width: 1600, height: 900 });
+  assert.equal(game.rules.snapshot().targetsTotal, 2, 'the new level owns the target count');
+  assert.equal(game.rules.snapshot().ammoLeft, 5, 'the new level owns the ammo count');
+});

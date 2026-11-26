@@ -83,7 +83,7 @@ export function createGame(options: GameOptions): Game {
 
   function buildLevel(): void {
     for (const body of level.bodies) adapter.addBody(body);
-    bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length });
+    bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length, bounds: level.def.bounds });
     rules.loadLevel(level.targetIds, level.ammo.length);
     refreshDisplay();
     bus.emit('phaseChanged', { phase: rules.snapshot().phase });
@@ -293,7 +293,7 @@ export function createGame(options: GameOptions): Game {
     pigCounter = 0;
     for (const body of level.bodies) adapter.addBody(body);
     refreshDisplay();
-    bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length });
+    bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length, bounds: level.def.bounds });
     bus.emit('phaseChanged', { phase: rules.snapshot().phase });
   }
 

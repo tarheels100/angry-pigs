@@ -137,3 +137,39 @@ test('renderer draws through the canvas context and swaps themes', () => {
   assert.ok(ops.length > before);
   assert.equal(ops.slice(before).find((o) => o.op === 'fillRect')!.colour, '#000000');
 });
+
+test('setWorld re-frames zoom for a level with different bounds', () => {
+  const camera = createCamera(viewport, { width: 1600, height: 900 });
+  const zoomBefore = camera.zoom();
+  camera.setWorld({ width: 800, height: 450 });
+  assert.ok(camera.zoom() > zoomBefore, `zoom must increase for a smaller level (was ${zoomBefore}, now ${camera.zoom()})`);
+  assert.deepEqual(camera.world(), { width: 800, height: 450 });
+  assert.deepEqual(camera.position(), { x: 400, y: 225 }, 'centre resets to the new level');
+});
+
+test('follow tracks a target and settles back to the level centre', () => {
+  const camera = createCamera(viewport, { width: 1600, height: 900 });
+  camera.panTo(200, 450);
+
+  camera.follow({ x: 1200, y: 450 }, 1 / 60);
+  assert.ok(camera.position().x > 200, 'follow moves toward the projectile');
+  const after = camera.position().x;
+  camera.follow({ x: 1200, y: 450 }, 1 / 60);
+  assert.ok(camera.position().x > after, 'follow keeps approaching');
+
+  camera.follow({ x: 4000, y: 450 }, 1 / 60);
+  assert.ok(camera.position().x <= 1600, 'follow never leaves the level extent');
+  camera.follow({ x: 4000, y: 450 }, 10);
+  assert.equal(camera.position().x, 1600, 'a far target is clamped to the edge');
+
+  camera.follow(null, 1 / 60);
+  assert.ok(camera.position().y === 450 && camera.position().x < 1600, 'a null target recentres');
+});
+
+test('zoomBy multiplies the current zoom and stays clamped', () => {
+  const camera = createCamera(viewport, { width: 1600, height: 900 });
+  camera.zoomBy(1.5);
+  assert.equal(camera.zoom(), 1.5);
+  camera.zoomBy(10);
+  assert.equal(camera.zoom(), 3);
+});

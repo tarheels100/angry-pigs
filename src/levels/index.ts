@@ -1,6 +1,8 @@
 import type { EntityKind, MaterialId, ShapeId } from '../core/types.ts';
 import type { BodyInit } from '../physics/adapter.ts';
 import { LEVEL_01 } from './l01.ts';
+import { LEVEL_02 } from './l02.ts';
+import { LEVEL_03 } from './l03.ts';
 
 /** Level format v0 (docs/level-format.md). Levels are authored as data and
  * compiled into the bundle at build time — the shipped build fetches nothing (D6). */
@@ -56,10 +58,16 @@ class LevelError extends Error {
   }
 }
 
-export const LEVELS: LevelDef[] = [LEVEL_01];
+/** Simulation world is fixed (D13); a level's bounds are the framed region and may
+ * be smaller than the world, never larger. */
+export const WORLD = { width: 1600, height: 900 };
+
+export const LEVELS: LevelDef[] = [LEVEL_01, LEVEL_02, LEVEL_03];
 
 export function levelAt(index: number): LevelDef {
-  const def = LEVELS[index];
+  // Wrap in both directions: the roster is a cycle, and the UI can step backwards.
+  const i = ((index % LEVELS.length) + LEVELS.length) % LEVELS.length;
+  const def = LEVELS[i];
   if (!def) throw new LevelError('index', `no level at ${index}`);
   return def;
 }
@@ -92,13 +100,25 @@ function objectBody(obj: LevelObject, id: string, kind: EntityKind): BodyInit {
   return base;
 }
 
-export function loadLevel(def: LevelDef): LoadedLevel {
+/** Structural validation, separate from building bodies: a level file is data, and
+ * a bad one must fail with a field name rather than a physics oddity. */
+export function validateLevel(def: LevelDef): void {
   if (!def.name) throw new LevelError('name', 'required');
   const width = requireNumber('bounds.width', def.bounds?.width);
   const height = requireNumber('bounds.height', def.bounds?.height);
+  if (width > WORLD.width || height > WORLD.height) {
+    throw new LevelError('bounds', `${width}x${height} exceeds the world ${WORLD.width}x${WORLD.height}`);
+  }
   if (def.cannon.ammo.length === 0) throw new LevelError('cannon.ammo', 'must not be empty');
   requireNumber('cannon.maxPull', def.cannon.maxPull);
   requireNumber('cannon.powerScale', def.cannon.powerScale);
+  if ((def.targets ?? []).length === 0) throw new LevelError('targets', 'a level must have at least one target');
+}
+
+export function loadLevel(def: LevelDef): LoadedLevel {
+  validateLevel(def);
+  const width = def.bounds.width;
+  const height = def.bounds.height;
 
   const bodies: BodyInit[] = [];
   def.statics.forEach((s, i) => {
