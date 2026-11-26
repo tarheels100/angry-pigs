@@ -6,6 +6,8 @@ export interface Hud {
   message(text: string | null): void;
   /** Level label (name + index) — the HUD gets text, never level data. */
   setLevel(label: string): void;
+  /** Best previous result for the stage, e.g. "best 2★ 3500"; null hides it. */
+  setBest(text: string | null): void;
   /** Wire the restart control; returns an unsubscribe. */
   onRestart(handler: () => void): () => void;
 }
@@ -23,6 +25,7 @@ export function createHud(el: HTMLElement): Hud {
       <span class="hud-stat" data-stat="targets">birds 0</span>
       <span class="hud-stat" data-stat="score">0</span>
       <span class="hud-stat" data-stat="stars"></span>
+      <span class="hud-stat" data-stat="best"></span>
     </div>
     <div class="hud-message" data-stat="message"></div>
     <button class="hud-restart" type="button">restart</button>
@@ -35,6 +38,7 @@ export function createHud(el: HTMLElement): Hud {
     targets: el.querySelector('[data-stat="targets"]') as HTMLElement | null,
     score: el.querySelector('[data-stat="score"]') as HTMLElement | null,
     stars: el.querySelector('[data-stat="stars"]') as HTMLElement | null,
+    best: el.querySelector('[data-stat="best"]') as HTMLElement | null,
     message: el.querySelector('[data-stat="message"]') as HTMLElement | null,
     restart: el.querySelector('.hud-restart') as HTMLButtonElement | null,
   };
@@ -54,6 +58,9 @@ export function createHud(el: HTMLElement): Hud {
     },
     setLevel(label) {
       if (stats.level) stats.level.textContent = label;
+    },
+    setBest(text) {
+      if (stats.best) stats.best.textContent = text ?? '';
     },
     onRestart(handler) {
       if (!stats.restart) return () => {};

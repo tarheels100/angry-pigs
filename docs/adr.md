@@ -187,3 +187,26 @@ prove the wrong thing.
 **Rejected.** Fixed test ports (collide with a leftover listener and tempt process
 killing); running browser tests inside `npm run check` (adds Chromium startup to every
 local iteration).
+
+## D23 — Unused pigs pay a bonus on a clear
+**Decision.** On a win, `score += ammoLeft * 500` (`src/game/rules.ts`). Stars stay
+derived from shots used (D19); the bonus only affects score.
+**Why.** Without a bonus, a one-shot clear and a three-shot clear score identically, so
+the HUD number encodes nothing about efficiency. The bonus is a game-layer rule, so it
+cannot leak into physics or presentation.
+**Rejected.** Baking the bonus into stars (stars already encode efficiency, and two
+mechanisms would fight); multiplying target score by a per-level constant (unexplained
+per stage).
+
+## D24 — Best results persist in localStorage
+**Decision.** `src/game/save.ts` keeps the best `score`/`stars`/`launches` per stage in
+`localStorage` behind a `KeyValueStore` interface; `src/main.ts` supplies a
+`localStorage` adapter when one exists and probes a write first, otherwise an in-memory
+store. Corrupt or blocked storage is treated as "no record".
+**Why.** Pages has no server (docs/deployment.md), and the deployment constraint says
+persistence is `localStorage`. Injecting the store keeps headless tests deterministic and
+keeps the artifact fetch-free. A record is kept only when it is strictly better: higher
+score, then more stars, then fewer shots.
+**Rejected.** Saving every attempt (unbounded growth for no benefit); a JSON file or
+IndexedDB (needs a build step or async plumbing for one number per stage); persisting in
+the rules object (rules are rebuilt on restart and must not read browser state).

@@ -176,3 +176,30 @@ test('restart restores the authored stage', async () => {
     assert.equal(snap.targetsAlive, snap.targetsTotal, 'restart restores the birds');
   });
 });
+
+test('best results persist across a reload', async () => {
+  const url = await baseUrl();
+  await withPage(async (page) => {
+    await open(page, url);
+    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
+    const rad = (WIN.deg * Math.PI) / 180;
+    await page.evaluate(({ origin, pull, rad }) => {
+      window.__game.beginAim();
+      window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
+      window.__game.releaseAim();
+    }, { origin, pull: WIN.pull, rad });
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won', null, { timeout: 8000 });
+
+    const stored = await page.evaluate(() => localStorage.getItem('angry-pigs:best:stage-01'));
+    assert.ok(stored, 'the clear is written to localStorage');
+    const record = JSON.parse(stored);
+    assert.ok(record.score > 0 && record.stars >= 1 && record.launches === 1);
+    assert.match(await hudText(page), /best/);
+
+    // A reload must show the stored best without replaying.
+    await page.reload();
+    await open(page, url);
+    assert.match(await hudText(page), /best ★+ \d+/);
+    assert.equal(await page.evaluate(() => window.__game.rules.snapshot().launches), 0, 'the stage starts fresh');
+  });
+});

@@ -37,6 +37,10 @@ export interface GameRules {
 /** Score per destroyed target; tuned in M8 (docs/tuning.md). */
 const SCORE_PER_TARGET = 1000;
 
+/** Unused pigs are worth a bonus on a clear (docs/tuning.md, docs/adr.md D23).
+ * It rewards efficiency without changing stars, which stay shot-count based. */
+const AMMO_BONUS = 500;
+
 /**
  * Stars are derived from how many shots the level took, from the Stage 01 sweep
  * (docs/checklist.md section 3): clearing 2 targets in one shot happened in 6 of 51
@@ -83,7 +87,13 @@ export function createRules(initial: { targetIds: string[]; ammo: string[] }): G
     worldSettled(won) {
       if (snap.phase !== 'settling') return;
       if (won) {
-        snap = { ...snap, phase: 'won', stars: starsFor(snap.launches, snap.targetsTotal) };
+        // Efficiency pays: every pig left in the budget is worth bonus points.
+        snap = {
+          ...snap,
+          phase: 'won',
+          stars: starsFor(snap.launches, snap.targetsTotal),
+          score: snap.score + snap.ammoLeft * AMMO_BONUS,
+        };
         return;
       }
       snap = snap.ammoLeft > 0 ? { ...snap, phase: 'aiming', stars: 0 } : { ...snap, phase: 'lost', stars: 0 };

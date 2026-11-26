@@ -130,8 +130,23 @@ test('a downward shot kills the open bird and the level is won', () => {
 
   assert.equal(game.rules.snapshot().phase, 'won');
   assert.equal(game.rules.snapshot().targetsAlive, 0);
-  assert.equal(game.rules.snapshot().score, 2000);
+  // Two birds (2000) plus the two pigs left in the budget (2 × 500) — D23.
+  assert.equal(game.rules.snapshot().score, 3000);
   assert.equal(won.length, 1);
+});
+
+test('a clear pays a bonus for unused pigs', () => {
+  const { game } = makeGame();
+  aim(game, 20); // one-shot clear: three of four pigs never fired
+  game.releaseAim();
+  settle(game);
+  const snap = game.rules.snapshot();
+  assert.equal(snap.phase, 'won');
+  assert.equal(snap.launches, 1);
+  assert.equal(snap.targetsTotal, 2);
+  assert.equal(snap.stars, 3);
+  assert.equal(snap.score, 2 * 1000 + snap.ammoLeft * 500, 'score pays targets plus the ammo bonus');
+  assert.ok(snap.score > 2000, 'a one-shot clear scores above the target value alone');
 });
 
 test('running out of pigs with birds standing loses the level', () => {

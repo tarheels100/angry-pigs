@@ -12,6 +12,7 @@ import { createGame } from './game/game.ts';
 import { createHud } from './ui/hud.ts';
 import { createParticleSystem } from './fx/particles.ts';
 import { createSfx } from './audio/sfx.ts';
+import { createSaveStore, memoryStore, type KeyValueStore } from './game/save.ts';
 import { WORLD, LEVELS, levelAt, loadLevel } from './levels/index.ts';
 
 /**
@@ -59,6 +60,31 @@ if (!canvas || !hudEl) {
   /** Set when a cleared stage should advance; the timer is cleared by manual actions. */
   let advanceTimer: number | null = null;
 
+  /** Best-result persistence (docs/adr.md D24). `localStorage` when the browser offers
+   * it and tolerates a probe write; otherwise in-memory so the game still runs. */
+  const save = createSaveStore(browserStore());
+
+  function browserStore(): KeyValueStore {
+    const storage = (window as unknown as { localStorage?: Storage }).localStorage;
+    if (!storage) return memoryStore();
+    const probe = 'angry-pigs:probe';
+    try {
+      storage.setItem(probe, '1');
+      storage.removeItem(probe);
+    } catch {
+      return memoryStore();
+    }
+    return {
+      get: (key) => storage.getItem(key),
+      set: (key, value) => storage.setItem(key, value),
+      remove: (key) => storage.removeItem(key),
+    };
+  }
+
+  function bestLabel(record: { stars: number; score: number } | null): string {
+    return record ? `best ${'★'.repeat(record.stars)} ${record.score}` : '';
+  }
+
   function levelLabel(index: number): string {
     return `stage ${index + 1}/${LEVELS.length}`;
   }
@@ -77,11 +103,14 @@ if (!canvas || !hudEl) {
   bus.on('levelLoaded', (e) => {
     camera.setWorld(e.bounds);
     camera.setZoom(camera.fitZoom());
+    hud.setBest(bestLabel(save.best(e.levelId)));
     hud.message(`${e.name} — ${e.ammo} pigs · drag to aim, release to fire`);
   });
 
   bus.on('levelWon', (e) => {
-    hud.message(`stage cleared: ${e.levelId} · ${e.score} · ${e.stars} stars`);
+    const best = save.record(e.levelId, { score: e.score, stars: e.stars, launches: game.rules.snapshot().launches });
+    hud.setBest(bestLabel(best));
+    hud.message(`stage cleared: ${e.levelId} · ${e.score} · ${e.stars} stars · best ${best.score}`);
     if (levelIndex + 1 < LEVELS.length) {
       advanceTimer = window.setTimeout(() => loadLevelIndex(levelIndex + 1), 1400);
     } else {
