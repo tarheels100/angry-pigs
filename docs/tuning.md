@@ -19,8 +19,8 @@ file together.
 | pig removal | speed < 1.2 for 45 steps, out of bounds, or 240 steps in flight | game (D15) | Pigs are consumed, not damaged; the dwell guard stops a pig nudging along forever. |
 | `MIN_DRAG` | 12 world units | game | A release must drag at least this far from the cannon to fire; a plain click cancels and spends no ammo (src/input/pointer.ts owns the gesture). |
 | `wakeNear` margin | 40 world units | adapter | When a body is destroyed or removed, dynamic bodies whose bounds overlap it (expanded by this margin) are woken. Matter does not wake a body whose support disappears, so a beam with no leg floats (docs/physics.md gotcha 11). |
-| pig rolling resistance | ×0.98 per step while grounded | adapter | Matter has no rolling resistance, so a pig on flat ground rolls forever and never sleeps. Raised from 0.94 because 0.94 stopped pigs too abruptly (playtest complaint). A test asserts a pig launched at speed 12 rolls more than 120 units in 90 steps. |
-| ground friction | kinetic 0.3, static 0.5 | `MATERIALS` | Matter takes `max(frictionA, frictionB)`, so the ground value governs pig rolling as well. Lower kinetic friction lets pigs roll; static friction stays high so stacks hold. |
+| rolling resistance | ×0.98 per step while grounded, for pigs **and birds** | adapter (`ROLLING_DAMPING`) | Matter has no rolling resistance, so a body on flat ground rolls forever and never sleeps. Raised from 0.94 because 0.94 stopped pigs too abruptly (playtest complaint). Measured: a bird pushed along the ground at speed 8 slept at step 134 after 109 units; before the bird was included it was still awake at step 240 after 327 units. Tests assert a pig launched at speed 12 rolls more than 120 units in 90 steps and that a rolling bird sleeps inside the settle window. |
+| ground friction | kinetic 0.3, static 0.5 | `MATERIALS` | Matter takes `max(frictionA, frictionB)`, so the ground value governs pig and bird rolling as well. Lower kinetic friction lets bodies roll; static friction stays high so stacks hold. |
 | `DAMAGE_SCALE` | 0.35 | game (`applySliceDamage`) | Damage per impact is `0.35 * energy / threshold`. Playtest said damage per impact was too high: at scale 1 a single hit erased a block and destruction was binary (0 or 3). Retuned sweep: blocks go 0–3 gone with partially damaged survivors; wins 4/51 combinations. |
 | `FLASH_STEPS` | 10 steps | game | A destroyed entity flashes for 10 steps as a fading display extra, then disappears (D17). |
 | settle-timeout freeze | `adapter.freezeAll()` when the window expires | game (D16) | "Settled" must mean visually stopped; ~10 of 51 Stage 01 combinations end at the 240-step cap rather than in genuine sleep. |
@@ -47,16 +47,16 @@ combinations per stage). Re-measured after the pedestal redesign and `feather 1.
 
 | stage | wins | one-shot clears | birds killed | blocks fully gone | blocks untouched | partially damaged | settle timeouts |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| stage-01 | 94 | 94 | 445/990 | 0–3 | 295 | 215 | 107 |
-| stage-02 | 36 | 36 | 366/990 | 0–4 | 187 | 479 | 49 |
-| stage-03 | 38 | 38 | 229/990 | 0–3 | 306 | 495 | 48 |
+| stage-01 | 94 | 94 | 445/990 | 0–3 | 295 | 216 | 93 |
+| stage-02 | 35 | 35 | 365/990 | 0–4 | 187 | 481 | 59 |
+| stage-03 | 39 | 40 | 230/990 | 0–3 | 306 | 495 | 45 |
 
 Wins require at least one bird to die; a win is not necessarily a one-shot clear.
 `scratch/greedy-probe.ts` confirms every stage is clearable within its authored ammo
 (stage-01 and stage-03 clear in one shot, stage-02 in one).
 
-**Difficulty order holds:** stage 01 is the easiest (94), stage 02 harder (36), stage 03
-hardest (38 with a tall pedestal that only an arc can reach). Stage 03's pedestal was
+**Difficulty order holds:** stage 01 is the easiest (94), stage 02 harder (35), stage 03
+hardest (39 with a tall pedestal that only an arc can reach). Stage 03's pedestal was
 first tried at height 220 — that pushed wins to 42 but the greedy bot could not clear it
 within authored ammo, so it was rejected as unfair (docs/level-format.md rule 3).
 
@@ -86,8 +86,6 @@ starting point, not a tuned curve.
 
 ## Open tuning questions (resolve in the tuning pass)
 
-- Whether rolling resistance should also apply to birds/balls that roll on the ground
-  (currently pigs only).
 - Pig damage model: pigs currently ignore damage entirely (D15); decide whether a pig
   takes damage from heavy hits instead.
 - Stage 02 and 03 win rates (~36–38/495 single-shot) are low by design — both birds

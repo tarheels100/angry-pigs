@@ -121,6 +121,29 @@ test('pig rolling resistance makes a grounded pig settle', () => {
   assert.notEqual(stopped, -1, 'pig stops rolling within the settle timeout');
 });
 
+test('bird rolling resistance makes a grounded bird settle', () => {
+  // Same resistance as pigs (docs/adr.md D15). Before it, a bird knocked onto the
+  // ground rolled for 240 steps (327 units) without sleeping, so rounds only ended
+  // at the settle timeout.
+  const adapter = createMatterAdapter({ width: 1600, height: 900, gravityY: 1, frictionAir: 0.001 });
+  adapter.addBody({ id: 'ground', kind: 'ground', shape: 'box', material: 'ground', x: 800, y: 860, halfWidth: 800, halfHeight: 20, isStatic: true });
+  adapter.addBody({ id: 'bird', kind: 'bird', shape: 'circle', material: 'feather', x: 300, y: 820, radius: 20 });
+  for (let i = 0; i < 30; i++) adapter.step(DT);
+  adapter.launch('bird', { x: 8, y: 0 });
+
+  let sleptAt = -1;
+  let travelled = 0;
+  for (let i = 1; i <= 240; i++) {
+    adapter.step(DT);
+    const s = adapter.state('bird')!;
+    travelled = s.x - 300;
+    if (s.sleeping) { sleptAt = i; break; }
+  }
+  assert.notEqual(sleptAt, -1, 'a rolling bird sleeps inside the settle window');
+  assert.ok(travelled < 200, `bird must stop near where it landed, travelled ${travelled.toFixed(0)}`);
+  assert.ok(adapter.allSleeping(), 'a settled bird lets the world settle');
+});
+
 test('destroying a support makes what rested on it fall', () => {
   const adapter = stage();
   adapter.addBody({ id: 'leg-a', kind: 'block', shape: 'box', material: 'glass', x: 400, y: 780, halfWidth: 15, halfHeight: 60 });

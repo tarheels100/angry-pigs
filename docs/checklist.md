@@ -101,9 +101,9 @@ combinations per stage (`scratch/sweep-probe.ts <index>`):
 
 | stage | wins | one-shot clears | birds killed | blocks fully gone | blocks untouched | partially damaged | settle timeouts |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| stage-01 | 94 | 94 | 445/990 | 0–3 | 295 | 215 | 107 |
-| stage-02 | 36 | 36 | 366/990 | 0–4 | 187 | 479 | 49 |
-| stage-03 | 38 | 38 | 229/990 | 0–3 | 306 | 495 | 48 |
+| stage-01 | 94 | 94 | 445/990 | 0–3 | 295 | 216 | 93 |
+| stage-02 | 35 | 35 | 365/990 | 0–4 | 187 | 481 | 59 |
+| stage-03 | 39 | 40 | 230/990 | 0–3 | 306 | 495 | 45 |
 
 Stage 01 reference shots (measured): a flat full pull shatters the columns and drops the
 beam bird (`fall`); a +20° pull clears both birds in one shot (three stars); a −70° pull

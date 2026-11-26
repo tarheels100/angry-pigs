@@ -12,11 +12,11 @@ type BodyT = ReturnType<typeof Bodies.rectangle>;
 /** Matter's engine step takes milliseconds, not seconds (docs/physics.md gotcha 1). */
 const STEP_MS = 1000 / 60;
 
-/** Velocity and angular velocity multiplier applied to pigs while they are in
- * ground contact. Matter has no rolling resistance (docs/tuning.md). Kept close to
- * 1 so a pig rolls instead of stopping dead; the rest of the stopping power comes
- * from contact friction. */
-const PIG_ROLLING_DAMPING = 0.98;
+/** Velocity and angular velocity multiplier applied to rolling bodies (pigs and
+ * birds) while they are in ground contact. Matter has no rolling resistance
+ * (docs/tuning.md). Kept close to 1 so a body rolls instead of stopping dead; the
+ * rest of the stopping power comes from contact friction. */
+const ROLLING_DAMPING = 0.98;
 
 const CATEGORY = { static: 0x0001, object: 0x0002, target: 0x0004, projectile: 0x0008 };
 
@@ -70,7 +70,8 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
   const staticInits: BodyInit[] = [];
   let impacts: Impact[] = [];
   let destroyedThisStep: string[] = [];
-  const groundedPigs = new Set<string>();
+  /** Ids of pigs/birds currently in ground contact, from collisionActive (D15). */
+  const groundedRoll = new Set<string>();
 
   function energyOf(pair: Matter.Pair): number {
     const a = pair.bodyA;
@@ -104,13 +105,14 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
   Events.on(engine, 'collisionActive', (event: Matter.IEventCollision<EngineT>) => {
     for (const pair of event.pairs) {
       for (const body of [pair.bodyA, pair.bodyB]) {
-        if (tracked.get(idOf(body))?.kind === 'pig') groundedPigs.add(idOf(body));
+        const kind = tracked.get(idOf(body))?.kind;
+        if (kind === 'pig' || kind === 'bird') groundedRoll.add(idOf(body));
       }
     }
   });
   Events.on(engine, 'collisionEnd', (event: Matter.IEventCollision<EngineT>) => {
     for (const pair of event.pairs) {
-      for (const body of [pair.bodyA, pair.bodyB]) groundedPigs.delete(idOf(body));
+      for (const body of [pair.bodyA, pair.bodyB]) groundedRoll.delete(idOf(body));
     }
   });
 
@@ -168,7 +170,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
     Composite.remove(engine.world, t.body);
     const si = staticInits.findIndex((s) => s.id === id);
     if (si >= 0) staticInits.splice(si, 1);
-    groundedPigs.delete(id);
+    groundedRoll.delete(id);
     tracked.delete(id);
   }
 
@@ -203,12 +205,14 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
 
     Engine.update(engine, STEP_MS);
 
-    // Rolling resistance for pigs resting on the ground (docs/adr.md D15).
-    for (const id of groundedPigs) {
+    // Rolling resistance for bodies resting on the ground (docs/adr.md D15). Birds
+    // need it too: a bird knocked onto the ground rolled for 240 steps (327 units)
+    // without sleeping, which only ended at the settle timeout.
+    for (const id of groundedRoll) {
       const t = tracked.get(id);
       if (!t || t.destroyed) continue;
-      Body.setVelocity(t.body, { x: t.body.velocity.x * PIG_ROLLING_DAMPING, y: t.body.velocity.y * PIG_ROLLING_DAMPING });
-      Body.setAngularVelocity(t.body, t.body.angularVelocity * PIG_ROLLING_DAMPING);
+      Body.setVelocity(t.body, { x: t.body.velocity.x * ROLLING_DAMPING, y: t.body.velocity.y * ROLLING_DAMPING });
+      Body.setAngularVelocity(t.body, t.body.angularVelocity * ROLLING_DAMPING);
     }
 
     return impacts;
@@ -250,7 +254,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
     // fresh ones. staticInits stay for trajectory previews built from data.
     Composite.clear(engine.world, false);
     tracked.clear();
-    groundedPigs.clear();
+    groundedRoll.clear();
     destroyedThisStep = [];
   }
 

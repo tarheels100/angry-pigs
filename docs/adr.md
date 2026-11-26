@@ -210,3 +210,17 @@ score, then more stars, then fewer shots.
 **Rejected.** Saving every attempt (unbounded growth for no benefit); a JSON file or
 IndexedDB (needs a build step or async plumbing for one number per stage); persisting in
 the rules object (rules are rebuilt on restart and must not read browser state).
+
+## D25 — Rolling resistance covers birds as well as pigs
+**Decision.** `src/physics/matterAdapter.ts` applies `ROLLING_DAMPING` (×0.98 per step)
+to any body of kind `pig` or `bird` that is in ground contact, tracked by
+`collisionActive`/`collisionEnd`.
+**Why.** D15 fixed the pig case, but the same defect existed for birds: a bird knocked
+onto the ground rolled for 240 steps (327 units) without ever sleeping, so those rounds
+ended only at the settle timeout (D16) rather than at rest. Measured after the change:
+sleeps at step 134 after 109 units (`scratch/bird-roll-probe.ts`). Targets must not be
+consumed the way pigs are, so damping is the fix, not a rest rule.
+**Rejected.** Applying damping to blocks (a toppled beam should slide as debris);
+raising bird friction (Matter takes `max(frictionA, frictionB)`, so it would change how
+birds rest on beams, not just how they roll); consuming settled birds like pigs (a bird
+is a target, not ammo).
