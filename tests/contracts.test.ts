@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import type { PhysicsAdapter, BodyInit, Impact, TrajectorySample, WorldInit } from '../src/physics/adapter.ts';
+import type { BodyInit, ExplosionOptions, Impact, PhysicsAdapter, TrajectorySample, WorldInit } from '../src/physics/adapter.ts';
 import type { Theme, RenderFrame } from '../src/render/theme.ts';
 import type { Viewport, CameraApi } from '../src/camera/camera.ts';
 import type { GameRules, RulesSnapshot, Phase } from '../src/game/rules.ts';
@@ -59,6 +59,15 @@ function fakeAdapter(): PhysicsAdapter {
       if (!s) return;
       s.health -= amount;
       if (s.health <= 0) s.destroyed = true;
+    },
+    explode(center: Vec2, options: ExplosionOptions): void {
+      for (const [id, st] of bodies) {
+        const dist = Math.hypot(st.x - center.x, st.y - center.y);
+        if (dist > options.radius) continue;
+        const falloff = 1 - dist / options.radius;
+        st.health -= options.damage * falloff;
+        if (st.health <= 0) st.destroyed = true;
+      }
     },
     simulateTrajectory(origin: Vec2, velocity: Vec2, maxSteps: number): TrajectorySample[] {
       const out: TrajectorySample[] = [];

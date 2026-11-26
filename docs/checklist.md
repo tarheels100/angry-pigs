@@ -9,10 +9,10 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 
 ## 0. Baseline gate
 
-- [x] `npm run check` — typecheck, 125 headless tests, build in one command.
-      **Expected:** all pass, `dist/index.html` written (~128 KB inline, one `<script>`).
+- [x] `npm run check` — typecheck, 137 headless tests, build in one command.
+      **Expected:** all pass, `dist/index.html` written (~130 KB inline, one `<script>`).
 - [x] `npm run test:browser` — builds the artifact and drives it in headless Chromium.
-      **Expected:** 17 pass. CI runs this and `npm run check:determinism` as one browser
+      **Expected:** 19 pass. CI runs this and `npm run check:determinism` as one browser
       job, and `deploy` waits for it (`docs/adr.md` D22).
 
 ## 1. Browser-only checks
@@ -56,6 +56,15 @@ Covered by `tests/browser/game.browser.mjs` unless marked manual. Serve with
       different name and tempo, and a restart replays the same flavour (M17). Headless:
       `tests/audio.test.ts` asserts a seed replays the same sequence and mute silences
       output without forgetting the track.
+- [x] **The HUD names the pig in the chamber.** On Stage 03 the `next-pig` stat reads
+      `next basic`, then `next cluster` after one shot, then `next bomb`; firing the cluster
+      puts several pigs in the registry at once (M18). Headless: `tests/hud.test.ts`,
+      `tests/pigs.test.ts`.
+- [x] **A bomb detonates against structure.** Stage 02 opens with a bomb; the measured
+      winning aim (`window.__game` drag at pull 63, 18° up) produces `window.__explosions >= 1`.
+      A soft landing on the ground produces none (D34). Headless: `tests/pigs.test.ts` and
+      `tests/physics.test.ts` assert blast falloff, push, and that a destroyed body is not
+      flung again.
 - [x] **Tab hidden, then resumed.** Hide the tab for ~10s during flight.
       **Result:** pigs resume in place — the loop discards surplus time (M5).
 - [x] **Watch workflow.** Verified: start `npm run dev`, edit a source line, the rebuilt
@@ -105,6 +114,13 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
       `variant`; a bird paints a wing, beak, and comb; the launcher tilts with `aimAngle`
       and compresses with `pull`; scenery props paint as trees and ridges. Asserted per
       theme in `tests/themes.test.ts`, and the death flash keeps only the body outline.
+- [x] **Pig types change behaviour, not materials.** The registry (`src/game/pigs.ts`) drives
+      radius, mass, damage multiplier, pigs-per-shot, and the blast recipe; every pig is still
+      the `light` material (D33). Asserted in `tests/pigs.test.ts`: a cluster costs one ammo
+      slot and spawns three staggered pigs carrying the `cluster` hint; a heavy pig's measured
+      impact energy exceeds a basic pig's from the same aim; an unknown ammo id is a load error.
+      Blast damage is converted once (`damage * DAMAGE_SCALE`), so a bomb clears glass and
+      chips wood rather than erasing a wood column.
 - [x] **Scenery cannot change outcomes.** `scenery` items are validated and loaded as
       display extras, never bodies (`tests/levels.test.ts`, D29).
 - [x] **Effects stay out of the simulation.** Trail, debris, particles, and shake are
@@ -149,9 +165,11 @@ misses everything and proves the lose path. Peak impact energies for the flat sh
 vs column 75.4, pig vs ground 53.9, pig vs second column 24.4, debris hits 1–15.
 
 Clearability with the structure-aware bot (`scratch/greedy-probe.ts`, mirrored in
-`tests/levels.test.ts`): stage 01 in 1 pig, stage 02 in 2, stage 03 in 3 — all inside the
-authored ammo. The bot aims at the support holding a bird up and never repeats a shot that
-killed nothing.
+`tests/levels.test.ts`): stage 01 in 1 pig, stage 02 in 2, stage 03 in 2 — all inside the
+authored ammo, which is now typed (`bomb` opens stage 02, `cluster` is stage 03's second
+shot). The bot aims at the support holding a bird up and never repeats a shot that
+killed nothing. The single-shot sweep still measures the **first** shot, so its counts are
+unchanged by later typed ammo.
 
 - Preview cost: `simulateTrajectory` is ~0.07 ms per call (120 steps, 7 bodies), so
   recomputing per pointermove is free at this scale. Re-measure before adding 100+ bodies.
@@ -174,6 +192,10 @@ killed nothing.
       `GITHUB_TOKEN`; no PAT committed.
 - [x] **Artifact assertion test.** `tests/artifact.test.ts` rebuilds the artifact and
       rejects absolute URLs, root-absolute paths, and runtime `fetch`.
+      **Gotcha found at M18:** inlining used `String.replace(tag, bundle)`, and JavaScript
+      treats `$&`, `$'` and "$`" inside a replacement string as special patterns. Minified
+      matter-js contains `$&`, so the entry tag and surrounding html were spliced *into* the
+      middle of the bundle. `build-html.js` now splits and joins instead of replacing.
 
 ## 5. Where to record results
 

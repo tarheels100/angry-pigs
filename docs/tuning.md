@@ -66,7 +66,7 @@ Wins require at least one bird to die; a win is not necessarily a one-shot clear
 `scratch/greedy-probe.ts` and `tests/levels.test.ts` aim at the structure holding a bird
 up, not at the bird itself — that is how a player clears a pedestal — and never repeat a
 shot that killed nothing. With that bot: stage 01 clears in 1 pig, stage 02 in 2, stage 03
-in 3, all inside the authored ammo.
+in 2, all inside the authored ammo.
 
 **Difficulty order holds:** stage 01 easiest (75), stage 02 harder (19), stage 03 hardest
 (10). Reaching a bird is now the hard part: blocks survive hits, so kills come from
@@ -108,3 +108,30 @@ starting point, not a tuned curve.
   thresholds rather than adding more ammo.
 - Wood is used once (stage 03 tower legs). More materials arrive with M18 pig types, where
   a heavy or bomb pig is the thing that breaks wood and stone.
+
+## Pig types (M18, src/game/pigs.ts)
+
+Ammo lists are pig type ids, validated at load (`pig` is an alias for `basic`). Physical
+fields reach the adapter through `BodyInit`; gameplay fields are read by the game layer
+(docs/adr.md D33).
+
+| type | radius | massScale | damage multiplier | pigs per shot | extra |
+| --- | --- | --- | --- | --- | --- |
+| basic | 18 | 1.0 | 1.0 | 1 | — |
+| heavy | 26 | 2.2 | 1.6 | 1 | knocks columns down; survives a graze |
+| bomb | 20 | 1.2 | 1.0 | 1 | blast: radius 130, impulse 9, damage 14, threshold 40 |
+| cluster | 12 | 0.8 | 0.8 | 3 | fan of 0.06 rad between pigs, same launch speed |
+
+Conversion, measured rather than assumed:
+
+- Impact damage is normalized: `0.3 * energy * multiplier / material.threshold`, so a
+  multiplier changes a hit's cost proportionally (a heavy pig at the same aim spends ~1.6×).
+- Blast damage is **health points**, converted once: `damage * DAMAGE_SCALE` = 4.2 hp at the
+  centre, falling to 0 at radius 130; impulse is `9 * IMPULSE_SCALE` = 0.18 velocity at the
+  centre. That clears glass (0.5–2.4 hp) and chips wood (6 hp) without erasing a wood column.
+- Detonation needs a hit against a block or bird with raw impact energy ≥ 40 (docs/adr.md
+  D34). Measured on stage 02 with the winning aim: peak impact 54.6, one blast, pedestal gone.
+
+Sweep numbers above still hold because the sweep measures the *first* shot only, and every
+stage's first ammo is still `basic` except stage 02 (bomb). Greedy bot with typed ammo:
+1 / 2 / 2 pigs (docs/tuning.md sweeps section).

@@ -8,6 +8,9 @@ export interface Hud {
   setLevel(label: string): void;
   /** Best previous result for the stage, e.g. "best 2★ 3500"; null hides it. */
   setBest(text: string | null): void;
+  /** The next pig in the launcher's queue (M18). Kept separate from update() so the
+   * HUD still reads only the rules snapshot for game state. */
+  setNextPig(label: string | null): void;
   /** Wire the restart control; returns an unsubscribe. */
   onRestart(handler: () => void): () => void;
 }
@@ -26,6 +29,7 @@ export function createHud(el: HTMLElement): Hud {
       <span class="hud-stat" data-stat="score">0</span>
       <span class="hud-stat" data-stat="stars"></span>
       <span class="hud-stat" data-stat="best"></span>
+      <span class="hud-stat" data-stat="next-pig"></span>
     </div>
     <div class="hud-message" data-stat="message"></div>
     <button class="hud-restart" type="button">restart</button>
@@ -38,6 +42,7 @@ export function createHud(el: HTMLElement): Hud {
     targets: el.querySelector('[data-stat="targets"]') as HTMLElement | null,
     score: el.querySelector('[data-stat="score"]') as HTMLElement | null,
     stars: el.querySelector('[data-stat="stars"]') as HTMLElement | null,
+    nextPig: el.querySelector('[data-stat="next-pig"]') as HTMLElement | null,
     best: el.querySelector('[data-stat="best"]') as HTMLElement | null,
     message: el.querySelector('[data-stat="message"]') as HTMLElement | null,
     restart: el.querySelector('.hud-restart') as HTMLButtonElement | null,
@@ -61,6 +66,9 @@ export function createHud(el: HTMLElement): Hud {
     },
     setBest(text) {
       if (stats.best) stats.best.textContent = text ?? '';
+    },
+    setNextPig(label) {
+      if (stats.nextPig) stats.nextPig.textContent = label ? `next ${label}` : '';
     },
     onRestart(handler) {
       if (!stats.restart) return () => {};

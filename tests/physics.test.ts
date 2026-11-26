@@ -198,3 +198,40 @@ test('a pig rolls a long way on the ground instead of stopping dead', () => {
   const rolled = adapter.state('pig')!.x - startX;
   assert.ok(rolled > 120, `pig rolled only ${rolled.toFixed(1)} units; expected a long roll`);
 });
+
+test('explode damages and pushes what is inside the blast radius', () => {
+  const adapter = stage();
+  adapter.addBody({ id: 'near', kind: 'block', shape: 'box', material: 'wood', x: 300, y: 300, halfWidth: 20, halfHeight: 20 });
+  adapter.addBody({ id: 'far', kind: 'block', shape: 'box', material: 'wood', x: 700, y: 300, halfWidth: 20, halfHeight: 20 });
+  for (let i = 0; i < 5; i++) adapter.step(DT);
+
+  const farBefore = adapter.state('far')!;
+  const farSpeedBefore = Math.hypot(farBefore.vx, farBefore.vy);
+
+  adapter.explode({ x: 300, y: 320 }, { radius: 80, damage: 8, impulse: 0.2 });
+
+  // Close to the centre: full damage, pushed away from the blast.
+  assert.equal(adapter.state('near')?.destroyed, true, 'a body at the centre takes the full blast');
+  assert.ok(adapter.state('far')?.destroyed !== true, 'a body outside the radius is untouched');
+  const far = adapter.state('far')!;
+  assert.equal(far.health, farBefore.health, 'outside the radius nothing is chipped');
+  assert.ok(Math.hypot(far.vx, far.vy) < farSpeedBefore + 0.01, 'outside the radius nothing is pushed');
+
+  // Linear falloff: a body half way out loses about half the damage.
+  const adapter2 = stage();
+  adapter2.addBody({ id: 'edge', kind: 'block', shape: 'box', material: 'wood', x: 340, y: 300, halfWidth: 20, halfHeight: 20 });
+  const before = adapter2.state('edge')!;
+  adapter2.explode({ x: 300, y: 300 }, { radius: 80, damage: 4, impulse: 0 });
+  const after = adapter2.state('edge')!;
+  assert.ok(after.health < before.health, 'a mid-radius body is damaged');
+  assert.ok(before.health - after.health < 4 && before.health - after.health > 0, 'falloff charges less than the full amount');
+});
+
+test('explode never flings a body it already destroyed', () => {
+  const adapter = stage();
+  adapter.addBody({ id: 'block', kind: 'block', shape: 'box', material: 'glass', x: 300, y: 300, halfWidth: 20, halfHeight: 20 });
+  adapter.explode({ x: 300, y: 300 }, { radius: 100, damage: 10, impulse: 0.5 });
+  assert.equal(adapter.state('block')?.destroyed, true);
+  adapter.explode({ x: 300, y: 300 }, { radius: 100, damage: 10, impulse: 0.5 });
+  assert.equal(adapter.snapshot().some((s) => s.id === 'block'), false, 'a destroyed body stays gone');
+});

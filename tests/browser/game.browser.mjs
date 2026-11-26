@@ -406,3 +406,77 @@ test('each stage plays its own generated track', async () => {
     assert.deepEqual(again, second, 'restarting a stage replays the same flavour');
   });
 });
+
+/** Read one HUD stat's text, e.g. "next bomb". */
+async function hudStat(page, stat) {
+  return page.evaluate((s) => document.querySelector(`[data-stat="${s}"]`)?.textContent ?? '', stat);
+}
+
+/** Pull by (dx right, dy down) from the launcher and release: the real gesture path. */
+async function pullAndFire(page, dx, dy) {
+  await page.evaluate(({ dx, dy }) => {
+    const origin = window.__game.cannon.config().origin;
+    window.__game.beginAim();
+    window.__game.dragAim({ x: origin.x - dx, y: origin.y + dy });
+    window.__game.releaseAim();
+  }, { dx, dy });
+}
+
+async function waitStat(page, stat, expected, what) {
+  await page.waitForFunction(
+    ({ s, want }) => document.querySelector(`[data-stat="${s}"]`)?.textContent === want,
+    { s: stat, want: expected },
+    { timeout: 4000 },
+  );
+  return what;
+}
+
+/** Wait until the round accepts a shot again (docs/adr.md D26: aiming or settling). */
+async function waitShootable(page) {
+  await page.waitForFunction(
+    () => window.__game.rules.snapshot().phase === 'aiming' || window.__game.rules.snapshot().phase === 'settling',
+    null,
+    { timeout: 6000 },
+  );
+}
+
+test('the HUD names the pig waiting in the chamber (M18)', async () => {
+  await withPage(async (page) => {
+    await open(page, artifactPath());
+    // Stage 03 ships basic, cluster, bomb, then basics.
+    await page.keyboard.press('n');
+    await page.keyboard.press('n');
+    await waitStat(page, 'level', 'stage 3/3', 'stage 03 loaded');
+    // The chamber label is written by the render loop, so it is waited for, not read instantly.
+    await waitStat(page, 'next-pig', 'next basic', 'basic queued first');
+
+    await pullAndFire(page, 90, 0);
+    await waitStat(page, 'next-pig', 'next cluster', 'cluster queued next');
+    await waitShootable(page);
+
+    await pullAndFire(page, 90, 0);
+    // Counted after the first simulation step registers the bodies, but before the pigs
+    // settle and are consumed, so the burst is visible.
+    await page.waitForFunction(() => window.__game.entities.byKind('pig').length > 1, null, { timeout: 1500 });
+    const pigs = await page.evaluate(() => window.__game.entities.byKind('pig').length);
+    assert.ok(pigs > 1, `a cluster fires several pigs (saw ${pigs})`);
+    await waitStat(page, 'next-pig', 'next bomb', 'bomb queued next');
+  });
+});
+
+test('a bomb detonates against structure (M18)', async () => {
+  await withPage(async (page) => {
+    await open(page, artifactPath());
+    // Stage 02 opens with the bomb, so the blast is testable without clearing first.
+    await page.keyboard.press('n');
+    await waitStat(page, 'level', 'stage 2/3', 'stage 02 loaded');
+    await waitStat(page, 'next-pig', 'next bomb', 'the chamber holds a bomb');
+
+    // The measured winning aim for this stage (docs/tuning.md): a shallow upward arc.
+    await pullAndFire(page, 63, 18);
+    // Detonation happens where the bomb lands, so it is waited for rather than sampled.
+    await page.waitForFunction(() => (window.__explosions ?? 0) > 0, null, { timeout: 4000 });
+    const blasts = await page.evaluate(() => window.__explosions ?? 0);
+    assert.ok(blasts >= 1, `the bomb must detonate on structure (blasts: ${blasts})`);
+  });
+});

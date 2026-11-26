@@ -6,6 +6,7 @@ import type { LoadedLevel } from '../levels/index.ts';
 import { createEntityRegistry } from '../core/entities.ts';
 import { createCannon, type Cannon } from './cannon.ts';
 import { createRules, type GameRules, type RulesSnapshot } from './rules.ts';
+import { isPigTypeId, pigType, shotVelocities, type PigTypeSpec } from './pigs.ts';
 import { materialSpec } from '../physics/materials.ts';
 
 /** Composition root for gameplay: level + cannon + physics + rules. */
@@ -15,7 +16,7 @@ const PIG_SPEED_EPS = 1.2;
 const PIG_SLOW_STEPS = 45;
 const SETTLE_TIMEOUT_STEPS = 240;
 const TRAJECTORY_STEPS = 120;
-const PIG_RADIUS = 18;
+// Pig size comes from the type registry (src/game/pigs.ts), not a constant here.
 /** A release must drag at least this far from the cannon to count as a shot. */
 const MIN_DRAG = 12;
 /** Fraction of `energy / threshold` health that one impact spends (docs/tuning.md).
@@ -30,6 +31,9 @@ const FLASH_STEPS = 10;
 /** How fast the cannon recoil relaxes after a shot (presentation only, D28). A flash
  * of about 20 steps reads as a muzzle blink without lingering into the next shot. */
 const RECOIL_DECAY = 0.05;
+
+/** Velocity multiplier for blast push, matching the impact impulse convention (D33). */
+const IMPULSE_SCALE = 0.02;
 /** How far the waiting pig sits down the barrel, as a fraction of the pull (D28). */
 const LOAD_DEPTH = 0.5;
 
@@ -80,7 +84,7 @@ export function createGame(options: GameOptions): Game {
   });
   let rules = createRules({ targetIds: level.targetIds, ammo: level.ammo });
 
-  const pigs = new Map<string, { slowSteps: number }>();
+  const pigs = new Map<string, { slowSteps: number; spec: PigTypeSpec }>();
   /** Destroyed bodies no longer appear in the snapshot (D17); these display-only
    * extras flash where they died, then drop out. */
   const corpses = new Map<string, { state: EntityState; steps: number }>();
@@ -111,6 +115,12 @@ export function createGame(options: GameOptions): Game {
   }
 
   function buildLevel(): void {
+    // Ammo ids are pig type ids (M18). A level naming an unknown type is a content
+    // error, not a silent fallback: it throws at load so authored stages cannot ship a
+    // pig that does nothing.
+    for (const id of level.ammo) {
+      if (!isPigTypeId(id)) throw new Error(`level "${level.def.name}" has unknown pig type: ${id}`);
+    }
     for (const body of level.bodies) adapter.addBody(body);
     warmup();
     bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length, bounds: level.def.bounds });
@@ -151,8 +161,10 @@ export function createGame(options: GameOptions): Game {
         x: origin.x + back.x * depth, y: origin.y + back.y * depth, angle: aim ? Math.atan2(aim.direction.y, aim.direction.x) : 0,
         vx: 0, vy: 0,
         sleeping: true, destroyed: false, health: Infinity, impactEnergy: 0,
-        radius: PIG_RADIUS,
-        variant: cannon.nextAmmo() ?? 'basic',
+        // The queued pig's shape follows its type: a heavy pig is bigger, a bomb is a
+        // bomb, a cluster reads as three small ones (M18).
+        radius: pigType(cannon.nextAmmo() ?? 'basic').radius,
+        variant: pigType(cannon.nextAmmo() ?? 'basic').id,
       });
     }
     for (const prop of level.scenery) {
@@ -190,15 +202,43 @@ export function createGame(options: GameOptions): Game {
    * Pigs are consumed rather than damaged (docs/adr.md D15); M8 formalises this. */
   function applySliceDamage(aId: string, bId: string, energy: number): void {
     if (damagePaused) return;
+    // A heavy pig delivers more damage than a basic one for the same impact (M18).
+    const pigId = adapter.state(aId)?.kind === 'pig' ? aId : adapter.state(bId)?.kind === 'pig' ? bId : null;
+    const multiplier = pigId ? pigs.get(pigId)?.spec.damageMultiplier ?? 1 : 1;
+    const delivered = energy * multiplier;
     for (const id of [aId, bId]) {
       const s = adapter.state(id);
       if (!s || s.destroyed || s.kind === 'pig' || s.kind === 'ground' || s.kind === 'wall') continue;
       const threshold = materialSpec(s.material).damageThreshold;
-      if (energy > threshold) adapter.applyDamage(id, (DAMAGE_SCALE * energy) / threshold);
+      if (delivered > threshold) adapter.applyDamage(id, (DAMAGE_SCALE * delivered) / threshold);
     }
   }
 
-  function consumePig(id: string, reason: 'settled' | 'outOfBounds' | 'timeout'): void {
+  /**
+   * A bomb pig detonates on a solid hit against *structure* (M18): everything within
+   * the blast radius is damaged and pushed, and the pig is consumed. Landing on the
+   * ground or a wall is not a detonation, and a graze below the threshold behaves like
+   * any other pig, so a bomb that lands softly does not erase the stage.
+   */
+  function detonate(pigId: string, spec: PigTypeSpec, energy: number, partnerKind: EntityState['kind']): boolean {
+    if (damagePaused) return false;
+    if (partnerKind !== 'block' && partnerKind !== 'bird') return false;
+    const explosion = spec.explosion;
+    if (!explosion || energy < explosion.threshold) return false;
+    const s = adapter.state(pigId);
+    if (!s) return false;
+    // Blast damage follows the same conversion as impact damage (docs/adr.md D33), so the
+    // authored recipe is a roughness number, not a literal health value.
+    adapter.explode(
+      { x: s.x, y: s.y },
+      { radius: explosion.radius, impulse: explosion.impulse * IMPULSE_SCALE, damage: explosion.damage * DAMAGE_SCALE },
+    );
+    bus.emit('explosion', { x: s.x, y: s.y, radius: explosion.radius });
+    consumePig(pigId, 'exploded');
+    return true;
+  }
+
+  function consumePig(id: string, reason: 'settled' | 'outOfBounds' | 'timeout' | 'exploded'): void {
     pigs.delete(id);
     adapter.removeBody(id);
     bus.emit('pigConsumed', { id, reason });
@@ -265,6 +305,14 @@ export function createGame(options: GameOptions): Game {
         lastHit.set(impact.bId, { partnerKind: a.kind });
       }
       applySliceDamage(impact.aId, impact.bId, impact.energy);
+      // Detonation runs after damage so the blast is the last word on this impact.
+      const bombId = adapter.state(impact.aId)?.kind === 'pig' ? impact.aId : adapter.state(impact.bId)?.kind === 'pig' ? impact.bId : null;
+      if (bombId) {
+        const spec = pigs.get(bombId)?.spec;
+        const partner = bombId === impact.aId ? impact.bId : impact.aId;
+        const kind = adapter.state(partner)?.kind ?? 'ground';
+        if (spec) detonate(bombId, spec, impact.energy, kind);
+      }
     }
     for (const id of adapter.destroyedLastStep()) {
       rules.targetDestroyed(id);
@@ -291,7 +339,7 @@ export function createGame(options: GameOptions): Game {
   function refreshTrajectory(): void {
     const velocity = cannon.launchVelocity();
     trajectory = velocity
-      ? adapter.simulateTrajectory(cannon.config().origin, velocity, TRAJECTORY_STEPS, PIG_RADIUS)
+      ? adapter.simulateTrajectory(cannon.config().origin, velocity, TRAJECTORY_STEPS, pigType(cannon.nextAmmo() ?? 'basic').radius)
       : [];
   }
 
@@ -345,17 +393,36 @@ export function createGame(options: GameOptions): Game {
       cancelAim();
       return false;
     }
-    const id = `pig-${++pigCounter}`;
-    adapter.addBody({ id, kind: 'pig', shape: 'circle', material: 'light', x: cannon.config().origin.x, y: cannon.config().origin.y, radius: PIG_RADIUS });
-    adapter.launch(id, velocity);
-    pigs.set(id, { slowSteps: 0 });
-    // The ammo id is a presentation hint only (M18 pig types draw and behave differently).
-    entities.setVariant(id, cannon.consumeAmmo() ?? 'basic');
+    // One ammo slot, one shot: a cluster spends the slot to fire three pigs (M18).
+    const spec = pigType(cannon.consumeAmmo() ?? 'basic');
+    const origin = cannon.config().origin;
+    const shots = shotVelocities(spec, velocity);
+    const ids: string[] = [];
+    for (let i = 0; i < shots.length; i++) {
+      const id = `pig-${++pigCounter}`;
+      // Spread pigs stagger along the launch direction so they never overlap at spawn.
+      const offset = i * spec.radius * 1.6;
+      const norm = Math.hypot(velocity.x, velocity.y) || 1;
+      adapter.addBody({
+        id,
+        kind: 'pig',
+        shape: 'circle',
+        material: 'light',
+        x: origin.x + (velocity.x / norm) * offset,
+        y: origin.y + (velocity.y / norm) * offset,
+        radius: spec.radius,
+        massScale: spec.massScale,
+      });
+      adapter.launch(id, shots[i]!);
+      pigs.set(id, { slowSteps: 0, spec });
+      entities.setVariant(id, spec.id);
+      ids.push(id);
+    }
     recoil = 1;
     rules.launch();
     flightSteps = 0;
     trajectory = [];
-    bus.emit('launch', { id, velocity });
+    bus.emit('launch', { id: ids[0]!, velocity });
     bus.emit('phaseChanged', { phase: rules.snapshot().phase });
     refreshDisplay();
     return true;

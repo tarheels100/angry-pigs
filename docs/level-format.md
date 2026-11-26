@@ -22,7 +22,7 @@ time (D6). Coordinates are world units; the stage is 1600x900 with +y downward.
 | `cannon.x/y` | origin of the launcher | not a physics body |
 | `cannon.maxPull` | drag cap in world units | bounds launch power |
 | `cannon.powerScale` | launch speed per unit of pull | tuned in M7/M8 |
-| `cannon.ammo` | pig variants, consumed one per launch | unused variants allowed for later |
+| `cannon.ammo` | pig type ids, consumed one per launch | `basic`, `heavy`, `bomb`, `cluster`; `pig` is an alias for `basic` (M18) |
 | `statics[]` | ground/wall rectangles | `x,y` is the centre; `w,h` full size |
 | `objects[]` | damageable movable bodies | `block` uses `w,h`, `ball` uses `r` |
 | `objects[].target` | marks a bird | counted for win/lose |
@@ -34,7 +34,8 @@ time (D6). Coordinates are world units; the stage is 1600x900 with +y downward.
 - validate against this schema and fail with a **named field** error, not a crash;
 - merge `objects` + `targets` into one entity list, assigning stable ids
   (`block-3`, `bird-1`);
-- reject bodies outside `bounds`, overlapping statics, and empty `ammo`.
+- reject bodies outside `bounds`, overlapping statics, and empty `ammo`;
+- reject an `ammo` entry that is not a pig type id (`unknown pig type: rocket`).
 
 ## Notes
 
@@ -60,6 +61,18 @@ props cannot change outcomes (docs/adr.md D29).
 ```
 
 A prop needs `r`, or `w` and `h`. Positions must be inside `bounds`.
+
+## ammo: pig types (M18)
+
+`cannon.ammo` is a list of pig type ids from `src/game/pigs.ts` (docs/adr.md D33):
+`basic`, `heavy`, `bomb`, `cluster` (`pig` is an alias for `basic`). The id sets the body
+size and mass, how much damage the pig delivers, how many pigs leave the launcher, and
+whether a solid hit detonates. Types are gameplay, not materials: every pig is built from
+the `light` material and gets a `variant` hint so themes can style it (docs/theme-contract.md).
+
+Author ammo as a *plan*, not a pile of identical shots: stage 02 opens with a bomb to clear
+glass, stage 03 spends a cluster on the wide tower. A stage that needs five identical shots
+to clear is under-designed — add a failure mode instead (rule 4).
 
 ## Design rules (learned from the sweeps)
 
@@ -87,6 +100,10 @@ A prop needs `r`, or `w` and `h`. Positions must be inside `bounds`.
    on it is unfair.
 7. **Scenery never carries the level.** If a bird or a block depends on a prop, make it an
    `objects` entry, not `scenery` (D29).
+8. **A bomb must have something breakable to hit.** Detonation needs a block or bird within
+   the blast and impact energy above the threshold (D34); a bomb that only meets the ground
+   is a wasted shot. Place glass where a bomb lands, and remember the blast chips wood rather
+   than clearing it.
 
 ## Materials available (v0)
 
@@ -95,7 +112,7 @@ A prop needs `r`, or `w` and `h`. Positions must be inside `bounds`.
 | `glass` | fragile structure | shatters on a solid hit, chips on a graze |
 | `wood` | tougher structure | survives several hits; friction holds a stack (stage 03 tower legs) |
 | `stone` | scenery and obstacles | unbreakable by a pig at the current scale — never a roof over a bird |
-| `metal` | heavy payload / immovable obstacle | very high health; reserved for M18 pig types |
+| `metal` | heavy payload / immovable obstacle | very high health; structure only — pigs use `light` plus a `massScale` |
 | `feather` | birds (targets) | fragile; dies from a fall or a direct hit |
 | `light` | pigs (projectiles) | rolls, never takes damage (D15) |
 | `ground` | statics | infinite health |

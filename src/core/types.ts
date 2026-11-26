@@ -78,7 +78,9 @@ export interface GameEvents {
   damaged: { id: string; amount: number; health: number };
   destroyed: { id: string; cause: 'impact' | 'crush' | 'fall' };
   launch: { id: string; velocity: Vec2 };
-  pigConsumed: { id: string; reason: 'settled' | 'outOfBounds' | 'timeout' };
+  pigConsumed: { id: string; reason: 'settled' | 'outOfBounds' | 'timeout' | 'exploded' };
+  /** A bomb pig detonated (M18). Carries the blast geometry so effects can match it. */
+  explosion: { x: number; y: number; radius: number };
   levelLoaded: { levelId: string; name: string; ammo: number; bounds: { width: number; height: number } };
   phaseChanged: { phase: GamePhase };
   levelWon: { levelId: string; score: number; stars: number };

@@ -57,6 +57,8 @@ const BLIPS: Record<string, Blip> = {
   destroyed: { type: 'triangle', from: 520, to: 120, seconds: 0.2, gain: 0.24 },
   won: { type: 'triangle', from: 440, to: 880, seconds: 0.35, gain: 0.26 },
   lost: { type: 'sawtooth', from: 220, to: 90, seconds: 0.4, gain: 0.22 },
+  // Bomb detonation (M18): a low thud with a fast drop.
+  explosion: { type: 'square', from: 90, to: 40, seconds: 0.3, gain: 0.3 },
 };
 
 /** The browser's AudioContext, or null in a headless environment. */
@@ -112,6 +114,7 @@ export function createSfx(factory: AudioContextFactory = browserAudio): Sfx {
           play(BLIPS.impact!, Math.min(1, 0.25 + e.energy / 400));
         }),
         bus.on('destroyed', () => play(BLIPS.destroyed!)),
+        bus.on('explosion', () => play(BLIPS.explosion!)),
         bus.on('levelWon', () => play(BLIPS.won!)),
         bus.on('levelLost', () => play(BLIPS.lost!)),
       );

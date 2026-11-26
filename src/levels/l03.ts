@@ -11,7 +11,7 @@ import type { LevelDef } from './index.ts';
 export const LEVEL_03: LevelDef = {
   name: 'stage-03',
   bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 420, maxPull: 90, powerScale: 0.22, ammo: ['basic', 'basic', 'basic', 'basic', 'basic'] },
+  cannon: { x: 120, y: 420, maxPull: 90, powerScale: 0.22, ammo: ['basic', 'cluster', 'bomb', 'basic', 'basic'] },
   statics: [
     { type: 'ground', x: 800, y: 860, w: 1600, h: 40 },
     // Low stone wall: flat shots die here, arcs pass over it.

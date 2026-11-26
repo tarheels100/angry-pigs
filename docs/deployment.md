@@ -32,6 +32,13 @@ bundle into **`dist/index.html`** — one self-contained file:
 - **zero runtime fetches**, so GitHub Pages and double-click-from-disk behave
   identically.
 
+Inlining is `html.split(entryTag).join('<script>' + bundle + '</script>')`, not
+`String.replace`. JavaScript reads `$&`, `$'` and "$`" inside a replacement string as
+special patterns, and minified matter-js contains `$&`; with `replace` the entry tag and
+the surrounding html were spliced into the middle of the bundle (caught by
+`tests/artifact.test.ts` at M18). A literal `</script>` in the bundle is escaped first, so
+it cannot terminate the inline tag.
+
 ## GitHub Pages
 
 Pages does not build, so publish the built file, not `src/`:

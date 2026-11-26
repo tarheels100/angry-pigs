@@ -12,7 +12,7 @@ import type { LevelDef } from './index.ts';
 export const LEVEL_02: LevelDef = {
   name: 'stage-02',
   bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 420, maxPull: 90, powerScale: 0.22, ammo: ['basic', 'basic', 'basic', 'basic'] },
+  cannon: { x: 120, y: 420, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'basic', 'heavy', 'basic'] },
   statics: [{ type: 'ground', x: 800, y: 860, w: 1600, h: 40 }],
   objects: [
     // Near tower: column tops = 720, beam centre = 712 (beam top = 704).

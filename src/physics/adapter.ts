@@ -16,6 +16,8 @@ export interface BodyInit {
   halfHeight?: number;
   radius?: number;
   isStatic?: boolean;
+  /** Mass multiplier on the material density; a heavy pig knocks structures down (M18). */
+  massScale?: number;
 }
 
 // Impact and TrajectorySample are core types so the game layer can consume them
@@ -43,6 +45,9 @@ export interface PhysicsAdapter {
   launch(id: string, velocity: Vec2): void;
   /** Apply impact damage to an entity's health; emits destroy on the adapter. */
   applyDamage(id: string, amount: number): void;
+  /** Push and damage every dynamic body within `radius` of the centre (bomb pigs, M18).
+   * Falloff is linear with distance, so the centre takes the full values. */
+  explode(center: Vec2, options: ExplosionOptions): void;
   /** Non-mutating ballistic preview against the current statics only. */
   simulateTrajectory(origin: Vec2, velocity: Vec2, maxSteps: number, radius?: number): TrajectorySample[];
   allSleeping(): boolean;
@@ -52,6 +57,15 @@ export interface PhysicsAdapter {
   freezeAll(): void;
   /** Ids destroyed by damage during the most recent step. */
   destroyedLastStep(): string[];
+}
+
+export interface ExplosionOptions {
+  /** World units of effect radius. */
+  radius: number;
+  /** Velocity added to bodies inside the radius, scaled by falloff. */
+  impulse: number;
+  /** Health removed at the centre, scaled by falloff. */
+  damage: number;
 }
 
 // Note: the adapter applies pig rolling resistance (×0.98/step while in ground

@@ -17,6 +17,7 @@ import { createSfx } from './audio/sfx.ts';
 import { createMusic } from './audio/music.ts';
 import { createSaveStore, memoryStore, type KeyValueStore } from './game/save.ts';
 import { WORLD, LEVELS, levelAt, loadLevel } from './levels/index.ts';
+import { pigType } from './game/pigs.ts';
 
 /**
  * Entry point and wiring: level -> physics -> game -> renderer, with pointer input
@@ -146,6 +147,18 @@ if (!canvas || !hudEl) {
     );
   }
   // Registered after the game is built, so the first stage is announced explicitly.
+  // Narrow read-only seam for browser tests (docs/browser-testing.md); nothing in the
+  // game reads it, and it exposes no setters beyond the game's own API.
+  const debug = window as unknown as {
+    __game?: unknown;
+    __camera?: unknown;
+    __trail?: unknown;
+    __debris?: unknown;
+    __music?: unknown;
+    /** Blasts observed since load; the browser test asserts a bomb actually detonated. */
+    __explosions?: number;
+  };
+
   bus.on('levelLoaded', (e) => announceTrack(e.levelId, e.ammo));
   announceTrack(levelAt(levelIndex).name, game.rules.snapshot().ammoLeft);
 
@@ -153,6 +166,19 @@ if (!canvas || !hudEl) {
     const at = game.entities.get(e.aId) ?? game.entities.get(e.bId);
     if (at) particles.spawnBurst({ x: at.x, y: at.y }, theme.palette.outline, Math.min(8, 2 + Math.round(e.energy / 60)), 180);
     camera.shake(Math.min(0.6, e.energy / 300));
+  });
+
+  bus.on('explosion', (e) => {
+    // A blast gets a wider burst and a harder shake than an ordinary impact (M18).
+    // The counter is exposed for browser tests: a bomb must actually detonate.
+    debug.__explosions = (debug.__explosions ?? 0) + 1;
+    particles.spawnBurst({ x: e.x, y: e.y }, theme.palette.flash, 26, e.radius * 2.2);
+    camera.shake(1);
+    debris.spawnFrom(
+      { id: 'blast', kind: 'block', shape: 'box', material: 'glass', x: e.x, y: e.y, angle: 0, vx: 0, vy: 0, sleeping: false, destroyed: true, health: 0, impactEnergy: 0, halfWidth: e.radius / 3, halfHeight: e.radius / 3 },
+      8,
+      e.radius,
+    );
   });
 
   bus.on('destroyed', (e) => {
@@ -272,20 +298,22 @@ if (!canvas || !hudEl) {
         },
       );
       hud.update(game.rules.snapshot());
+      // The launcher's queue names the next pig, so a bomb or cluster is not a surprise.
+      hud.setNextPig(game.cannon.ammoLeft() > 0 ? pigType(game.cannon.nextAmmo() ?? 'basic').label : null);
     },
   });
   loop.start();
 
   // Narrow read-only seam for browser tests (docs/browser-testing.md); nothing in the
   // game reads it, and it exposes no setters beyond the game's own API.
-  (window as unknown as { __game: unknown }).__game = game;
-  (window as unknown as { __camera: unknown }).__camera = camera;
+  debug.__game = game;
+  debug.__camera = camera;
   // Read-only so browser tests can assert a flight leaves a trail (M15).
-  (window as unknown as { __trail: unknown }).__trail = trail;
+  debug.__trail = trail;
   // Same seam for debris heaps (M16).
-  (window as unknown as { __debris: unknown }).__debris = debris;
+  debug.__debris = debris;
   // Same seam for the generated soundtrack (M17): the HUD and tests read the track name.
-  (window as unknown as { __music: unknown }).__music = music;
+  debug.__music = music;
 
   console.log(`angry-pigs: ${LEVELS.length} level(s), themes: ${listThemes().join(', ')}`);
 }

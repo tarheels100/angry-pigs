@@ -120,6 +120,15 @@ Run `node scratch/physics-spike/spike.ts`. All checks pass:
     start partly damaged and visibly sinking. The game now simulates 90 steps with damage
     suppressed before handing control over (D27); suppression is a game-layer flag, not a
     physics-engine setting, so damage maths stays in one place.
+15. **A blast is not an impact.** `adapter.explode()` charges health points and velocity
+    directly, with linear falloff from the centre, because a blast has no collision partner
+    and therefore no impact energy. Impact damage is normalized
+    (`0.3 * energy / material.threshold`), so the two must not be confused: the bomb's
+    authored `damage 14` becomes `14 * DAMAGE_SCALE = 4.2` health at the centre, which clears
+    glass (0.5–2.4 hp) and chips wood (6 hp) but cannot erase a wood column in one blast.
+    Bodies exactly at the centre take the full amount, not zero (`dist === 0` is a hit, not
+    "no direction"), and a body already destroyed is skipped so a second blast cannot fling
+    a corpse (docs/adr.md D34).
 
 ## What the M7 slice proved
 

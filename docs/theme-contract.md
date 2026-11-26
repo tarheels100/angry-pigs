@@ -30,7 +30,8 @@ must keep working for every theme.
 `healthMax` lets a theme show partial damage (cracks, tilt) without knowing damage
 maths. `fade` is set only on short-lived display extras — a destroyed body is not in
 the snapshot at all (D17), so a theme never paints a permanent silhouette. `variant` is
-a hint that is not appearance: a pig's ammo type id, or a scenery prop kind. The theme
+a hint that is not appearance: a pig's ammo type id (`basic`, `heavy`, `bomb`, `cluster`),
+or a scenery prop kind (`tree`, `ridge`). The theme
 decides how to draw it, and the simulation never reads it. `pull`, `aimAngle`, and
 `recoil` carry the launcher's aim state (D28) so a theme can draw a tilting barrel and a
 compressing spring without reaching into `Cannon`.

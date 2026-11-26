@@ -313,3 +313,34 @@ gesture).
 (`ParamLike`, `GainNodeLike`, `OscillatorNodeLike`) with ramp methods optional, so a test
 fake can implement less than the browser does. `unlock()` returns the context so the
 soundtrack can reuse it.
+
+## D33 — Pig types are data in the game layer, not physics concepts
+**Decision.** `src/game/pigs.ts` is a registry of pig types (`basic`, `heavy`, `bomb`,
+`cluster`). A level's ammo list is a list of these ids, validated at load. The spec's
+*physical* fields (`radius`, `massScale`) go into `BodyInit`, so the adapter keeps only
+the generic body contract; its *gameplay* fields (`damageMultiplier`, `count`/`spread`,
+`explosion`) are read by the game layer, which calls `adapter.explode()`.
+**Why.** M18 asks for pigs that behave differently. Expressing that as data keeps the
+physics adapter engine-neutral (D1, D10): Matter never learns what a bomb is, and a future
+engine swap does not need to. Levels stay declarative, and themes already style pigs from
+the `variant` hint the registry stamps (docs/theme-contract.md).
+**Rejected.** Giving each pig type its own body type or material (materials describe what
+a thing is made of, not what it does — `docs/physics.md`); implementing blast damage inside
+the Matter adapter (it would be an engine-specific behaviour and would bypass the damage
+conversion the game layer owns).
+
+## D34 — A bomb detonates against structure, and the blast uses the impact conversion
+**Decision.** A bomb pig detonates only when it hits a block or a bird with impact energy
+above `explosion.threshold`. Landing on ground or a wall is not a detonation. The blast is
+issued through `adapter.explode()` with `damage * DAMAGE_SCALE` and `impulse * IMPULSE_SCALE`,
+so the authored recipe is a roughness number like an impact, not literal health.
+**Why.** "Solid hit" must mean *something breakable*, otherwise a bomb that lands softly on
+the floor erases the stage, and a stage becomes a coin flip about where the pig settles.
+Scaling by the same constants as impact damage (D15, tuning) keeps one conversion surface:
+`bomb.damage 14` becomes 4.2 health at the centre, which clears glass (0.5–2.4 hp) and chips
+wood (6 hp) without deleting a wood column outright.
+**Rejected.** Detonating on any collision (including ground: it made soft landings a win);
+detonating on a timer or on the first contact after launch (a timer makes the shot's outcome
+independent of where it lands, which is the whole point of aiming); applying blast damage in
+normalized `energy/threshold` units (there is no impact energy at a blast — the centre is a
+chosen point, not a collision).

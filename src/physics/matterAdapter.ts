@@ -1,6 +1,6 @@
 import Matter from 'matter-js';
 
-import type { BodyInit, Impact, PhysicsAdapter, TrajectorySample, WorldInit } from './adapter.ts';
+import type { BodyInit, ExplosionOptions, Impact, PhysicsAdapter, TrajectorySample, WorldInit } from './adapter.ts';
 import { healthFor, materialSpec } from './materials.ts';
 import type { EntityState, MaterialId, Vec2 } from '../core/types.ts';
 
@@ -122,7 +122,8 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
     const common = {
       label: b.id,
       isStatic: b.isStatic ?? false,
-      density: spec.density,
+      // A heavy pig is denser than a basic one, so it carries more momentum (M18).
+      density: spec.density * (b.massScale ?? 1),
       friction: spec.friction,
       frictionStatic: spec.frictionStatic,
       restitution: spec.restitution,
@@ -281,6 +282,30 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
     }
   }
 
+  /**
+   * Radial blast (M18 bomb pigs). Damage is applied before the push so a body the blast
+   * destroys is not also flung. Falloff is linear with distance, and the push lifts
+   * slightly so a heap pops rather than slides sideways (docs/adr.md D33).
+   */
+  function explode(center: Vec2, options: ExplosionOptions): void {
+    for (const t of [...tracked.values()]) {
+      if (t.destroyed || t.body.isStatic || !Number.isFinite(t.health)) continue;
+      const dx = t.body.position.x - center.x;
+      const dy = t.body.position.y - center.y;
+      const dist = Math.hypot(dx, dy);
+      // A body exactly at the centre takes the full blast (dist 0), not nothing.
+      if (dist > options.radius) continue;
+      const falloff = 1 - dist / options.radius;
+      applyDamage(t.id, options.damage * falloff);
+      if (t.destroyed) continue;
+      Sleeping.set(t.body, false);
+      Body.setVelocity(t.body, {
+        x: t.body.velocity.x + (dx / dist) * options.impulse * falloff,
+        y: t.body.velocity.y + (dy / dist) * options.impulse * falloff - options.impulse * falloff * 0.35,
+      });
+    }
+  }
+
   function makeStaticBody(s: BodyInit): BodyT {
     const spec = materialSpec(s.material);
     return s.shape === 'circle'
@@ -364,6 +389,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
     state,
     launch,
     applyDamage,
+    explode,
     simulateTrajectory,
     allSleeping,
     wakeAll,

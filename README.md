@@ -6,19 +6,20 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
-**Status:** M1–M17 complete. The game runs in a browser from a single self-contained
-`dist/index.html`: three stages, drag aim, trajectory preview, ammo, per-impact damage
-with partial destruction, crush/fall attribution, star scoring, camera follow and
-re-framing, a level warm-up so nothing starts partly damaged, glass/wood/stone materials
-that take several hits, pigs and birds drawn as characters, a launcher whose barrel tilts
-and whose spring compresses, a motion trail, scenery props, debris heaps that pile and
-fade, a generated soundtrack with one flavour per stage, the Tron theme (default) plus a
-Pixel theme proving the theme contract, and deployed to GitHub Pages
+**Status:** M1–M18 complete. The game runs in a browser from a single self-contained
+`dist/index.html`: three stages, drag aim, trajectory preview, typed ammo (basic, heavy,
+bomb, cluster) with a bomb blast and a cluster spread, per-impact damage with partial
+destruction, crush/fall attribution, star scoring, camera follow and re-framing, a level
+warm-up so nothing starts partly damaged, glass/wood/stone materials that take several
+hits, pigs and birds drawn as characters, a launcher whose barrel tilts and whose spring
+compresses, a motion trail, scenery props, debris heaps that pile and fade, a generated
+soundtrack with one flavour per stage, the Tron theme (default) plus a Pixel theme proving
+the theme contract, and deployed to GitHub Pages
 (`https://tarheels100.github.io/angry-pigs/`).
-Gates: `npm run check` (typecheck + 108 headless tests + build), `npm run test:browser` (12 Playwright
-tests against the built artifact), and `npm run check:determinism` (the same bundle run in
-node and chromium, 72 combos, 0 mismatches) — all three run in CI. Best results per stage
-persist in `localStorage` (D24).
+Gates: `npm run check` (typecheck + 137 headless tests + build), `npm run test:browser` (19
+Playwright tests against the built artifact), and `npm run check:determinism` (the same
+bundle run in node and chromium, 72 combos, 0 mismatches) — all three run in CI. Best
+results per stage persist in `localStorage` (D24).
 
 Remaining open work is tuning and feel rather than plumbing — see the open questions in
 `docs/tuning.md` and the manual touch check in `docs/checklist.md`.
@@ -220,7 +221,7 @@ done only when its check passes.
 | 15 | Entity art: pigs/birds drawn as pigs/birds, cannon art, motion trail, scenery | 14 | done |
 | 16 | Debris heaps: destroyed objects crumble into falling fragments on a back layer | 14, 11 | done |
 | 17 | Procedural soundtrack, one flavour per level | 11 | done |
-| 18 | Pig types: basic, heavy, bomb, cluster | 14 | planned |
+| 18 | Pig types: basic, heavy, bomb, cluster | 14 | done |
 | 19 | Title screen + options screen (real options, persisted) | 15, 17 | planned |
 | 20 | Content escalation: big collapses, tree platforms, mixed materials | 14–18 | planned |
 

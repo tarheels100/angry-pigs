@@ -141,3 +141,20 @@ Mapping of each note to a milestone (note text abbreviated):
   starting at 0). The WebAudio contract moved to `src/audio/sfx.ts` with optional ramp
   methods so both audio modules share one fake. Gates: 125 headless, 17 browser,
   determinism 0 mismatches.
+- 2026-11-26 — **M18 done.** Pig types (D33, D34): `src/game/pigs.ts` registry (`basic`,
+  `heavy`, `bomb`, `cluster`, plus the `pig` alias) drives radius, `massScale` (new
+  `BodyInit` field), damage multiplier, pigs-per-shot with a deterministic fan, and the bomb
+  blast recipe. `adapter.explode()` added (health points + impulse with linear falloff,
+  centre counts as a hit, destroyed bodies skipped). Detonation only fires against a block or
+  bird above the energy threshold, so a soft landing on the ground is a wasted shot rather
+  than a win. Levels ship typed ammo: stage 02 opens with a bomb, stage 03 spends a cluster
+  on the wide tower. HUD names the chamber pig (`next bomb`). Blast damage is converted once
+  (`damage * DAMAGE_SCALE`), so a bomb clears glass and chips wood.
+  Bugs found on the way: (1) `build-html.js` used `String.replace` to inline the bundle, and
+  minified matter-js contains the `$&` replacement pattern, so the entry tag and surrounding
+  html were spliced into the middle of the JavaScript — the artifact test caught it; now
+  splits/joins (docs/deployment.md). (2) Browser tests aimed while the round was still
+  `in_flight`, so shots were silently rejected; added `waitShootable`. (3) HUD chamber text is
+  written by the render loop, so tests must wait for it rather than read it immediately.
+  Gates: 137 headless, 19 browser, determinism 0 mismatches. Greedy bot: 1 / 2 / 2 pigs.
+  Sweeps unchanged (they measure the first shot only).
