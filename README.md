@@ -11,8 +11,10 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 with partial destruction, crush/fall attribution, star scoring, camera follow and
 re-framing, the Tron theme (default) plus a Pixel theme proving the theme contract, and
 deployed to GitHub Pages (`https://tarheels100.github.io/angry-pigs/`). Gates: `npm run
-check` (typecheck + 99 headless tests + build) and `npm run test:browser` (9 Playwright
-tests against the built artifact), both run in CI.
+check` (typecheck + 105 headless tests + build), `npm run test:browser` (10 Playwright
+tests against the built artifact), and `npm run check:determinism` (the same bundle run in
+node and chromium, 72 combos, 0 mismatches) — all three run in CI. Best results per stage
+persist in `localStorage` (D24).
 
 Remaining open work is tuning and feel rather than plumbing — see the open questions in
 `docs/tuning.md` and the manual touch check in `docs/checklist.md`.
@@ -139,6 +141,7 @@ On a win the stage advances automatically after ~1.4s; on a fail, restart with `
   "build":        "esbuild src/main.ts --bundle --minify --legal-comments=none --format=iife && node build-html.js",
   "test":         "node --test \"tests/**/*.test.ts\"",
   "test:browser": "npm run build && node --test \"tests/browser/*.browser.mjs\"",
+  "check:determinism": "node scripts/determinism.js",
   "check":        "npm run typecheck && npm test && npm run build",
   "typecheck":    "tsc --noEmit"
 }

@@ -44,6 +44,8 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - run: npm run test:browser
+      # Same bundle run in node and in chromium (docs/checklist.md §2).
+      - run: npm run check:determinism
 
   deploy:
     needs: [build, browser]

@@ -25,6 +25,9 @@ file together.
 | `FLASH_STEPS` | 10 steps | game | A destroyed entity flashes for 10 steps as a fading display extra, then disappears (D17). |
 | settle-timeout freeze | `adapter.freezeAll()` when the window expires | game (D16) | "Settled" must mean visually stopped; ~10 of 51 Stage 01 combinations end at the 240-step cap rather than in genuine sleep. |
 | stars | 3 if shots ≤ ceil(targets/2), 2 if shots ≤ targets, else 1 | rules (D19) | Derived from the Stage 01 sweep: 4 of 51 pull combinations clear both targets in one shot. |
+| `SCORE_PER_TARGET` | 1000 | rules | One number per bird; nothing else pays target score. |
+| `AMMO_BONUS` | 500 per unused pig, on a win only | rules (D23) | Without it a one-shot clear and a three-shot clear score the same. Stars still come from shots used. |
+| best-result key | `angry-pigs:best:<levelId>` in `localStorage` | save (D24) | Keeps score/stars/launches per stage; corrupt or blocked storage reads as "no record". |
 | impact energy formula | `\|relV · normal\| * min(massA, massB)` | adapter | Measured peak ~84 for a speed-22 pig, ~49 for speed 18. Kept on `min(mass)` so a pig hitting a heavy wall does not score the wall's mass as damage. |
 | glass damageThreshold | 3 | `MATERIALS` | A direct pig hit (~40-50 energy) shatters glass; a rolling graze (~8) does not. |
 | stone damageThreshold | 9 | `MATERIALS` | A full-speed pig removes ~5 health; stone survives roughly three solid hits. |
@@ -78,7 +81,6 @@ starting point, not a tuned curve.
 
 - Whether rolling resistance should also apply to birds/balls that roll on the ground
   (currently pigs only).
-- Remaining-ammo bonus score.
 - Pig damage model: pigs currently ignore damage entirely (D15); decide whether a pig
   takes damage from heavy hits instead.
 - Stage 02 win rate is the lowest (30/495). Its birds sit on beams that survive partial

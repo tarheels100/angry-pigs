@@ -12,8 +12,8 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 - [x] `npm run check` — typecheck, 99 headless tests, build in one command.
       **Expected:** all pass, `dist/index.html` written (~115 KB inline, one `<script>`).
 - [x] `npm run test:browser` — builds the artifact and drives it in headless Chromium.
-      **Expected:** 9 pass. CI runs this as its own job and `deploy` waits for it
-      (`docs/adr.md` D22).
+      **Expected:** 10 pass. CI runs this and `npm run check:determinism` as one browser
+      job, and `deploy` waits for it (`docs/adr.md` D22).
 
 ## 1. Browser-only checks
 
@@ -72,10 +72,17 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
 - [x] **Settle timeout honesty.** When the window expires, `adapter.freezeAll()` zeroes
       velocity and sleeps everything (D16), so `settled` means visually stopped before
       scoring reads it. Sweep timeouts: 117 (stage-01), 144 (stage-02), 48 (stage-03).
-- [~] **Determinism.** Same machine, same runtime: two sweep runs produced identical
-      outcomes (only the printed `ms per call` line differed — exclude timing from any
-      replay assertion). Cross-runtime/cross-machine check still pending: run the suite
-      on another Node version or machine.
+- [x] **Best results persist.** Browser test clears Stage 01, reloads the page, and
+      asserts `localStorage['angry-pigs:best:stage-01']` holds the record and the HUD
+      shows `best ★★★ 3500` with the stage restarted fresh (D24).
+- [x] **Determinism (cross-runtime).** `npm run check:determinism` bundles
+      `scratch/sweep-entry.ts` twice — ESM for node, IIFE for chromium — and runs the
+      same 72 combos (3 pulls × 8 angles × 3 stages) by stepping the game directly.
+      **Result:** 0 mismatches; 4 wins, 12 combos hit the settle timeout. The entry
+      records no timing, so there is nothing legitimate that can differ.
+      Cross-machine drift would show up as a mismatch in CI, which runs this on Linux.
+- [x] **Score.** Targets pay 1000; a clear pays 500 per unused pig (D23), so a
+      one-shot Stage 01 clear scores 3500 vs 3000 for a two-shot clear.
 - [x] **Partial destruction.** Damage per impact is `0.35 * energy / threshold`
       (`DAMAGE_SCALE`), so the sweep reports blocks gone 0–4 with partially damaged
       survivors instead of binary 0-or-3. Tron and Pixel both render partial damage from
