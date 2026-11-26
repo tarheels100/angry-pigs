@@ -184,6 +184,13 @@ Everything an agent needs to get oriented, filled in as the roadmap progresses:
   measured baselines, and the contract/CI items that were closed
 - `docs/browser-testing.md` — how real-browser checks are run (Playwright harness,
   `npm run test:browser`) and why the artifact rather than the source is tested
+- `AGENTS.md` — working rules for agents, including the rule that a large push writes
+  and keeps its work plan
+- `docs/pushes/` — one permanent record per large push: plan, step-by-step progress,
+  measurements, gates run, and a closing outcome section. Files here are never deleted;
+  they are how work resumes after an interrupted session
+- `docs/post-m13-notes.md` — backlog of polish and content ideas collected after M13;
+  candidate scope for the next push
 
 ## Roadmap
 
