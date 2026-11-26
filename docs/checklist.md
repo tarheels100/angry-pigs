@@ -43,9 +43,10 @@ Headless tests cannot cover these (`tests/browser.*` does not exist yet — see
       in section 2). Treat that half of this check as pending.
 - [ ] **Watch workflow.** Edit a source file, reload manually, confirm the new bundle
       is served (no HMR by design).
-- [ ] **Pages deploy.** Source toggle is set to GitHub Actions; a push to `main`
-      publishes `dist/`. Load the live URL and check the network panel.
-      **Expected:** no 404s, only relative paths in the shipped file, one request.
+- [x] **Pages deploy.** Published by the workflow on push to `main`.
+      Verified: `https://tarheels100.github.io/angry-pigs/` returns 200, the served
+      bytes are sha256-identical to `dist/index.html`, there is one inline `<script>`,
+      no absolute URLs, and no `fetch(`. Live playtest (drag + fire) still yours to do.
 
 ## 2. Gameplay and simulation evaluation
 
@@ -63,9 +64,10 @@ Re-run `scratch/sweep-probe.ts` (`node scratch/sweep-probe.cjs` after bundling, 
       **Decision to record in `docs/adr.md`:** should the timeout also freeze bodies
       (`wakeAll`, zero velocity) so "settled" means visually stopped before M8 scores
       on it?
-- [ ] **Determinism.** Run the suite twice, and on another Node version/machine.
-      **Expected:** identical outcomes. If results drift, replay assertions are not
-      trustworthy and need tolerances instead of exact ids.
+- [~] **Determinism.** Same machine, same runtime: two sweep runs produced identical
+      outcomes (only the printed `ms per call` timing line differed — exclude timing
+      from any replay assertion). Cross-runtime/cross-machine check still pending:
+      run the suite on another Node version or machine.
 - [ ] **Partial destruction.** Block destruction is currently binary (0 or 3 blocks).
       **Goal for M8:** intermediate states (tilt, partial shatter). Re-measure the
       sweep after the crush model lands.
