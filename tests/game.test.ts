@@ -28,6 +28,12 @@ function pullFor(loaded: ReturnType<typeof loadLevel>, deg: number) {
   };
 }
 
+/** Press then drag; the shot is only decided on release (src/input/pointer.ts). */
+function aim(game: ReturnType<typeof createGame>, deg: number): void {
+  game.beginAim(level.cannonOrigin);
+  game.dragAim(pullFor(level, deg));
+}
+
 function settle(game: ReturnType<typeof createGame>, maxSteps = 320): number {
   let steps = 0;
   while (steps < maxSteps) {
@@ -93,7 +99,7 @@ test('a flat shot topples the tower and crushes the bird on it', () => {
   bus.on('destroyed', (d) => events.push(`destroyed:${d.id}`));
   bus.on('phaseChanged', (p) => events.push(`phase:${p.phase}`));
 
-  game.beginAim(pullFor(level, 0));
+  aim(game, 0);
   assert.ok(game.frame().trajectory.length > 0, 'aiming produces a trajectory preview');
   assert.ok(game.releaseAim());
   assert.equal(game.rules.snapshot().phase, 'in_flight');
@@ -114,11 +120,11 @@ test('a downward shot kills the open bird and the level is won', () => {
   const won: Array<{ score: number }> = [];
   bus.on('levelWon', (e) => won.push({ score: e.score }));
 
-  game.beginAim(pullFor(level, 0));
+  aim(game, 0);
   game.releaseAim();
   settle(game);
 
-  game.beginAim(pullFor(level, 16));
+  aim(game, 16);
   game.releaseAim();
   settle(game);
 
@@ -132,7 +138,7 @@ test('running out of pigs with birds standing loses the level', () => {
   const { game } = makeGame();
   // Aim steeply upward so nothing is hit.
   for (let i = 0; i < 4; i++) {
-    game.beginAim(pullFor(level, -70));
+    aim(game, -70);
     game.releaseAim();
     settle(game);
   }
@@ -143,7 +149,7 @@ test('running out of pigs with birds standing loses the level', () => {
 
 test('restart rebuilds the level and re-arms the cannon', () => {
   const { game, adapter } = makeGame();
-  game.beginAim(pullFor(level, 0));
+  aim(game, 0);
   game.releaseAim();
   settle(game);
   assert.equal(game.rules.snapshot().ammoLeft, 3);
@@ -160,7 +166,7 @@ test('restart rebuilds the level and re-arms the cannon', () => {
 
 test('cancelling a drag clears the preview and fires nothing', () => {
   const { game } = makeGame();
-  game.beginAim(pullFor(level, 0));
+  aim(game, 0);
   game.cancelAim();
   assert.equal(game.frame().aim, null);
   assert.equal(game.frame().trajectory.length, 0);
@@ -170,11 +176,11 @@ test('cancelling a drag clears the preview and fires nothing', () => {
 
 test('aiming is ignored outside the aiming phase', () => {
   const { game } = makeGame();
-  game.beginAim(pullFor(level, 0));
+  aim(game, 0);
   game.releaseAim();
   game.step(DT);
   assert.equal(game.rules.snapshot().phase, 'in_flight');
-  game.beginAim(pullFor(level, 16));
+  aim(game, 16);
   assert.equal(game.cannon.aim(), null, 'no aiming mid-flight');
 });
 
@@ -185,11 +191,58 @@ test('the cannon and the waiting pig are visible before a launch', () => {
   assert.ok(waiting && waiting.kind === 'pig' && !waiting.destroyed, 'the next pig rests on the cannon');
   assert.equal(game.entities.byKind('pig').length, 1, 'no physics pig exists before the launch');
 
-  game.beginAim(pullFor(level, 0));
+  aim(game, 0);
   game.releaseAim();
   game.step(DT);
 
   assert.equal(game.entities.get('cannon-pig'), undefined, 'the waiting pig is gone once fired');
   assert.ok(game.entities.byKind('pig').some((e) => e.id === 'pig-1'), 'the launched pig is a physics body');
   assert.ok(game.entities.all().some((e) => e.kind === 'cannon'), 'the cannon stays visible');
+});
+
+test('a press alone is not a shot and does not spend ammo', () => {
+  const { game } = makeGame();
+  game.beginAim(level.cannonOrigin);
+  assert.equal(game.releaseAim(), false, 'press + release without a drag fires nothing');
+  assert.equal(game.rules.snapshot().ammoLeft, 4, 'a click does not spend ammo');
+  assert.equal(game.rules.snapshot().launches, 0);
+
+  // Press somewhere far from the cannon: still no pull until a drag.
+  game.beginAim({ x: 700, y: 300 });
+  assert.equal(game.cannon.aim(), null, 'the press position alone does not set a pull');
+  assert.equal(game.frame().trajectory.length, 0, 'no preview before a drag');
+  game.cancelAim();
+});
+
+test('the shot uses the final drag position, not the press position', () => {
+  const { game, bus } = makeGame();
+  const launched: Array<{ velocity: { x: number; y: number } }> = [];
+  bus.on('launch', (e) => launched.push({ velocity: e.velocity }));
+
+  game.beginAim({ x: 600, y: 200 }); // press high-right, unrelated to the shot
+  game.dragAim(pullFor(level, 0)); // drag flat-left
+  assert.ok(game.cannon.aim(), 'dragging sets the pull');
+  assert.ok(game.frame().trajectory.length > 0, 'the preview follows the drag');
+  assert.ok(game.releaseAim());
+
+  assert.equal(launched.length, 1);
+  const shot = launched[0]!;
+  assert.ok(shot.velocity.x > 15, `flat shot leaves a leftward pull (${shot.velocity.x.toFixed(1)})`);
+  assert.ok(Math.abs(shot.velocity.y) < 1.5, 'the press position is not part of the launch');
+});
+
+test('a restart restores drag-to-aim behaviour', () => {
+  const { game } = makeGame();
+  aim(game, 0);
+  game.releaseAim();
+  settle(game);
+
+  game.restart();
+  game.beginAim(level.cannonOrigin);
+  game.dragAim(pullFor(level, 12));
+  assert.ok(game.cannon.aim(), 'dragging aims again after a restart');
+  assert.ok(game.frame().trajectory.length > 0, 'the preview is rebuilt after a restart');
+  assert.ok(game.releaseAim(), 'the shot fires after a restart');
+  assert.equal(game.rules.snapshot().launches, 1);
+  assert.ok(game.entities.get('pig-1'), 'a pig exists after the restarted shot');
 });

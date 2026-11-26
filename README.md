@@ -108,17 +108,21 @@ need `.js` extensions — but the shipped artifact is a single file, so no brows
 module resolution happens at runtime. Source specifiers use `.ts` extensions so
 `node --test` can run TS directly.
 
-**Controls (M7 slice):** press and drag anywhere on the canvas — the drag vector from
-the press point sets launch direction and power (clamped to `maxPull`, ±75° from
-horizontal); release to fire. `t` cycles registered themes (dev check for the theme
-contract).
+**Controls (M7 slice):** press, then **drag** — the pull is the vector from the cannon
+origin to the pointer (launch direction is the opposite, clamped to `maxPull` and
+±75° from horizontal), so the *pointer position* sets the shot, not the press point.
+A press alone shows no guide and fires nothing; releasing without a drag (or with a
+pull under 12 units) cancels and costs no ammo. `t` cycles registered themes (dev
+check for the theme contract).
 
 ```jsonc
 "scripts": {
-  "dev":   "node server.js",   // static server, no-cache headers
-  "watch": "esbuild src/main.ts --bundle --watch --format=iife --outfile=dist/main.js",
-  "build": "esbuild src/main.ts --bundle --minify --format=iife && node build-html.js",
-  "test":  "node --test \"tests/**/*.test.ts\""
+  "dev":      "node scripts/dev.js",  // esbuild watch + static server, one process
+  "dev:open": "node scripts/dev.js --open",
+  "serve":    "node server.js",
+  "watch":    "esbuild src/main.ts --bundle --watch=forever --format=iife --outfile=dist/main.js",
+  "build":    "esbuild src/main.ts --bundle --minify --format=iife && node build-html.js",
+  "test":     "node --test tests/"
 }
 ```
 

@@ -86,7 +86,8 @@ const birdArcs = (ctx: CanvasRenderingContext2D) =>
 test('aiming frame paints background, level, cannon, and the aim guide', () => {
   const { game, renderer, camera, ctx } = makeSlice();
   const pull: Vec2 = { x: loaded.cannonOrigin.x - 80, y: loaded.cannonOrigin.y - 20 };
-  game.beginAim(pull);
+  game.beginAim(loaded.cannonOrigin);
+  game.dragAim(pull);
   renderer.draw({ camera, phase: 'aiming', aim: aimFrame(game) }, game.entities.all());
 
   const calls = callsOf(ctx);
@@ -105,7 +106,8 @@ test('aiming frame paints background, level, cannon, and the aim guide', () => {
 
 test('flight frame paints the live pig; destroyed entities stop being painted', () => {
   const { game, renderer, camera, ctx } = makeSlice();
-  game.beginAim({ x: loaded.cannonOrigin.x - loaded.maxPull, y: loaded.cannonOrigin.y });
+  game.beginAim(loaded.cannonOrigin);
+  game.dragAim({ x: loaded.cannonOrigin.x - loaded.maxPull, y: loaded.cannonOrigin.y });
   game.releaseAim();
   game.step(1 / 60);
 

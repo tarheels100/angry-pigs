@@ -36,6 +36,8 @@ const SCORE_PER_TARGET = 1000;
 
 export function createRules(initial: { targetIds: string[]; ammo: string[] }): GameRules {
   const budget = { targets: initial.targetIds.length, ammo: initial.ammo.length };
+  /** The level's targets as authored; a restart restores these, not the survivors. */
+  const authoredTargets = [...initial.targetIds];
   let targets = new Set<string>();
   let snap: RulesSnapshot = {
     phase: 'ready',
@@ -75,7 +77,7 @@ export function createRules(initial: { targetIds: string[]; ammo: string[] }): G
       snap = { ...snap, targetsAlive: Math.max(0, snap.targetsAlive - 1), score: snap.score + SCORE_PER_TARGET };
     },
     restart() {
-      loadLevel([...targets], budget.ammo);
+      loadLevel([...authoredTargets], budget.ammo);
     },
   };
 

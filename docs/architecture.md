@@ -36,6 +36,13 @@ the loop, and subscribes to the event bus for messages. Simulation code (`core`,
 
 ## Rules of engagement
 
+- Pointer input owns gestures, gameplay owns the decision. `src/input/pointer.ts`
+  tracks which pointer is held, captures it to the canvas, reports moves only while
+  a button is held, and distinguishes release from cancel. `Game.beginAim/dragAim/
+  releaseAim/cancelAim` decide whether that gesture is a shot.
+- The `Game` facade exposes `rules` and `cannon` as getters. `restart()` and
+  `loadLevel()` build new instances; a captured value would keep pointing at the
+  pre-restart cannon (empty ammo, no aim), which is the restart bug M7 shipped with.
 - Themes map semantic state (`kind`, `material`, `health`, `destroyed`,
   `impactEnergy`) to appearance. They never read collision data or level logic.
 - The entity registry is physics-backed plus a small set of display-only extras

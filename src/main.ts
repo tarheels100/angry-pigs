@@ -51,21 +51,20 @@ if (!canvas || !hudEl) {
 
   const pointer = createPointerSource(canvas);
   pointer.onDown((p) => game.beginAim(camera.screenToWorld(p)));
-  pointer.onMove((p) => {
-    if (game.cannon.aim()) game.dragAim(camera.screenToWorld(p));
-  });
+  pointer.onMove((p) => game.dragAim(camera.screenToWorld(p)));
   pointer.onUp(() => game.releaseAim());
+  pointer.onCancel(() => game.cancelAim());
 
   hud.onRestart(() => {
     game.restart();
     hud.message(null);
   });
 
-  bus.on('levelLoaded', (e) => hud.message(`${e.name} — ${e.ammo} pigs`));
+  bus.on('levelLoaded', (e) => hud.message(`${e.name} — ${e.ammo} pigs · drag to aim, release to fire`));
   bus.on('levelWon', (e) => hud.message(`stage cleared: ${e.levelId} (${e.score})`));
   bus.on('levelLost', (e) => hud.message(`stage failed: ${e.levelId}`));
   // The first levelLoaded fires during construction, before the HUD exists.
-  hud.message(`${level.def.name} — ${level.ammo.length} pigs`);
+  hud.message(`${level.def.name} — ${level.ammo.length} pigs · drag to aim, release to fire`);
 
   // Dev-only theme cycling; the real selector arrives in M9/M12.
   window.addEventListener('keydown', (e) => {

@@ -16,6 +16,8 @@ const PIG_SLOW_STEPS = 45;
 const SETTLE_TIMEOUT_STEPS = 240;
 const TRAJECTORY_STEPS = 120;
 const PIG_RADIUS = 18;
+/** A release must drag at least this far from the cannon to count as a shot. */
+const MIN_DRAG = 12;
 
 export interface GameOptions {
   level: LoadedLevel;
@@ -35,6 +37,7 @@ export interface Game {
   adapter: PhysicsAdapter;
   bus: EventBus;
   entities: EntityRegistry;
+  /** Live views: restart()/loadLevel() replace these instances (see below). */
   rules: GameRules;
   cannon: Cannon;
   step(dt: number): void;
@@ -66,6 +69,8 @@ export function createGame(options: GameOptions): Game {
   let settleSteps = 0;
   let trajectory: TrajectorySample[] = [];
   let pigCounter = 0;
+  /** True between pointer-down and pointer-up; a press alone is not a shot. */
+  let aiming = false;
 
   function buildLevel(): void {
     for (const body of level.bodies) adapter.addBody(body);
@@ -195,25 +200,33 @@ export function createGame(options: GameOptions): Game {
   }
 
   function beginAim(point: Vec2): void {
-    if (rules.snapshot().phase !== 'aiming') return;
-    cannon.setAim(point);
-    refreshTrajectory();
+    void point;
+    if (rules.snapshot().phase !== 'aiming' || cannon.ammoLeft() === 0) return;
+    // A press alone is not a shot: the pull starts at zero and only drags move it.
+    aiming = true;
+    cannon.clearAim();
+    trajectory = [];
   }
 
   function dragAim(point: Vec2): void {
-    if (rules.snapshot().phase !== 'aiming') return;
+    if (!aiming || rules.snapshot().phase !== 'aiming') return;
     cannon.setAim(point);
     refreshTrajectory();
   }
 
   function cancelAim(): void {
+    aiming = false;
     cannon.clearAim();
     trajectory = [];
   }
 
   function releaseAim(): boolean {
+    if (!aiming) return false;
+    aiming = false;
+    const aim = cannon.aim();
     const velocity = cannon.launchVelocity();
-    if (!velocity) {
+    if (!velocity || !aim || Math.hypot(aim.pull.x, aim.pull.y) < MIN_DRAG) {
+      // A click with no drag (or a negligible one) must not spend ammo.
       cancelAim();
       return false;
     }
@@ -234,6 +247,7 @@ export function createGame(options: GameOptions): Game {
   function loadLevel(next: LoadedLevel): void {
     for (const body of adapter.snapshot()) adapter.removeBody(body.id);
     pigs.clear();
+    aiming = false;
     level = next;
     cannon = createCannon({ origin: next.cannonOrigin, maxPull: next.maxPull, powerScale: next.powerScale, ammo: next.ammo });
     rules = createRules({ targetIds: next.targetIds, ammo: next.ammo });
@@ -244,6 +258,7 @@ export function createGame(options: GameOptions): Game {
   /** Rebuild the level from its data: physics, registry, cannon, rules (M9 does retries). */
   function restart(): void {
     rules.restart();
+    aiming = false;
     cannon = createCannon({ origin: level.cannonOrigin, maxPull: level.maxPull, powerScale: level.powerScale, ammo: [...level.ammo] });
     adapter.clear();
     pigs.clear();
@@ -262,8 +277,15 @@ export function createGame(options: GameOptions): Game {
     adapter,
     bus,
     entities,
-    rules,
-    cannon,
+    // Getters rather than captured values: restart() and loadLevel() build new
+    // cannon/rules instances, and a captured reference would keep reading the
+    // pre-restart cannon (empty ammo, no aim) — the M7 restart bug.
+    get rules() {
+      return rules;
+    },
+    get cannon() {
+      return cannon;
+    },
     step,
     frame: () => {
       refreshDisplay();
