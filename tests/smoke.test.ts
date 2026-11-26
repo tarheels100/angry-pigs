@@ -34,6 +34,10 @@ function stubCtx(): CanvasRenderingContext2D {
     rect: () => calls.push({ op: 'rect' }),
     stroke: () => calls.push({ op: 'stroke' }),
     fill: () => calls.push({ op: 'fill' }),
+    shadowColor: '',
+    shadowBlur: 0,
+    globalAlpha: 1,
+    createLinearGradient: () => ({ addColorStop: () => {} }),
   };
   return ctx as unknown as CanvasRenderingContext2D;
 }

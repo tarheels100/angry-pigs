@@ -5,6 +5,7 @@ import { createCamera, type CameraApi } from './camera/camera.ts';
 import { createRenderer } from './render/renderer.ts';
 import { registerTheme, getTheme, listThemes, type Theme } from './render/theme.ts';
 import { createPlaceholderTheme } from './render/themes/placeholder.ts';
+import { createTronTheme } from './render/themes/tron.ts';
 import { createPointerSource } from './input/pointer.ts';
 import { createGame } from './game/game.ts';
 import { createHud } from './ui/hud.ts';
@@ -23,9 +24,11 @@ if (!canvas || !hudEl) {
   console.error('angry-pigs: missing #stage or #hud');
 } else {
   // Themes are registered here; switching one is the M12 acceptance check.
+  registerTheme(createTronTheme());
   registerTheme(createPlaceholderTheme());
   registerTheme(createPlaceholderTheme({ background: '#151a20', pig: '#7fd6a0', bird: '#ff8a5c' }, 'placeholder-dark'));
-  let theme: Theme = getTheme('placeholder');
+  // Tron is the product look (M10); the placeholders stay selectable for contract checks.
+  let theme: Theme = getTheme('tron');
 
   const bus = createEventBus();
   // The simulation world is fixed (D13); level bounds only change framing.
