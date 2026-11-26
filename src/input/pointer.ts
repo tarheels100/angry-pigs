@@ -19,6 +19,9 @@ export interface PointerSource {
   /** Interrupted gesture (pointercancel); the caller should discard the aim. */
   onCancel(handler: (canvasPoint: Vec2) => void): () => void;
   pressed(): boolean;
+  /** Detach canvas listeners. Call when the source is replaced (e.g. level switching),
+   * or the canvas keeps a growing set of handlers. */
+  dispose(): void;
 }
 
 type Gesture = 'down' | 'move' | 'up' | 'cancel';
@@ -117,5 +120,13 @@ export function createPointerSource(canvas: HTMLCanvasElement): PointerSource {
     onUp: (h) => subscribe('up', h),
     onCancel: (h) => subscribe('cancel', h),
     pressed: () => activePointer !== null,
+    dispose() {
+      for (const { type, handler } of internal) canvas.removeEventListener(type, handler);
+      handlers.down = [];
+      handlers.move = [];
+      handlers.up = [];
+      handlers.cancel = [];
+      release();
+    },
   };
 }

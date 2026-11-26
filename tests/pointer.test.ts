@@ -128,3 +128,23 @@ test('unsubscribe stops the handler but keeps gesture tracking', () => {
   assert.deepEqual(captured, [1], 'capture is tracked by the source, not by handlers');
   assert.equal(source.pressed(), false);
 });
+
+test('dispose detaches canvas listeners and releases capture', () => {
+  const { canvasApi, canvas, released } = fakeCanvas();
+  const source = createPointerSource(canvas);
+  const moves: number[] = [];
+  source.onMove(() => moves.push(1));
+
+  canvasApi.dispatch('pointerdown', 1, 100, 100);
+  canvasApi.dispatch('pointermove', 1, 120, 120);
+  assert.equal(moves.length, 1);
+
+  source.dispose();
+  assert.equal(canvasApi.listenerCount('pointermove'), 0, 'no listener survives dispose');
+  assert.equal(canvasApi.listenerCount('pointerdown'), 0);
+  assert.deepEqual(released, [1], 'an open gesture is released on dispose');
+  assert.equal(source.pressed(), false);
+
+  canvasApi.dispatch('pointermove', 1, 140, 140);
+  assert.equal(moves.length, 1, 'a disposed source reports nothing');
+});
