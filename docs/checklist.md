@@ -9,10 +9,10 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 
 ## 0. Baseline gate
 
-- [x] `npm run check` — typecheck, 120 headless tests, build in one command.
-      **Expected:** all pass, `dist/index.html` written (~125 KB inline, one `<script>`).
+- [x] `npm run check` — typecheck, 125 headless tests, build in one command.
+      **Expected:** all pass, `dist/index.html` written (~128 KB inline, one `<script>`).
 - [x] `npm run test:browser` — builds the artifact and drives it in headless Chromium.
-      **Expected:** 16 pass. CI runs this and `npm run check:determinism` as one browser
+      **Expected:** 17 pass. CI runs this and `npm run check:determinism` as one browser
       job, and `deploy` waits for it (`docs/adr.md` D22).
 
 ## 1. Browser-only checks
@@ -51,6 +51,11 @@ Covered by `tests/browser/game.browser.mjs` unless marked manual. Serve with
       after a block is destroyed, never below `game.groundTop()`, and empty after restart
       (M16). Fragments pile upward per ground bucket and fade while at rest
       (`tests/fx.test.ts`).
+- [x] **Generated soundtrack.** `window.__music.flavour()` starts with the stage, names the
+      track in the HUD, and emits notes as the simulation advances; the next stage gets a
+      different name and tempo, and a restart replays the same flavour (M17). Headless:
+      `tests/audio.test.ts` asserts a seed replays the same sequence and mute silences
+      output without forgetting the track.
 - [x] **Tab hidden, then resumed.** Hide the tab for ~10s during flight.
       **Result:** pigs resume in place — the loop discards surplus time (M5).
 - [x] **Watch workflow.** Verified: start `npm run dev`, edit a source line, the rebuilt

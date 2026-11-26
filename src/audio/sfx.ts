@@ -1,14 +1,23 @@
 import type { EventBus } from '../core/eventBus.ts';
 
-/** Minimal WebAudio surface so headless tests can inject a fake. */
+/**
+ * Minimal WebAudio surface so headless tests can inject a fake (docs/adr.md D18 keeps
+ * audio out of the determinism path). Shared by sfx and the soundtrack (M17), so there is
+ * one contract rather than two copies. Ramp methods are optional: a fake may omit them.
+ */
+export interface ParamLike {
+  setValueAtTime(v: number, t: number): void;
+  exponentialRampToValueAtTime?(v: number, t: number): void;
+}
+
 export interface GainNodeLike {
-  gain: { setValueAtTime(v: number, t: number): void; exponentialRampToValueAtTime(v: number, t: number): void };
+  gain: ParamLike & { value: number };
   connect(destination: unknown): void;
 }
 
 export interface OscillatorNodeLike {
   type: string;
-  frequency: { setValueAtTime(v: number, t: number): void; exponentialRampToValueAtTime(v: number, t: number): void };
+  frequency: ParamLike;
   connect(node: GainNodeLike): void;
   start(t: number): void;
   stop(t: number): void;
@@ -21,17 +30,19 @@ export interface AudioContextLike {
   currentTime: number;
 }
 
+export type AudioContextFactory = () => AudioContextLike | null;
+
 export interface Sfx {
   /** Subscribe to game events. Sounds are derived from events, never from polling. */
   attach(bus: EventBus): void;
   setMuted(muted: boolean): void;
   muted(): boolean;
-  /** Called from a user gesture; browsers only allow an AudioContext then. */
-  unlock(): void;
+  /** Create/resume the audio context on a user gesture; null when audio is unavailable. */
+  unlock(): AudioContextLike | null;
   dispose(): void;
 }
 
-/** Tone recipe: frequency sweep plus an exponential gain envelope. */
+/** Tone recipe: frequency sweep plus a gain envelope. */
 interface Blip {
   type: OscillatorType;
   from: number;
@@ -64,7 +75,7 @@ function browserAudio(): AudioContextLike | null {
  * stays a single file. The context is created lazily on the first gesture because
  * browsers reject audio before one.
  */
-export function createSfx(factory: () => AudioContextLike | null = browserAudio): Sfx {
+export function createSfx(factory: AudioContextFactory = browserAudio): Sfx {
   let ctx: AudioContextLike | null = null;
   let muted = false;
   const unsubscribes: Array<() => void> = [];
@@ -76,9 +87,16 @@ export function createSfx(factory: () => AudioContextLike | null = browserAudio)
     const gain = ctx.createGain();
     osc.type = blip.type;
     osc.frequency.setValueAtTime(blip.from, now);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(1, blip.to), now + blip.seconds);
-    gain.gain.setValueAtTime(blip.gain * gainScale, now);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + blip.seconds);
+    if (osc.frequency.exponentialRampToValueAtTime) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, blip.to), now + blip.seconds);
+    } else {
+      osc.frequency.setValueAtTime(Math.max(1, blip.to), now + blip.seconds);
+    }
+    gain.gain.value = blip.gain * gainScale;
+    if (gain.gain.exponentialRampToValueAtTime) {
+      gain.gain.setValueAtTime(blip.gain * gainScale, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + blip.seconds);
+    }
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
@@ -103,8 +121,9 @@ export function createSfx(factory: () => AudioContextLike | null = browserAudio)
     },
     muted: () => muted,
     unlock() {
-      if (ctx || muted) return;
-      ctx = factory();
+      if (!ctx) ctx = factory();
+      if (ctx) resume(ctx);
+      return ctx;
     },
     dispose() {
       for (const off of unsubscribes) off();
@@ -112,4 +131,13 @@ export function createSfx(factory: () => AudioContextLike | null = browserAudio)
       ctx = null;
     },
   };
+}
+
+function resume(ctx: AudioContextLike): void {
+  const c = ctx as unknown as { resume?: () => void | Promise<unknown> };
+  try {
+    c.resume?.();
+  } catch {
+    /* a rejected resume is not a reason to crash the game loop */
+  }
 }

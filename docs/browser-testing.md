@@ -34,8 +34,9 @@ const pigMoving = await page.evaluate(() => window.__game?.rules.snapshot().phas
 That needs the game to expose a small hook for tests — a deliberate, narrow seam rather
 than a test-only rewrite. `src/main.ts` publishes four read-only objects:
 `window.__game` (rules, cannon, entity registry, aim API), `window.__camera`
-(`worldToScreen` for pixel sampling), `window.__trail`, and `window.__debris`
-(presentation state the M15/M16 checks assert). Nothing in the game reads them.
+(`worldToScreen` for pixel sampling), `window.__trail`, `window.__debris`, and
+`window.__music` (the generated track's flavour and emitted notes). Nothing in the game
+reads them.
 
 Cost: one dev dependency plus browser binaries, and `npm run test:browser` kept separate
 from `npm test` so the dependency-free suite stays fast and CI-installable without

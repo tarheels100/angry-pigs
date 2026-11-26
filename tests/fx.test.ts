@@ -128,7 +128,7 @@ function fakeAudio(): { ctx: AudioContextLike; started: Array<{ type: string; fr
         stop: () => {},
       };
     },
-    createGain: () => ({ gain: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: () => {} }),
+    createGain: () => ({ gain: { value: 0, setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} }, connect: () => {} }),
   };
   return { ctx, started };
 }

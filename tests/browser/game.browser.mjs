@@ -375,3 +375,34 @@ test('destroyed blocks leave a debris heap that clears on restart', async () => 
     assert.equal(await page.evaluate(() => window.__debris.fragments().length), 0, 'restart clears the heap');
   });
 });
+
+test('each stage plays its own generated track', async () => {
+  // M17: the soundtrack is generated from the level id, not shipped as an asset, so the
+  // single-file artifact stays self-contained and every stage sounds different.
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    const first = await page.evaluate(() => window.__music.flavour());
+    assert.ok(first, 'a track starts with the level');
+    assert.ok(first.bpm >= 92 && first.bpm <= 125, `tempo in range (${first.bpm})`);
+    assert.match(first.name, /^(sine|triangle|square|sawtooth)-[0-9a-z]{3}$/);
+    assert.ok(
+      await page.evaluate((name) => document.body.innerText.includes(name), first.name),
+      'the HUD names the track',
+    );
+
+    // Notes are emitted as the simulation advances.
+    await page.waitForFunction(() => window.__music.notes().length > 2, null, { timeout: 4000 });
+
+    await page.keyboard.press('n');
+    await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 4, null, { timeout: 2000 });
+    const second = await page.evaluate(() => window.__music.flavour());
+    assert.notEqual(second.name, first.name, 'the next stage gets a different track');
+    assert.notEqual(second.bpm, first.bpm, 'and a different tempo');
+
+    // A restart keeps the same stage's track rather than inventing a new one.
+    await page.keyboard.press('r');
+    await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 4, null, { timeout: 2000 });
+    const again = await page.evaluate(() => window.__music.flavour());
+    assert.deepEqual(again, second, 'restarting a stage replays the same flavour');
+  });
+});

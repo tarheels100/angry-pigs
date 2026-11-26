@@ -294,3 +294,22 @@ the simulation (docs/checklist.md §2).
 **Rejected.** Static bodies added per fragment (pollutes the snapshot and win/lose entity
 counts); Matter debris with collision filters (still consumes solver time and can wake
 live bodies via `wakeNear`); fading fragments instantly (no heap, which is the point of M16).
+
+
+## D32 — The soundtrack is generated, and shares one audio context
+**Decision.** `src/audio/music.ts` derives a track from the level id: a stable hash picks
+tempo (92–125 bpm), waveform, scale, and root, and a seeded PRNG writes the note sequence.
+Notes are scheduled on **simulated** time (`loop.stepsTaken()`) in the same context the
+impact sounds use.
+**Why.** Shipping audio would break D6 (one self-contained file, offline). Generating it
+means every stage gets its own flavour for free as content grows, and the same seed replays
+the same track. Simulated time keeps the music aligned with the game and lets headless tests
+assert the sequence without an AudioContext.
+**Rejected.** Bundling audio files (artifact size, and a new asset pipeline); scheduling on
+wall-clock time (a backgrounded tab drifts the track out of sync with the simulation); a
+second AudioContext (browsers cap contexts, and sfx already owns one unlocked by the first
+gesture).
+**Consequence.** The WebAudio surface in `src/audio/sfx.ts` became the shared contract
+(`ParamLike`, `GainNodeLike`, `OscillatorNodeLike`) with ramp methods optional, so a test
+fake can implement less than the browser does. `unlock()` returns the context so the
+soundtrack can reuse it.

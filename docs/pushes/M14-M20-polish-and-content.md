@@ -64,11 +64,12 @@ Mapping of each note to a milestone (note text abbreviated):
 
 ### M17 — procedural soundtrack
 
-- [ ] `src/audio/music.ts`: seeded generative Tron-ish track; per-level flavour (scale,
+- [x] `src/audio/music.ts`: seeded generative Tron-ish track; per-level flavour (scale,
       tempo, waveform); never repeats the same sequence; starts on `levelLoaded`, stops on
       mute/dispose.
-- [ ] Injected clock for headless tests; asserts deterministic given a seed + level id.
-- [ ] Options: sound on/off applies to music too; HUD message shows the track name.
+- [x] Injected clock for headless tests; asserts deterministic given a seed + level id.
+- [x] Options: sound on/off applies to music too; HUD message shows the track name.
+      (Sound on/off itself is M19; `setMuted` and `dispose` are ready for it.)
 
 ### M18 — pig types
 
@@ -131,3 +132,12 @@ Mapping of each note to a milestone (note text abbreviated):
   presentation modules"; layering is draw-order behaviour owned by the renderer, and themes
   still change appearance only — the pixel assertions in `tests/browser/game.browser.mjs`
   and the theme-only imports in `tests/themes.test.ts` still hold.
+- 2026-11-26 — **M17 done.** Generated soundtrack (D32): level hash picks tempo/waveform/scale/root,
+  a seeded PRNG writes the sequence, notes schedule on `loop.stepsTaken()`, and the HUD
+  names the track. Two wiring bugs found by the browser test: the first stage was never
+  announced because the handler registered after `createGame` misses the initial
+  `levelLoaded` event (fixed with an explicit `announceTrack`), and the scheduler started
+  at `Date.now()` while `tick` receives simulated time, so no note ever played (fixed by
+  starting at 0). The WebAudio contract moved to `src/audio/sfx.ts` with optional ramp
+  methods so both audio modules share one fake. Gates: 125 headless, 17 browser,
+  determinism 0 mismatches.

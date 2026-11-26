@@ -43,6 +43,8 @@ file together.
 | `LOAD_DEPTH` / `RECOIL_DECAY` | 0.5 / 0.05 per step | cannon display extra | The waiting pig is drawn half-way down the barrel against the pull; the muzzle flash decays (D28). Presentation only. |
 | trail `maxAge` / `maxPoints` / `minSpeed` | 24 steps / 40 points / speed 2 | motion trail (M15) | Ages out by step, so a trail never lingers after the pig lands; resting pigs leave no trail. |
 | debris `gravity` / `fadeSteps` / `maxFragments` | 0.35 / 90 steps / 120 | fragment fall, fade window, cap (M16) | A heap fades within ~1.5 s; the cap bounds a big collapse. |
+| music tempo range | 92–125 bpm, picked by level hash | generated soundtrack (M17) | Every stage gets its own pace; the range keeps it calm enough to sit under impact blips. |
+| music note gains | 0.08 downbeat, 0.045–0.075 arp | relative loudness (M17) | Quiet enough that an impact or destruction still reads as an event. |
 | debris `PILE_DAMPING` / `REST_SPEED` / `rollDamping` | 0.45 / speed 1 / 0.92 | landing friction and rest threshold (M16) | Debris stops fast rather than rolling across the stage. |
 | particle life | 0.24–0.59 s, gravity 1400/s², cap 220 | `src/fx/particles.ts` | Debris reads as a burst and clears before the next shot. Deterministic seed, so a burst draws identically in two runs. |
 | sfx envelopes | 0.08–0.4 s blips, gain 0.12–0.26 | `src/audio/sfx.ts` | Procedural oscillators, no assets (the artifact stays one file). Impact loudness scales with energy, capped at 1. |

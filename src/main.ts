@@ -14,6 +14,7 @@ import { createParticleSystem } from './fx/particles.ts';
 import { createTrail } from './fx/trail.ts';
 import { createDebris } from './fx/debris.ts';
 import { createSfx } from './audio/sfx.ts';
+import { createMusic } from './audio/music.ts';
 import { createSaveStore, memoryStore, type KeyValueStore } from './game/save.ts';
 import { WORLD, LEVELS, levelAt, loadLevel } from './levels/index.ts';
 
@@ -133,7 +134,20 @@ if (!canvas || !hudEl) {
   /** Fragments of destroyed blocks: they fall, pile on the ground, and fade (M16). */
   const debris = createDebris({ groundTop: game.groundTop() });
   const sfx = createSfx();
+  /** Generated per-stage soundtrack (M17). Shares the audio context sfx unlocked. */
+  const music = createMusic({ createContext: () => sfx.unlock() });
   sfx.attach(bus);
+
+  /** Name the generated track for the stage and remind the player how to fire (M17). */
+  function announceTrack(levelId: string, ammo: number): void {
+    music.start(levelId);
+    hud.message(
+      `${levelId} · ${music.flavour()?.name ?? 'no sound'} · ${ammo} pigs · drag to aim, release to fire`,
+    );
+  }
+  // Registered after the game is built, so the first stage is announced explicitly.
+  bus.on('levelLoaded', (e) => announceTrack(e.levelId, e.ammo));
+  announceTrack(levelAt(levelIndex).name, game.rules.snapshot().ammoLeft);
 
   bus.on('impact', (e) => {
     const at = game.entities.get(e.aId) ?? game.entities.get(e.bId);
@@ -234,6 +248,8 @@ if (!canvas || !hudEl) {
       // Trail ages by fixed step, so a recorded run replays identically.
       trail.update(game.entities.all());
       debris.update();
+      // The soundtrack advances on simulated time, so a recorded run sounds the same.
+      music.tick(loop.stepsTaken() * (1000 / 60));
     },
     render: (dt) => {
       lastFps = dt > 0 ? 1 / dt : 0;
@@ -268,6 +284,8 @@ if (!canvas || !hudEl) {
   (window as unknown as { __trail: unknown }).__trail = trail;
   // Same seam for debris heaps (M16).
   (window as unknown as { __debris: unknown }).__debris = debris;
+  // Same seam for the generated soundtrack (M17): the HUD and tests read the track name.
+  (window as unknown as { __music: unknown }).__music = music;
 
   console.log(`angry-pigs: ${LEVELS.length} level(s), themes: ${listThemes().join(', ')}`);
 }
