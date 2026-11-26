@@ -15,6 +15,9 @@ the shipped bundle). It gives:
   not simulated.
 - **Canvas pixels.** Screenshot a frame and sample pixels (theme colour, glow), so a
   theme swap is a measurable assertion rather than a visual check.
+- **DOM chrome.** Menus are asserted as DOM state, not pixels: the overlay's
+  `dataset.overlay` is `title` / `options` / `''`, buttons carry `data-test="stage-1"`,
+  `opt-theme`, `reset-best`, and the listing is read as button text (M19).
 - **Viewport/DPR/resize.** `deviceScaleRatio: 2`, resize mid-drag, hidden tab.
 - **`file://` loading.** Load `dist/index.html` with no server to prove D6.
 - **Network assertions.** `page.route()` fails the test if anything fetches.
@@ -32,11 +35,12 @@ const pigMoving = await page.evaluate(() => window.__game?.rules.snapshot().phas
 ```
 
 That needs the game to expose a small hook for tests — a deliberate, narrow seam rather
-than a test-only rewrite. `src/main.ts` publishes four read-only objects:
+than a test-only rewrite. `src/main.ts` publishes read-only objects:
 `window.__game` (rules, cannon, entity registry, aim API), `window.__camera`
-(`worldToScreen` for pixel sampling), `window.__trail`, `window.__debris`, and
-`window.__music` (the generated track's flavour and emitted notes). Nothing in the game
-reads them.
+(`worldToScreen` for pixel sampling), `window.__trail`, `window.__debris`,
+`window.__music` (the generated track's flavour and emitted notes),
+`window.__explosions` (blast count since load), and `window.__options()` (the persisted
+settings, so a reload can be asserted). Nothing in the game reads them.
 
 Cost: one dev dependency plus browser binaries, and `npm run test:browser` kept separate
 from `npm test` so the dependency-free suite stays fast and CI-installable without

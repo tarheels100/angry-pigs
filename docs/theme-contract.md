@@ -20,6 +20,10 @@ background, `behind`, entities, overlay, `front` — is owned by the renderer, s
 cannot reorder it (D30). A theme may not emit sound or spawn particles, because effects
 must keep working for every theme.
 
+Menus are **not** themes either. The title and options screens (M19) are DOM overlays
+(`src/ui/screens.ts`) with their own stylesheet in `index.html`, so a theme swap cannot
+change them and no theme has to implement a list of buttons (D35).
+
 ## What a theme may read
 
 `EntityState`: `kind`, `shape`, `material`, `x`, `y`, `angle`, `radius`,

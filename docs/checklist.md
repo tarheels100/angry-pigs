@@ -9,10 +9,10 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 
 ## 0. Baseline gate
 
-- [x] `npm run check` — typecheck, 137 headless tests, build in one command.
-      **Expected:** all pass, `dist/index.html` written (~130 KB inline, one `<script>`).
+- [x] `npm run check` — typecheck, 152 headless tests, build in one command.
+      **Expected:** all pass, `dist/index.html` written (~135 KB inline, one `<script>`).
 - [x] `npm run test:browser` — builds the artifact and drives it in headless Chromium.
-      **Expected:** 19 pass. CI runs this and `npm run check:determinism` as one browser
+      **Expected:** 24 pass. CI runs this and `npm run check:determinism` as one browser
       job, and `deploy` waits for it (`docs/adr.md` D22).
 
 ## 1. Browser-only checks
@@ -65,6 +65,19 @@ Covered by `tests/browser/game.browser.mjs` unless marked manual. Serve with
       A soft landing on the ground produces none (D34). Headless: `tests/pigs.test.ts` and
       `tests/physics.test.ts` assert blast falloff, push, and that a destroyed body is not
       flung again.
+- [x] **Title screen lists stages with best scores and starts the picked one.** The HUD
+      `menu` button (or `Esc`) opens the overlay; three stage buttons read
+      `play stage-01 · no record yet` on a fresh browser; picking stage 3 loads it
+      (`level` stat `stage 3/3`, ammo 5) and closes the overlay (M19, D35).
+- [x] **Options survive a reload.** `O` opens the options panel; cycling theme changes
+      `window.__options().themeId`; a reload reads the same value back from
+      `localStorage['angry-pigs:options']` and goes straight back to play, not the menu.
+      Turning trail and debris off records nothing (`__trail.points()` and
+      `__debris.fragments()` stay empty after a shot), and `forget best scores` clears the
+      stage records so the title screen reads `no record yet` again.
+- [x] **An open menu pauses the simulation.** With the overlay open, `launches` and step
+      counts do not advance, and closing it resumes the loop. Headless counterpart:
+      `tests/smoke.test.ts` asserts no further frames are queued while paused.
 - [x] **Tab hidden, then resumed.** Hide the tab for ~10s during flight.
       **Result:** pigs resume in place — the loop discards surplus time (M5).
 - [x] **Watch workflow.** Verified: start `npm run dev`, edit a source line, the rebuilt
@@ -129,6 +142,12 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
 - [x] **Best results persist.** Browser test clears Stage 01, reloads the page, and
       asserts `localStorage['angry-pigs:best:stage-01']` holds the record and the HUD
       shows `best ★★★ 3500` with the stage restarted fresh (D24).
+- [x] **Options persist, and corrupt settings cannot break the game.**
+      `src/ui/options.ts` reads one JSON key (`angry-pigs:options`) field by field: a wrong
+      type falls back to that field's default, and a blocked or corrupt store yields the
+      defaults rather than throwing (`tests/options.test.ts`). An unknown theme id is stored
+      as-is and falls back to tron only where the theme is looked up, so a theme removed in
+      a later build still boots (D35).
 - [x] **Determinism (cross-runtime).** `npm run check:determinism` bundles
       `scratch/sweep-entry.ts` twice — ESM for node, IIFE for chromium — and runs the
       same 72 combos (3 pulls × 8 angles × 3 stages) by stepping the game directly.

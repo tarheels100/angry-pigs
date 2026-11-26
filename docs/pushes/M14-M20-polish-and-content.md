@@ -158,3 +158,18 @@ Mapping of each note to a milestone (note text abbreviated):
   written by the render loop, so tests must wait for it rather than read it immediately.
   Gates: 137 headless, 19 browser, determinism 0 mismatches. Greedy bot: 1 / 2 / 2 pigs.
   Sweeps unchanged (they measure the first shot only).
+- 2026-11-26 — **M19 done.** Title + options screens (D35): `src/ui/options.ts` persists
+  theme/sound/debris/trail as one JSON key through the existing `KeyValueStore`, and
+  `src/ui/screens.ts` builds DOM overlays inside `#app` — a stage list with best scores, a
+  theme cycle, sound/debris/trail toggles, and `forget best scores`. HUD gained a `menu`
+  button; keys: `Esc` opens/closes the title screen, `O` opens options, `1`/`2`/`3` jump to
+  a stage. An open menu stops the loop, so a menu cannot step physics or advance the
+  soundtrack (D32 stays intact). Menus are DOM chrome, deliberately outside the theme
+  contract.
+  Bugs found on the way: (1) disabling debris still *spawned* fragments — only the update
+  and paint were skipped, so a heap reappeared when the option was turned back on; spawns
+  are now guarded. (2) `hide()` left `dataset.overlay` set, so the CSS and the tests saw a
+  closed overlay as open. (3) Browser tests firing `pullAndFire(90, -15)` did not win: that
+  helper takes a drag offset, so a pull of 90 at 15° is dx 86.9 / dy -23.2 — added
+  `fireWinner` instead of eyeballing the numbers (docs/browser-testing.md).
+  Gates: 152 headless, 24 browser, determinism 0 mismatches, artifact 135 KB.
