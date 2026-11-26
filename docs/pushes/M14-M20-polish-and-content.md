@@ -173,3 +173,20 @@ Mapping of each note to a milestone (note text abbreviated):
   helper takes a drag offset, so a pull of 90 at 15° is dx 86.9 / dy -23.2 — added
   `fireWinner` instead of eyeballing the numbers (docs/browser-testing.md).
   Gates: 152 headless, 24 browser, determinism 0 mismatches, artifact 135 KB.
+- 2026-11-26 — **M20 done.** Content escalation: stages 04–06 (`src/levels/l04.ts`,
+  `l05.ts`, `l06.ts`) registered in `LEVELS`, digits `1`–`6` pick a stage, and
+  `scratch/sweep-entry.ts` now sweeps all six so the determinism gate covers new content
+  (144 combos, 0 mismatches node vs chromium).
+  Designs: 04 is a two-storey tower whose wood legs carry a glass storey (one arc takes the
+  tower down, both elevated birds die by a fall) plus a wood pedestal needing two columns
+  gone; 05 is a platform on two trunks (two-shot puzzle) and a narrow glass perch; 06 is
+  the mixed-material finale — a metal shield flat shots die on, a bomb landing on a glass
+  perch whose blast and debris take the adjacent glass tower, a wood tower beyond the blast
+  radius that needs the heavy pig, and two pedestals for the cluster's fan.
+  Measurement that changed the design: the first stage-06 draft cleared in **one** pig —
+  the bomb landed on the metal shield and the chain took all four birds, so the structures
+  were moved apart (blast falls to zero at 130 units, and debris reach is shorter than the
+  eye expects). New rule 9 in docs/level-format.md records distance as the blast's
+  difficulty control. Sweep wins now 75/19/10/12/8/4 and greedy pigs 1/2/2/2/2/4.
+  New probe: `scratch/m20-probe.ts` (same bot, coarser angles, reports blasts and stars per
+  stage). Browser suite grew to 25 tests, including the finale's materials and chamber.

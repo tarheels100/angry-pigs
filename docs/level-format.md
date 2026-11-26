@@ -104,6 +104,12 @@ to clear is under-designed — add a failure mode instead (rule 4).
    the blast and impact energy above the threshold (D34); a bomb that only meets the ground
    is a wasted shot. Place glass where a bomb lands, and remember the blast chips wood rather
    than clearing it.
+9. **Distance is the blast's difficulty control.** A bomb's blast falls off linearly to zero
+   at its radius (130 units today), so the structures beside the landing point die and the
+   ones beyond it survive. Stage 06 puts its wood tower past that radius on purpose: the bomb
+   takes the near glass chain in one pig, and the wood tower still needs the heavy pig
+   (docs/tuning.md). Falling debris is a second, less predictable reach — measure the sweep
+   before assuming a chain stops where you drew it.
 
 ## Materials available (v0)
 

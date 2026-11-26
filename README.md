@@ -6,20 +6,20 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
-**Status:** M1–M19 complete. The game runs in a browser from a single self-contained
-`dist/index.html`: three stages, drag aim, trajectory preview, typed ammo (basic, heavy,
-bomb, cluster) with a bomb blast and a cluster spread, per-impact damage with partial
+**Status:** M1–M20 complete. The game runs in a browser from a single self-contained
+`dist/index.html`: six escalating stages, drag aim, trajectory preview, typed ammo (basic,
+heavy, bomb, cluster) with a bomb blast and a cluster spread, per-impact damage with partial
 destruction, crush/fall attribution, star scoring, camera follow and re-framing, a level
-warm-up so nothing starts partly damaged, glass/wood/stone materials that take several
-hits, pigs and birds drawn as characters, a launcher whose barrel tilts and whose spring
-compresses, a motion trail, scenery props, debris heaps that pile and fade, a generated
-soundtrack with one flavour per stage, a title screen listing stages with best scores and
-an options screen whose settings survive a reload, the Tron theme (default) plus a Pixel
-theme proving the theme contract, and deployed to GitHub Pages
+warm-up so nothing starts partly damaged, glass/wood/stone/metal structures that take
+several hits, pigs and birds drawn as characters, a launcher whose barrel tilts and whose
+spring compresses, a motion trail, scenery props, debris heaps that pile and fade, a
+generated soundtrack with one flavour per stage, a title screen listing stages with best
+scores and an options screen whose settings survive a reload, the Tron theme (default) plus
+a Pixel theme proving the theme contract, and deployed to GitHub Pages
 (`https://tarheels100.github.io/angry-pigs/`).
-Gates: `npm run check` (typecheck + 152 headless tests + build), `npm run test:browser` (24
+Gates: `npm run check` (typecheck + 152 headless tests + build), `npm run test:browser` (25
 Playwright tests against the built artifact), and `npm run check:determinism` (the same
-bundle run in node and chromium, 72 combos, 0 mismatches) — all three run in CI. Best
+bundle run in node and chromium, 144 combos, 0 mismatches) — all three run in CI. Best
 results and options persist in `localStorage` (D24, D35).
 
 Remaining open work is tuning and feel rather than plumbing — see the open questions in
@@ -131,7 +131,7 @@ units) cancels and costs no ammo. The HUD Restart button does the same as `R`.
 | --- | --- |
 | `R` | restart the current stage |
 | `N` / `P` | next / previous stage (wraps) |
-| `1` / `2` / `3` | jump straight to stage 1 / 2 / 3 |
+| `1`–`6` | jump straight to stage 1 … 6 |
 | `T` | cycle themes — tron (default), placeholder, placeholder-dark, pixel |
 | `M` | mute / unmute sound |
 | `O` | options screen (theme, sound, debris, trail, forget best scores) |
@@ -230,7 +230,7 @@ done only when its check passes.
 | 17 | Procedural soundtrack, one flavour per level | 11 | done |
 | 18 | Pig types: basic, heavy, bomb, cluster | 14 | done |
 | 19 | Title screen + options screen (real options, persisted) | 15, 17 | done |
-| 20 | Content escalation: big collapses, tree platforms, mixed materials | 14–18 | planned |
+| 20 | Content escalation: big collapses, tree platforms, mixed materials | 14–18 | done |
 
 ### 1. Repo scaffold, tooling, stubs
 

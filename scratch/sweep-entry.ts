@@ -1,7 +1,7 @@
 import { createPhysicsAdapter } from '../src/physics/adapter.ts';
 import { createEventBus } from '../src/core/eventBus.ts';
 import { createGame } from '../src/game/game.ts';
-import { loadLevel, levelAt } from '../src/levels/index.ts';
+import { loadLevel, levelAt, LEVELS } from '../src/levels/index.ts';
 
 /**
  * Determinism probe used by `scripts/determinism.js`: the same bundle runs in Node and
@@ -92,6 +92,7 @@ export function runSweep(levelIndex: number): Outcome[] {
 
 export function sweepAll(): Outcome[] {
   const outcomes: Outcome[] = [];
-  for (let level = 0; level < 3; level++) outcomes.push(...runSweep(level));
+  // Every shipped stage is part of the determinism gate, not just the first three (M20).
+  for (let level = 0; level < LEVELS.length; level++) outcomes.push(...runSweep(level));
   return outcomes;
 }

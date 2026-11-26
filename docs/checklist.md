@@ -10,9 +10,9 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 ## 0. Baseline gate
 
 - [x] `npm run check` — typecheck, 152 headless tests, build in one command.
-      **Expected:** all pass, `dist/index.html` written (~135 KB inline, one `<script>`).
+      **Expected:** all pass, `dist/index.html` written (~138 KB inline, one `<script>`).
 - [x] `npm run test:browser` — builds the artifact and drives it in headless Chromium.
-      **Expected:** 24 pass. CI runs this and `npm run check:determinism` as one browser
+      **Expected:** 25 pass. CI runs this and `npm run check:determinism` as one browser
       job, and `deploy` waits for it (`docs/adr.md` D22).
 
 ## 1. Browser-only checks
@@ -142,6 +142,14 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
 - [x] **Best results persist.** Browser test clears Stage 01, reloads the page, and
       asserts `localStorage['angry-pigs:best:stage-01']` holds the record and the HUD
       shows `best ★★★ 3500` with the stage restarted fresh (D24).
+- [x] **The roster escalates and the finale mixes materials.** Pressing `6` loads
+      `stage 6/6` with five birds, five pigs and glass + wood + metal blocks present
+      (M20). Single-shot win counts fall 75 → 19 → 10 → 12 → 8 → 4 across the six stages
+      (docs/tuning.md), and the greedy bot needs 1 → 2 → 2 → 2 → 2 → 4 pigs.
+- [x] **Stage 06 is not clearable by one lucky bomb.** The blast radius (130 units,
+  falling to zero) reaches the near glass perch and tower but stops short of the wood
+  tower, so the wood bird needs the heavy pig and the pedestals need the cluster
+  (docs/level-format.md rule 9).
 - [x] **Options persist, and corrupt settings cannot break the game.**
       `src/ui/options.ts` reads one JSON key (`angry-pigs:options`) field by field: a wrong
       type falls back to that field's default, and a blocked or corrupt store yields the
@@ -150,7 +158,7 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
       a later build still boots (D35).
 - [x] **Determinism (cross-runtime).** `npm run check:determinism` bundles
       `scratch/sweep-entry.ts` twice — ESM for node, IIFE for chromium — and runs the
-      same 72 combos (3 pulls × 8 angles × 3 stages) by stepping the game directly.
+      same 144 combos (3 pulls × 8 angles × all six stages) by stepping the game directly.
       **Result:** 0 mismatches; 3 wins, 9 combos hit the settle timeout. The entry
       records no timing, so there is nothing legitimate that can differ.
       Cross-machine drift would show up as a mismatch in CI, which runs this on Linux.
@@ -184,11 +192,11 @@ misses everything and proves the lose path. Peak impact energies for the flat sh
 vs column 75.4, pig vs ground 53.9, pig vs second column 24.4, debris hits 1–15.
 
 Clearability with the structure-aware bot (`scratch/greedy-probe.ts`, mirrored in
-`tests/levels.test.ts`): stage 01 in 1 pig, stage 02 in 2, stage 03 in 2 — all inside the
-authored ammo, which is now typed (`bomb` opens stage 02, `cluster` is stage 03's second
-shot). The bot aims at the support holding a bird up and never repeats a shot that
-killed nothing. The single-shot sweep still measures the **first** shot, so its counts are
-unchanged by later typed ammo.
+`tests/levels.test.ts`): stage 01 in 1 pig, stages 02–05 in 2, stage 06 in 4 — all inside
+the authored ammo, which is typed (`bomb` opens stages 02, 05 and 06; `cluster` is stage
+03's second shot and stage 06's third). The bot aims at the support holding a bird up and
+never repeats a shot that killed nothing. The single-shot sweep still measures the
+**first** shot, so its counts are unchanged by later typed ammo.
 
 - Preview cost: `simulateTrajectory` is ~0.07 ms per call (120 steps, 7 bodies), so
   recomputing per pointermove is free at this scale. Re-measure before adding 100+ bodies.

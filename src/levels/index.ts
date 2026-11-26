@@ -3,6 +3,9 @@ import type { BodyInit } from '../physics/adapter.ts';
 import { LEVEL_01 } from './l01.ts';
 import { LEVEL_02 } from './l02.ts';
 import { LEVEL_03 } from './l03.ts';
+import { LEVEL_04 } from './l04.ts';
+import { LEVEL_05 } from './l05.ts';
+import { LEVEL_06 } from './l06.ts';
 
 /** Level format v0 (docs/level-format.md). Levels are authored as data and
  * compiled into the bundle at build time — the shipped build fetches nothing (D6). */
@@ -83,7 +86,7 @@ class LevelError extends Error {
  * be smaller than the world, never larger. */
 export const WORLD = { width: 1600, height: 900 };
 
-export const LEVELS: LevelDef[] = [LEVEL_01, LEVEL_02, LEVEL_03];
+export const LEVELS: LevelDef[] = [LEVEL_01, LEVEL_02, LEVEL_03, LEVEL_04, LEVEL_05, LEVEL_06];
 
 export function levelAt(index: number): LevelDef {
   // Wrap in both directions: the roster is a cycle, and the UI can step backwards.

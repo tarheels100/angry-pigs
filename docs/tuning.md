@@ -53,24 +53,29 @@ file together.
 ## Stage sweeps (scratch/sweep-probe.ts, greedy-probe.ts)
 
 Single-shot sweep, pull 20…`maxPull` step 5, angle −40°…+40° step 2.5° (495
-combinations per stage). Re-measured after M14 (warmup, tougher blocks, glass threshold 4,
-feather threshold 1.0, wood in stage 03):
+combinations per stage). Re-measured after M20 (six stages; stage 04 has a two-storey
+tower and a wood pedestal, stage 05 a two-trunk platform, stage 06 a metal shield):
 
 | stage | wins | one-shot clears | birds killed | blocks fully gone | blocks untouched | partially damaged | settle timeouts |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | stage-01 | 75 | 75 | 425/990 | 0–3 | 336 | 252 | 97 |
 | stage-02 | 19 | 19 | 265/990 | 0–3 | 266 | 344 | 131 |
 | stage-03 | 10 | 10 | 150/990 | 0–2 | 407 | 198 | 84 |
+| stage-04 | 12 | 13 | 323/1485 | 0–7 | 274 | 220 | 118 |
+| stage-05 | 8 | 8 | 151/990 | 0–2 | 422 | 190 | 55 |
+| stage-06 | 4 | 4 | 263/2475 | 0–3 | 362 | 432 | 50 |
 
 Wins require at least one bird to die; a win is not necessarily a one-shot clear.
 `scratch/greedy-probe.ts` and `tests/levels.test.ts` aim at the structure holding a bird
 up, not at the bird itself — that is how a player clears a pedestal — and never repeat a
-shot that killed nothing. With that bot: stage 01 clears in 1 pig, stage 02 in 2, stage 03
-in 2, all inside the authored ammo.
+shot that killed nothing. With that bot: stage 01 clears in 1 pig, stages 02–05 in 2,
+stage 06 in 4, all inside the authored ammo. `scratch/m20-probe.ts` is the same bot with
+coarser angles, used to quote blast counts and stars per stage.
 
-**Difficulty order holds:** stage 01 easiest (75), stage 02 harder (19), stage 03 hardest
-(10). Reaching a bird is now the hard part: blocks survive hits, so kills come from
-collapse and falls.
+**Difficulty order holds:** single-shot wins fall 75 → 19 → 10 → 12 → 8 → 4, and pigs
+needed to clear rise 1 → 2 → 2 → 2 → 2 → 4. Stage 04 wins more often than stage 03 because
+one good arc takes its whole tower down; its pedestal is wood and needs two shots, which
+is why the greedy bot still needs two pigs there.
 
 **Level design rules (docs/level-format.md):** nothing critical may sit under stone, and a
 bird must die by a *fall* or a *direct hit*, not by a graze. A bird riding a beam needs
@@ -103,11 +108,12 @@ starting point, not a tuned curve.
 
 - Pig damage model: pigs currently ignore damage entirely (D15); decide whether a pig
   takes damage from heavy hits instead.
-- Stage 02 and 03 win rates (19 and 10 of 495 single-shot) are low by design — both birds
-  need structural collapse. If playtests feel unfair, retune beam health or glass
+- Stage 02–06 win rates (19, 10, 12, 8, 4 of 495 single-shot) are low by design — most
+  birds need structural collapse. If playtests feel unfair, retune beam health or glass
   thresholds rather than adding more ammo.
-- Wood is used once (stage 03 tower legs). More materials arrive with M18 pig types, where
-  a heavy or bomb pig is the thing that breaks wood and stone.
+- Wood is now used in stages 03–06 (tower legs, platforms, pedestals); metal appears once,
+  as an unbreakable shield in stage 06. Whether metal should ever be breakable — a
+  heavier pig, or a bigger blast recipe — is still undecided.
 
 ## Pig types (M18, src/game/pigs.ts)
 
@@ -132,6 +138,5 @@ Conversion, measured rather than assumed:
 - Detonation needs a hit against a block or bird with raw impact energy ≥ 40 (docs/adr.md
   D34). Measured on stage 02 with the winning aim: peak impact 54.6, one blast, pedestal gone.
 
-Sweep numbers above still hold because the sweep measures the *first* shot only, and every
-stage's first ammo is still `basic` except stage 02 (bomb). Greedy bot with typed ammo:
-1 / 2 / 2 pigs (docs/tuning.md sweeps section).
+Sweep numbers above still hold because the sweep measures the *first* shot only. Greedy
+bot with typed ammo: 1 / 2 / 2 / 2 / 2 / 4 pigs (docs/tuning.md sweeps section).

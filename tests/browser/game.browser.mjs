@@ -191,7 +191,7 @@ test('a winning shot reports stars and advances to the next stage', async () => 
     assert.match(await hudText(page), /★/);
 
     // Auto-advance (docs/adr.md D20 level flow).
-    await page.waitForFunction(() => window.__game.rules.snapshot().targetsTotal === 2 && document.getElementById('hud').textContent.includes('stage 2/3'), null, { timeout: 4000 });
+    await page.waitForFunction(() => window.__game.rules.snapshot().targetsTotal === 2 && document.getElementById('hud').textContent.includes('stage 2/6'), null, { timeout: 4000 });
     assert.match(await hudText(page), /stage-02/);
   });
 });
@@ -457,7 +457,7 @@ test('the HUD names the pig waiting in the chamber (M18)', async () => {
     // Stage 03 ships basic, cluster, bomb, then basics.
     await page.keyboard.press('n');
     await page.keyboard.press('n');
-    await waitStat(page, 'level', 'stage 3/3', 'stage 03 loaded');
+    await waitStat(page, 'level', 'stage 3/6', 'stage 03 loaded');
     // The chamber label is written by the render loop, so it is waited for, not read instantly.
     await waitStat(page, 'next-pig', 'next basic', 'basic queued first');
 
@@ -480,7 +480,7 @@ test('a bomb detonates against structure (M18)', async () => {
     await open(page, artifactPath());
     // Stage 02 opens with the bomb, so the blast is testable without clearing first.
     await page.keyboard.press('n');
-    await waitStat(page, 'level', 'stage 2/3', 'stage 02 loaded');
+    await waitStat(page, 'level', 'stage 2/6', 'stage 02 loaded');
     await waitStat(page, 'next-pig', 'next bomb', 'the chamber holds a bomb');
 
     // The measured winning aim for this stage (docs/tuning.md): a shallow upward arc.
@@ -510,15 +510,13 @@ test('the title screen lists stages with best scores and starts the picked one (
     await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'title');
     const labels = await overlayLabels(page);
     assert.match(labels[0] ?? '', /^play stage-01 · no record yet$/, 'a fresh browser has no records');
-    assert.equal(labels.length, 5, 'three stages plus options and resume');
+    assert.equal(labels.length, 8, 'six stages plus options and resume');
 
     // Picking a stage loads it and hands control back.
     await page.click('[data-test="stage-2"]');
-    await waitStat(page, 'level', 'stage 3/3', 'stage 03 loaded from the title screen');
+    await waitStat(page, 'level', 'stage 3/6', 'stage 03 loaded from the title screen');
     assert.equal(await overlayKind(page), '', 'the overlay closes when a stage is picked');
     assert.equal((await snapshot(page)).phase, 'aiming', 'the loop resumed after the menu');
-    // Stage 03 is the only stage that ships five pigs (src/levels/l03.ts).
-    assert.equal((await snapshot(page)).ammoLeft, 5, 'stage 03 is the live round');
   });
 });
 
@@ -531,7 +529,7 @@ test('the title screen can be opened and closed with Escape, and digits pick sta
     assert.equal(await overlayKind(page), '', 'Escape closes the menu');
 
     await page.keyboard.press('2');
-    await waitStat(page, 'level', 'stage 2/3', 'digit keys jump to a stage');
+    await waitStat(page, 'level', 'stage 2/6', 'digit keys jump to a stage');
 
     // The menu pauses simulation: steps must not advance while it is open.
     await page.keyboard.press('Escape');
@@ -566,7 +564,7 @@ test('an option change survives a reload (M19)', async () => {
     await page.waitForFunction(() => typeof window.__options !== 'undefined');
     assert.equal(await page.evaluate(() => window.__options().themeId), themeAfter, 'the setting survived the reload');
     assert.equal(await overlayKind(page), '', 'a reload goes back to play, not the menu');
-    assert.equal(await page.evaluate(() => document.querySelector('[data-stat="level"]')?.textContent), 'stage 1/3');
+    assert.equal(await page.evaluate(() => document.querySelector('[data-stat="level"]')?.textContent), 'stage 1/6');
   });
 });
 
@@ -618,5 +616,21 @@ test('forgetting best scores clears the title screen records (M19)', async () =>
     await page.keyboard.press('Escape');
     const afterReset = await overlayLabels(page);
     assert.match(afterReset[0] ?? '', /play stage-01 · no record yet/, 'the list rebuilds without records');
+  });
+});
+
+test('the last stage mixes materials and opens with a bomb (M20)', async () => {
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    await page.keyboard.press('6');
+    await waitStat(page, 'level', 'stage 6/6', 'stage 06 loaded by digit key');
+    const snap = await snapshot(page);
+    assert.equal(snap.targetsTotal, 5, 'the finale ships five birds');
+    assert.equal(snap.ammoLeft, 5, 'five pigs, one per bird at worst');
+    await waitStat(page, 'next-pig', 'next bomb', 'the chamber opens with a bomb');
+    const materials = await page.evaluate(() =>
+      [...new Set(window.__game.entities.byKind('block').map((e) => e.material))].sort(),
+    );
+    assert.deepEqual(materials, ['glass', 'metal', 'wood'], 'glass, wood and the metal shield are all present');
   });
 });
