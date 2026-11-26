@@ -8,7 +8,8 @@
     "dev:open": "node scripts/dev.js --open",
     "serve": "node server.js",
     "watch": "esbuild src/main.ts --bundle --watch=forever --format=iife --outfile=dist/main.js",
-    "build": "esbuild src/main.ts --bundle --minify --format=iife --outfile=dist/main.js && node build-html.js",
+    "build": "esbuild src/main.ts --bundle --minify --legal-comments=none --format=iife --outfile=dist/main.js && node build-html.js",
+    "check": "npm run typecheck && npm test && npm run build",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"tests/**/*.test.ts\""
   },

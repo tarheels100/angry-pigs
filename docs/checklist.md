@@ -9,9 +9,8 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 
 ## 0. Baseline gate
 
-- [x] `npm run check` — typecheck, tests, build in one command (script not added yet;
-      meanwhile run `npm run typecheck && npm test && npm run build`).
-      **Expected:** 57 tests pass, `dist/index.html` written.
+- [x] `npm run check` — typecheck, tests, build in one command.
+      **Expected:** 58 tests pass, `dist/index.html` written.
 
 ## 1. Browser-only checks
 
@@ -34,17 +33,20 @@ Headless tests cannot cover these (`tests/browser.*` does not exist yet — see
       tap Restart.
       **Expected:** moves keep arriving (pointer capture), a cancelled gesture never
       fires a shot, Restart works on tap.
-- [/] **Tab hidden, then resumed.** Hide the tab for ~10s during flight.
+- [x] **Tab hidden, then resumed.** Hide the tab for ~10s during flight.
       **Expected:** pigs resume in place, no teleport (loop discards surplus time).
-- [/] **Theme cycling mid-flight.** Press `t` while a pig is in the air.
+- [x] **Theme cycling mid-flight.** Press `t` while a pig is in the air.
       **Expected:** the second theme looks visibly different; destroyed entities are
       not painted.
-- [/] **Watch workflow.** Edit a source file, reload manually, confirm the new bundle
+      **Note:** the colour change passes, but "destroyed entities are not painted" is
+      not true today — corpses render white until milestone 11 (see the deferred item
+      in section 2). Treat that half of this check as pending.
+- [ ] **Watch workflow.** Edit a source file, reload manually, confirm the new bundle
       is served (no HMR by design).
-- [ ] **Pages deploy.** Publish `dist/`, load the deployed URL.
+- [ ] **Pages deploy.** Blocked until Pages is enabled in repo settings
+      (settings → Pages → Build and deployment → Source: **GitHub Actions**).
+      `.github/workflows/deploy.yml` is in place and publishes `dist/` once that is set.
       **Expected:** no 404s, only relative paths in the shipped file.
-      Consider asserting this in a test: grep the built artifact for absolute URLs
-      and `fetch(`.
 
 ## 2. Gameplay and simulation evaluation
 
@@ -54,7 +56,7 @@ Re-run `scratch/sweep-probe.ts` (`node scratch/sweep-probe.cjs` after bundling, 
 - [ ] **Crush vs shatter.** Count bird deaths caused by direct pig impact vs by
       falling debris. Today both flow through the same `impactEnergy` path.
       **Record:** counts per sweep combination, in `docs/tuning.md`.
-- [ ] **Pigs nudging ground birds.** Let a slow pig roll into a bird on the ground.
+- [x] **Pigs nudging ground birds.** Let a slow pig roll into a bird on the ground.
       **Expected:** tiny contact energy must not kill a target through the floor.
       If it does, raise the damage floor rather than lowering bird health.
 - [ ] **Settle timeout honesty.** Several shots end at 239 steps — the
@@ -108,11 +110,12 @@ Stage 01 sweep, 51 pull combinations (`scratch/sweep-probe.ts`):
 - [ ] **Entity id namespace.** Display extras (`cannon`, `cannon-pig`) share the
       registry with physics ids (`pig-1`). Assert extras cannot collide with physics
       ids.
-- [ ] **`npm run check`** script, plus a GitHub Actions workflow running
-      typecheck + tests + build so the gate is enforced rather than remembered.
-      Use Actions' `GITHUB_TOKEN`; never commit a PAT.
-- [ ] **Artifact assertion test.** Verify the built `dist/index.html` contains no
-      absolute URLs and no runtime `fetch`.
+- [x] **`npm run check`** script (`typecheck && test && build`), plus
+      `.github/workflows/deploy.yml` running it and publishing `dist/` so the gate is
+      enforced rather than remembered. Uses Actions' `GITHUB_TOKEN`; no PAT committed.
+- [x] **Artifact assertion test.** `tests/artifact.test.ts` rebuilds the artifact and
+      rejects absolute URLs, root-absolute paths, and runtime `fetch`. Build now strips
+      legal comments so matter-js's license URL is not in the shipped file.
 
 ## 5. Where to record results
 
