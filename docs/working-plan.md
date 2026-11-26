@@ -40,11 +40,12 @@ Tuning is deferred ("working game first"), except the two physics asks below.
       so sheltered birds are unkillable. Recorded in level-format.md + physics gotchas.
       Greedy bot probe: scratch/greedy-probe.ts (clears every stage within authored ammo).
       78 tests pass; levels.test.ts costs ~3.5s. 78 pass.
-- [ ] D. M10: tron theme (default) — neon outlines, glow, grid. Registry only.
-- [ ] E. M11: particles + WebAudio SFX + shake + debug overlay (F2).
-- [ ] F. M12: second theme (`pixel`) through contract only; verify diff touches themes/ only.
-- [ ] G. M13: browser tests (file:// offline, drag gesture, theme swap pixels, resize
-      mid-drag, DPR mapping, no-fetch route, win/lose flow), tuning doc, README status.
+- [x] D. M10: tron theme (default) — neon outlines, glow, grid. Registry only. (commit a13ad2a, 85 tests)
+- [x] E. M11: particles + WebAudio SFX + shake + debug overlay (F2). (commit 9dea25d)
+- [x] F. M12: second theme (`pixel`) through contract only; themes.test.ts asserts theme files import nothing outside the contract.
+- [x] G. M13: browser tests (file:// offline, drag gesture, theme swap pixels, resize mid-drag,
+      DPR mapping, no-fetch route, win/advance flow) — 9 pass via Playwright; CI browser job added.
+      Remaining: tuning doc refresh + README status (step H).
 - [ ] H. Docs sweep: theme-contract (healthMax/fade), tuning (measured), physics gotchas,
       checklist statuses, README status + roadmap, docs map entry for this file. Delete
       this working-plan before the final commit.
