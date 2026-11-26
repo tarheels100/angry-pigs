@@ -19,8 +19,8 @@ function recordingContext(): { ops: Op[]; ctx: CanvasRenderingContext2D } {
   const target: Record<string, unknown> = { lineWidth: 1, globalAlpha: 1, shadowColor: '', shadowBlur: 0 };
   Object.defineProperty(target, 'fillStyle', { get: () => fillStyle, set: (v: string) => { fillStyle = v; } });
   Object.defineProperty(target, 'strokeStyle', { get: () => strokeStyle, set: (v: string) => { strokeStyle = v; } });
-  const PAINT_OPS = new Set(['fillRect', 'fill', 'stroke']);
-  for (const name of ['fillRect', 'beginPath', 'fill', 'stroke', 'arc', 'rect', 'moveTo', 'lineTo', 'save', 'restore', 'translate', 'scale', 'rotate', 'setTransform']) {
+  const PAINT_OPS = new Set(['fillRect', 'strokeRect', 'fill', 'stroke']);
+  for (const name of ['fillRect', 'strokeRect', 'beginPath', 'fill', 'stroke', 'arc', 'rect', 'moveTo', 'lineTo', 'save', 'restore', 'translate', 'scale', 'rotate', 'setTransform']) {
     target[name] = () => {
       const t = target as Record<string, unknown>;
       ops.push({
@@ -157,4 +157,38 @@ test('themes depend only on the contract, not on the pipeline or the game', asyn
     }
   }
   assert.ok(files.includes('tron.ts') && files.includes('pixel.ts'), 'tron and pixel both ship');
+});
+
+test('every theme palette covers every material, including wood', () => {
+  // A level may use any material, so a theme must have a colour for all of them
+  // (docs/theme-contract.md).
+  for (const theme of [createTronTheme(), createPixelTheme(), createPlaceholderTheme()]) {
+    const colours = theme.palette.materials as Record<string, string>;
+    for (const material of ['glass', 'wood', 'stone', 'metal', 'feather', 'ground', 'light']) {
+      assert.ok(typeof colours[material] === 'string' && colours[material]!.length > 0, `${theme.id} has no colour for ${material}`);
+    }
+  }
+});
+
+test('materials read differently inside a block, in both themes', () => {
+  // M14: glass, wood, stone and metal must be distinguishable at a glance. Texture is
+  // derived from `material` plus the palette colour only (docs/theme-contract.md).
+  const tron = createTronTheme();
+  const opsFor = (material: string) =>
+    afterBackground(paint(tron, [entity({ material: material as EntityState['material'], health: 1000, healthMax: 1000 })]));
+  const glass = opsFor('glass');
+  const wood = opsFor('wood');
+  const stone = opsFor('stone');
+  const metal = opsFor('metal');
+  assert.ok(wood.length > glass.length, 'wood grain adds drawing');
+  assert.ok(stone.length > glass.length, 'stone speckle adds drawing');
+  assert.ok(metal.length > glass.length, 'metal adds an inner wall');
+  assert.ok(wood.some((o) => o.op === 'stroke' && o.colour === tronPalette.materials.wood), 'wood texture uses the wood accent');
+  assert.ok(stone.some((o) => o.op === 'fillRect' && o.colour === tronPalette.materials.stone), 'stone speckle uses the stone accent');
+
+  const pixel = createPixelTheme();
+  const pixelOps = (material: string) =>
+    afterBackground(paint(pixel, [entity({ material: material as EntityState['material'], health: 1000, healthMax: 1000 })]));
+  assert.ok(pixelOps('wood').length > pixelOps('metal').length, 'pixel plank joints add drawing');
+  assert.ok(pixelOps('glass').some((o) => (o.alpha ?? 1) < 1), 'pixel glass is the translucent one');
 });

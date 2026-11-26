@@ -6,12 +6,13 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
-**Status:** M1–M13 complete. The game runs in a browser from a single self-contained
+**Status:** M1–M14 complete. The game runs in a browser from a single self-contained
 `dist/index.html`: three stages, drag aim, trajectory preview, ammo, per-impact damage
 with partial destruction, crush/fall attribution, star scoring, camera follow and
-re-framing, the Tron theme (default) plus a Pixel theme proving the theme contract, and
-deployed to GitHub Pages (`https://tarheels100.github.io/angry-pigs/`). Gates: `npm run
-check` (typecheck + 106 headless tests + build), `npm run test:browser` (12 Playwright
+re-framing, a level warm-up so nothing starts partly damaged, glass/wood/stone materials
+that take several hits, the Tron theme (default) plus a Pixel theme proving the theme
+contract, and deployed to GitHub Pages (`https://tarheels100.github.io/angry-pigs/`).
+Gates: `npm run check` (typecheck + 108 headless tests + build), `npm run test:browser` (12 Playwright
 tests against the built artifact), and `npm run check:determinism` (the same bundle run in
 node and chromium, 72 combos, 0 mismatches) — all three run in CI. Best results per stage
 persist in `localStorage` (D24).
@@ -212,6 +213,13 @@ done only when its check passes.
 | 11 | Polish: particles, audio, shake, debug overlay | 8, 10 | done |
 | 12 | Theme-swap proof (second theme) | 10 | done |
 | 13 | Tests, tuning, single-file build & Pages deploy | 8, 9, 11 | done |
+| 14 | Load stability + material realism (warmup, wood, tougher glass) | 13 | done |
+| 15 | Entity art: pigs/birds drawn as pigs/birds, cannon art, motion trail, scenery | 14 | planned |
+| 16 | Debris heaps: destroyed objects crumble into falling fragments on a back layer | 14, 11 | planned |
+| 17 | Procedural soundtrack, one flavour per level | 11 | planned |
+| 18 | Pig types: basic, heavy, bomb, cluster | 14 | planned |
+| 19 | Title screen + options screen (real options, persisted) | 15, 17 | planned |
+| 20 | Content escalation: big collapses, tree platforms, mixed materials | 14–18 | planned |
 
 ### 1. Repo scaffold, tooling, stubs
 
@@ -357,13 +365,82 @@ match reality.
 the offline copy plays identically with no network requests; tuning log shows every
 gameplay constant has a documented reason.
 
+### 14. Load stability + material realism
+
+**Deliverables:** a level is simulated (damage suppressed) before the player gets control
+so nothing starts partly damaged or mid-fall; a `wood` material with its own look; glass
+made tougher and the damage scale retuned so structures take several hits and topple;
+materials visually distinct in Tron and Pixel; a stage with a wood structure whose bird is
+still reachable.
+
+**Acceptance:** headless test asserts every body starts at full health and resting; a test
+asserts a block survives one hit with visible partial health; sweeps re-measured in
+`docs/tuning.md`; every stage still clearable within authored ammo.
+
+### 15. Entity art, cannon art, motion trail, scenery
+
+**Deliverables:** pigs drawn as pigs and birds as birds (ears, snout, wings, beak) in each
+theme; a cannon with a barrel that tilts to the aim and a coil spring that compresses with
+pull, plus a recoil after firing; a deterministic motion trail behind flying pigs;
+background scenery props from level data (trees, silhouettes) painted behind entities.
+
+**Acceptance:** theme tests assert each theme paints the new shapes through the contract
+only (`variant`, cannon aim state); browser tests assert painted pixels change when the
+aim changes; no changes outside `src/render/themes/` plus presentation modules.
+
+### 16. Debris heaps
+
+**Deliverables:** fragments spawned on destruction that have gravity, land, pile into a
+heap, and fade; painted on a layer behind live entities; cleared on level load.
+
+**Acceptance:** headless test asserts fragments settle into a heap near the destruction
+point and disappear after their lifetime; deterministic for a given seed.
+
+### 17. Procedural soundtrack
+
+**Deliverables:** a generative WebAudio track that does not loop the same sequence, with a
+per-level flavour (tempo, scale, waveform); starts on level load; respects the sound
+option; a track name shown in the HUD.
+
+**Acceptance:** headless test with an injected clock asserts the note sequence is
+deterministic for a seed and differs between levels; the artifact stays one file with no
+audio assets.
+
+### 18. Pig types
+
+**Deliverables:** a pig-type registry (`basic`, `heavy`, `bomb`, `cluster`) with radius,
+material, count, spread, damage multiplier and explosion radius; level ammo lists use type
+ids and the loader validates them; a bomb explodes on impact (radial impulse + area
+damage); a cluster fires a spread of small pigs; a heavy pig tops glass and wood and
+topples stone.
+
+**Acceptance:** tests assert spawn counts, explosion impulse and damage, cluster spread,
+and ammo consumption; sweeps show at least one stage needs a non-basic pig to clear.
+
+### 19. Title + options screens
+
+**Deliverables:** a title screen listing stages with best scores and a start action; an
+options screen with theme, sound, debris, trail, and reset-best, persisted through the
+`KeyValueStore`; keyboard shortcuts listed.
+
+**Acceptance:** browser test asserts an option change survives a reload and the title
+screen's start loads a stage; no network requests.
+
+### 20. Content escalation
+
+**Deliverables:** a large precarious structure that collapses into a heap; a bird on a
+high static platform with tree scenery and structures shielding it; a stage mixing
+materials and pig types.
+
+**Acceptance:** `scratch/greedy-probe.ts` and `tests/levels.test.ts` clear every stage
+within authored ammo; the difficulty order in `docs/tuning.md` still holds.
+
 ## Later / optional
 
 - Level editor (M9 schema makes levels data-only, so an editor is additive)
-- More pig types: bouncy, heavy, splitting (ammo list in level data already supports it)
+- More pig types beyond M18: bouncy, splitting (ammo list in level data already supports it)
 - WebGL renderer for bloom and larger level object counts
 - Accessibility: reduced-motion mode, high-contrast theme, keyboard-only aiming
-- Persistence: progress and best scores in `localStorage`
 - Deterministic replay export for debugging
 
 ## Open questions — resolved in M2

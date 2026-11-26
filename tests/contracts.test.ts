@@ -92,7 +92,7 @@ function fakeTheme(): Theme {
     outline: '#6ef3ff',
     grid: '#12181f',
     materials: {
-      glass: '#8ef7ff', stone: '#ff9d5c', metal: '#c8d6e0',
+      glass: '#8ef7ff', wood: '#c98a4b', stone: '#ff9d5c', metal: '#c8d6e0',
       feather: '#ffd166', ground: '#2b3a44', light: '#6ef3ff',
     } satisfies Record<MaterialId, string>,
     pig: '#ffd166', bird: '#ff5f7a', cannon: '#6ef3ff',

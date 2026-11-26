@@ -8,6 +8,7 @@ export const basePalette: ThemePalette = {
   grid: '#1b2228',
   materials: {
     glass: '#3f6f8f',
+    wood: '#8f6f4a',
     stone: '#5c5f66',
     metal: '#7a8894',
     feather: '#8f6f5c',

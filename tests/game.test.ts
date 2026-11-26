@@ -34,7 +34,7 @@ function aim(game: ReturnType<typeof createGame>, deg: number): void {
   game.dragAim(pullFor(level, deg));
 }
 
-function settle(game: ReturnType<typeof createGame>, maxSteps = 320): number {
+function settle(game: ReturnType<typeof createGame>, maxSteps = 600): number {
   let steps = 0;
   while (steps < maxSteps) {
     const phase = game.rules.snapshot().phase;
@@ -335,7 +335,8 @@ test('a destroyed entity flashes briefly, then is gone', () => {
 
 test('a block survives a single hit with visible partial damage', () => {
   const { game, adapter } = makeGame();
-  aim(game, 0);
+  // A shot that actually reaches the tower (stage-01 tower sits at x=1040..1150).
+  aim(game, 15);
   game.releaseAim();
   settle(game);
 
@@ -384,4 +385,42 @@ test('bird deaths are attributed to the pig or to the collapse', () => {
   assert.ok(birdDeaths.some((d) => d.cause !== 'impact'), 'the collapse kill is attributed to debris or the ground');
   for (const d of birdDeaths) assert.ok(['impact', 'crush', 'fall'].includes(d.cause), `${d.cause} is a valid cause`);
   void loaded;
+});
+
+test('a level is settled and undamaged before the player gets control', () => {
+  // M14: authored stacks used to fall a little on the first drawn frame, and that
+  // settling chipped health, so levels started partly damaged. Warmup simulates the
+  // world with damage suppressed.
+  const { game, adapter } = makeGame();
+  const bodies = adapter.snapshot().filter((e) => e.kind === 'block' || e.kind === 'bird');
+  assert.ok(bodies.length > 0);
+  for (const b of bodies) {
+    assert.ok(b.healthMax === undefined || b.health === b.healthMax, `${b.id} must start at full health`);
+    const speed = Math.hypot(b.vx, b.vy);
+    assert.ok(speed < 1.5, `${b.id} must be resting, not falling (speed ${speed.toFixed(2)})`);
+  }
+  void game;
+});
+
+test('a pig can be fired while debris is still settling', () => {
+  // D26: rules used to accept a launch only from 'aiming', so the second shot of a
+  // round was silently swallowed until the settle timeout expired.
+  const { game } = makeGame();
+  aim(game, -70); // steep shot that hits nothing, so the round cannot be won
+  assert.equal(game.releaseAim(), true);
+
+  let steps = 0;
+  while (game.rules.snapshot().phase !== 'settling' && steps < 500) {
+    game.step(DT);
+    steps++;
+  }
+  assert.equal(game.rules.snapshot().phase, 'settling', 'the round must reach settling');
+
+  game.beginAim();
+  game.dragAim(pullFor(level, 0));
+  assert.equal(game.releaseAim(), true, 'a shot during settling must fire');
+  const snap = game.rules.snapshot();
+  assert.equal(snap.launches, 2, 'the second shot is counted');
+  assert.equal(snap.ammoLeft, 2, 'the second shot costs ammo');
+  assert.equal(snap.phase, 'in_flight');
 });

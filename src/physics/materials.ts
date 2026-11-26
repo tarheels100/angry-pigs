@@ -23,10 +23,16 @@ export interface MaterialSpec {
 // is deliberately low: Matter takes max(frictionA, frictionB), so a grabby pig
 // against the ground stops rolling within ~400 units instead of crossing the stage.
 export const MATERIALS: Record<MaterialId, MaterialSpec> = {
-  glass: { density: 0.0012, friction: 0.05, frictionStatic: 0.05, restitution: 0.05, health: 4, damageThreshold: 3 },
+  // Glass is brittle but not paper: a graze chips it, a solid hit shatters it. The
+  // threshold was raised from 3 because playtests erased glass on almost any contact
+  // (docs/post-m13-notes.md "breaks a bit too easily"); see docs/tuning.md.
+  glass: { density: 0.0012, friction: 0.05, frictionStatic: 0.05, restitution: 0.05, health: 4, damageThreshold: 4 },
+  // Wood: tougher than glass, weaker than stone. Friction high enough that a plank
+  // holds a stack instead of sliding, and a roof that breaks rather than vanishing.
+  wood: { density: 0.0011, friction: 0.35, frictionStatic: 0.35, restitution: 0.04, health: 6, damageThreshold: 5 },
   stone: { density: 0.0035, friction: 0.4, frictionStatic: 0.4, restitution: 0.02, health: 16, damageThreshold: 9 },
   metal: { density: 0.005, friction: 0.35, frictionStatic: 0.4, restitution: 0.15, health: 24, damageThreshold: 14 },
-  feather: { density: 0.0008, friction: 0.2, frictionStatic: 0.15, restitution: 0.2, health: 2, damageThreshold: 1.4 },
+  feather: { density: 0.0008, friction: 0.2, frictionStatic: 0.15, restitution: 0.2, health: 2, damageThreshold: 1.0 },
   // Kinetic friction is lower than static so a pig rolls rather than stopping dead
   // (Matter takes max(frictionA, frictionB), so this value governs pig rolling too).
   // Static friction stays high so stacks hold.
@@ -38,9 +44,12 @@ export function materialSpec(id: MaterialId): MaterialSpec {
   return MATERIALS[id];
 }
 
-/** Health scaled by body area so large blocks are tougher than small ones. */
+/** Health scaled by body area so large blocks are tougher than small ones. The divisor
+ * is a tuning constant: blocks are deliberately tougher than v0 (area / 3200 instead of
+ * 4000) so a tower takes several hits and topples rather than evaporating
+ * (docs/post-m13-notes.md, docs/tuning.md). */
 export function healthFor(id: MaterialId, area: number): number {
   const spec = MATERIALS[id];
   if (!Number.isFinite(spec.health)) return Infinity;
-  return spec.health * Math.max(0.35, Math.min(3, area / 4000));
+  return spec.health * Math.max(0.35, Math.min(3, area / 3200));
 }

@@ -24,7 +24,7 @@ export interface GameRules {
   snapshot(): RulesSnapshot;
   /** Reset for a level: which ids count as targets, and how many pigs are available. */
   loadLevel(targetIds: string[], ammo: number): void;
-  /** aiming -> in_flight (one ammo consumed). */
+  /** aiming -> in_flight (one ammo consumed). Legal while aiming or settling. */
   launch(): void;
   /** in_flight -> settling (all pigs consumed). */
   pigsSettled(): void;
@@ -77,7 +77,10 @@ export function createRules(initial: { targetIds: string[]; ammo: string[] }): G
       loadLevel(targetIds, ammo);
     },
     launch() {
-      if (snap.phase !== 'aiming' || snap.ammoLeft <= 0) return;
+      // A shot is legal while aiming and while debris is still settling: a player who
+      // fires again before the world comes to rest is not forced to wait
+      // (docs/adr.md D15, D26).
+      if ((snap.phase !== 'aiming' && snap.phase !== 'settling') || snap.ammoLeft <= 0) return;
       snap = { ...snap, phase: 'in_flight', ammoLeft: snap.ammoLeft - 1, launches: snap.launches + 1 };
     },
     pigsSettled() {

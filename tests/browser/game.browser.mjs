@@ -215,6 +215,44 @@ test('restart restores the authored stage', async () => {
   });
 });
 
+test('a loaded stage is settled and undamaged before the player fires', async () => {
+  // M14/D27: warmup simulates the authored world with damage suppressed, so the first
+  // drawn frame shows resting bodies at full health rather than a stack still falling.
+  const read = (page) =>
+    page.evaluate(() =>
+      window.__game.entities
+        .all()
+        .filter((e) => e.kind === 'block' || e.kind === 'bird')
+        .map((e) => ({ id: e.id, health: e.health, healthMax: e.healthMax, speed: Math.hypot(e.vx, e.vy) })),
+    );
+
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    const onLoad = await read(page);
+    assert.ok(onLoad.length > 0, 'the stage has blocks and birds');
+    for (const e of onLoad) {
+      assert.ok(e.healthMax === undefined || e.health === e.healthMax, `${e.id} must load at full health`);
+      assert.ok(e.speed < 1.5, `${e.id} must be resting on the first frame (speed ${e.speed.toFixed(2)})`);
+    }
+
+    // Restart re-runs the warmup, so the restored stage is settled too.
+    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
+    await page.evaluate(({ origin }) => {
+      window.__game.beginAim();
+      window.__game.dragAim({ x: origin.x - 30, y: origin.y });
+      window.__game.releaseAim();
+    }, { origin });
+    await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 3, null, { timeout: 4000 });
+    await page.keyboard.press('r');
+    await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 4, null, { timeout: 2000 });
+    const afterRestart = await read(page);
+    for (const e of afterRestart) {
+      assert.ok(e.healthMax === undefined || e.health === e.healthMax, `${e.id} must restart at full health`);
+      assert.ok(e.speed < 1.5, `${e.id} must be resting after restart`);
+    }
+  });
+});
+
 test('best results persist across a reload', async () => {
   const url = await baseUrl();
   await withPage(async (page) => {

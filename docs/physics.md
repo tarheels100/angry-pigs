@@ -103,11 +103,23 @@ Run `node scratch/physics-spike/spike.ts`. All checks pass:
     are *not yet* asleep, because an idle body sitting on a support has a sleep
     counter near the threshold and would fall asleep before gravity could move it.
     Measured: beam with one leg destroyed moved 708 → 771.6 with the fix, 708.4 without.
-12. **Stone is effectively immune to a pig.** Stone health is `area/4000` clamped to 3
-    and its damage threshold is 9; the hardest pig impact measured is ~75 energy, which
-    at `DAMAGE_SCALE 0.35` spends ~2.6 health per hit. A stone roof therefore never
-    breaks, so a level must never shelter a bird under stone — kill elevated birds by
-    collapsing the glass structure beside them instead (docs/level-format.md).
+12. **Stone is effectively immune to a pig.** Stone health is `area/3200` clamped to 3
+    (health 24 for a 60x80 block) and its damage threshold is 9; the hardest pig impact
+    measured is ~75 energy, which at `DAMAGE_SCALE 0.3` spends ~2.5 health per hit. A
+    stone roof therefore never breaks, so a level must never shelter a bird under stone —
+    kill elevated birds by collapsing the glass structure beside them instead
+    (docs/level-format.md).
+13. **A bird on a perch needs a fall or a direct hit.** Feather health is ~0.7 and its
+    threshold is 1, so a contact must carry roughly 3 units of energy. A bird nudged
+    sideways along a beam, or dropped a few units, survives; a ~120-unit drop delivers
+    ~7 and dies. Perch design must therefore break (thin glass beam) or fail completely
+    (single column) — a two-column beam that merely tilts leaves the bird alive
+    (docs/level-format.md rule 6).
+14. **Settling can damage a level before the player acts.** Authored bodies placed a pixel
+    apart collide on the first steps, and that contact spends health, so a level used to
+    start partly damaged and visibly sinking. The game now simulates 90 steps with damage
+    suppressed before handing control over (D27); suppression is a game-layer flag, not a
+    physics-engine setting, so damage maths stays in one place.
 
 ## What the M7 slice proved
 

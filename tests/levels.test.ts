@@ -69,30 +69,37 @@ function newStage(levelIndex: number) {
 }
 
 /**
- * Fire one pig at the closest bird we can actually reach, using the aiming preview
- * (the same trajectory the HUD shows) rather than analytic ballistics, because the
- * engine's gravity/friction is empirical. Returns false if no angle reaches anything.
+ * Fire one pig at the closest bird, or at the structure holding a bird up: a player aims
+ * at the pedestal column or tower leg, not at the bird, and the fall kills it
+ * (docs/level-format.md design rules). Shots already fired are skipped, because repeating
+ * a shot that killed nothing wastes ammo. Returns false if nothing reachable remains.
  */
-function fireAtNearestBird(game: ReturnType<typeof createGame>, adapter: ReturnType<typeof createPhysicsAdapter>, loaded: ReturnType<typeof loadLevel>): boolean {
+function fireAtNearestBird(game: ReturnType<typeof createGame>, adapter: ReturnType<typeof createPhysicsAdapter>, loaded: ReturnType<typeof loadLevel>, tried: Set<string>): boolean {
   const birds = adapter.snapshot().filter((s) => s.kind === 'bird');
   if (birds.length === 0) return false;
+  const supports = adapter.snapshot().filter(
+    (s) => s.kind === 'block' && birds.some((b) => s.y > b.y - 20 && s.y - b.y < 160 && Math.abs(s.x - b.x) < 80),
+  );
+  const candidates = [...birds, ...supports];
   const origin = loaded.cannonOrigin;
-  let best: { pull: number; rad: number; dist: number } | null = null;
+  let best: { pull: number; rad: number; deg: number; dist: number } | null = null;
   for (const pull of [loaded.maxPull, loaded.maxPull * 0.7, loaded.maxPull * 0.45]) {
     const speed = pull * loaded.powerScale;
     for (let deg = -45; deg <= 45; deg += 1) {
+      if (tried.has(`${pull}|${deg}`)) continue;
       const rad = (deg * Math.PI) / 180;
       // The preview is the engine's own integrator, so aiming matches real flight.
       const traj = adapter.simulateTrajectory(origin, { x: speed * Math.cos(rad), y: speed * Math.sin(rad) }, 120, 24);
       for (const p of traj) {
-        for (const bird of birds) {
-          const dist = Math.hypot(p.x - bird.x, p.y - bird.y);
-          if (!best || dist < best.dist) best = { pull, rad, dist };
+        for (const target of candidates) {
+          const dist = Math.hypot(p.x - target.x, p.y - target.y);
+          if (!best || dist < best.dist) best = { pull, rad, deg, dist };
         }
       }
     }
   }
   if (!best || best.dist > 60) return false;
+  tried.add(`${best.pull}|${best.deg}`);
   game.beginAim();
   game.dragAim({ x: origin.x - best.pull * Math.cos(best.rad), y: origin.y - best.pull * Math.sin(best.rad) });
   game.releaseAim();
@@ -124,8 +131,10 @@ test('every stage is clearable with its authored ammo', () => {
     const def = LEVELS[index]!;
     const { game, adapter, loaded } = newStage(index);
     let shots = 0;
+    /** Shots already fired in this round; never fire the same shot twice. */
+    const tried = new Set<string>();
     while (adapter.snapshot().some((s) => s.kind === 'bird') && shots < loaded.ammo.length) {
-      if (!fireAtNearestBird(game, adapter, loaded)) break;
+      if (!fireAtNearestBird(game, adapter, loaded, tried)) break;
       shots++;
     }
     assert.equal(

@@ -12,6 +12,7 @@ export const pixelPalette: ThemePalette = {
   grid: '#2b2118',
   materials: {
     glass: '#6fb6c9',
+    wood: '#a8724a',
     stone: '#7b6a5a',
     metal: '#c9a226',
     feather: '#e0603f',
@@ -31,6 +32,51 @@ const BLOCK = 16;
 
 function snap(v: number): number {
   return Math.round(v / PIXEL) * PIXEL;
+}
+
+/** Pixel material texture: plank joints, brick courses, a metal highlight band, and
+ * translucent glass. Same contract as Tron's texture, entirely different look.
+ */
+function paintMaterialTexture(ctx: CanvasRenderingContext2D, state: EntityState, palette: ThemePalette, w: number, h: number): void {
+  if (state.shape !== 'box' || state.kind !== 'block') return;
+  const dark = palette.background;
+  switch (state.material) {
+    case 'wood': {
+      ctx.fillStyle = dark;
+      const courses = Math.max(2, Math.round(h / (PIXEL * 4)));
+      for (let i = 1; i < courses; i++) ctx.fillRect(-w / 2, -h / 2 + i * (h / courses), w, PIXEL);
+      break;
+    }
+    case 'stone': {
+      // Brick courses with staggered joints.
+      ctx.fillStyle = dark;
+      const courses = Math.max(2, Math.round(h / (PIXEL * 3)));
+      for (let i = 1; i < courses; i++) {
+        const y = -h / 2 + i * (h / courses);
+        ctx.fillRect(-w / 2, y, w, PIXEL);
+        const joint = i % 2 === 0 ? w * 0.35 : w * 0.65;
+        ctx.fillRect(-w / 2 + joint, y - PIXEL * 2, PIXEL, PIXEL * 2);
+      }
+      break;
+    }
+    case 'metal': {
+      ctx.fillStyle = palette.flash;
+      ctx.globalAlpha = 0.5;
+      ctx.fillRect(-w / 2 + PIXEL, -h / 2 + PIXEL, w - PIXEL * 2, PIXEL);
+      ctx.globalAlpha = 1;
+      break;
+    }
+    case 'glass': {
+      // Glass is the only translucent fill in this theme.
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = palette.flash;
+      ctx.fillRect(-w / 2 + PIXEL, -h / 2 + PIXEL, w - PIXEL * 2, h - PIXEL * 2);
+      ctx.globalAlpha = 1;
+      break;
+    }
+    default:
+      break;
+  }
 }
 
 export function createPixelTheme(overrides: Partial<ThemePalette> = {}, id = 'pixel'): Theme {
@@ -110,6 +156,8 @@ export function createPixelTheme(overrides: Partial<ThemePalette> = {}, id = 'pi
           ctx.fillRect(-w / 2 + PIXEL + i * PIXEL * 3, -h / 2 + PIXEL, PIXEL * 2, PIXEL * 2);
         }
       }
+
+      paintMaterialTexture(ctx, state, palette, w, h);
 
       ctx.restore();
     },

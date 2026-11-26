@@ -21,7 +21,10 @@ const MIN_DRAG = 12;
 /** Fraction of `energy / threshold` health that one impact spends (docs/tuning.md).
  * Below 1 so a single hit rarely erases a block: partial health is what makes tilt and
  * partial shatter visible. */
-const DAMAGE_SCALE = 0.35;
+const DAMAGE_SCALE = 0.3;
+/** Steps a level is simulated before the player gets control, so authored stacks are
+ * resting and nothing starts partly damaged (docs/post-m13-notes.md). */
+const SETTLE_WARMUP_STEPS = 90;
 /** Steps a destroyed entity keeps a flashing silhouette after it leaves the world. */
 const FLASH_STEPS = 10;
 
@@ -83,9 +86,24 @@ export function createGame(options: GameOptions): Game {
   let pigCounter = 0;
   /** True between pointer-down and pointer-up; a press alone is not a shot. */
   let aiming = false;
+  /** True only while a freshly built level is settling; impacts spend no health. */
+  let damagePaused = false;
+
+  /**
+   * Simulate the authored world before play starts. Bodies authored a pixel apart
+   * settle into rest during this window, and damage is suppressed so that settling
+   * cannot chip a block's health before the player ever fires (notes: objects fell
+   * slightly on first draw and started partly damaged).
+   */
+  function warmup(): void {
+    damagePaused = true;
+    for (let i = 0; i < SETTLE_WARMUP_STEPS; i++) adapter.step(1 / 60);
+    damagePaused = false;
+  }
 
   function buildLevel(): void {
     for (const body of level.bodies) adapter.addBody(body);
+    warmup();
     bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length, bounds: level.def.bounds });
     rules.loadLevel(level.targetIds, level.ammo.length);
     refreshDisplay();
@@ -131,6 +149,7 @@ export function createGame(options: GameOptions): Game {
   /** Slice damage model: energy above a material's threshold spends health.
    * Pigs are consumed rather than damaged (docs/adr.md D15); M8 formalises this. */
   function applySliceDamage(aId: string, bId: string, energy: number): void {
+    if (damagePaused) return;
     for (const id of [aId, bId]) {
       const s = adapter.state(id);
       if (!s || s.destroyed || s.kind === 'pig' || s.kind === 'ground' || s.kind === 'wall') continue;
@@ -235,7 +254,7 @@ export function createGame(options: GameOptions): Game {
   }
 
   function beginAim(): void {
-    if (rules.snapshot().phase !== 'aiming' || cannon.ammoLeft() === 0) return;
+    if (!canShoot()) return;
     // A press alone is not a shot: the pull starts at zero and only drags move it.
     aiming = true;
     cannon.clearAim();
@@ -243,12 +262,19 @@ export function createGame(options: GameOptions): Game {
   }
 
   function dragAim(point: Vec2): void {
-    if (rules.snapshot().phase !== 'aiming' || cannon.ammoLeft() === 0) return;
+    if (!canShoot()) return;
     // Moves are reported only while a button is held (src/input/pointer.ts), so a
     // drag can re-open the gesture if restart()/loadLevel() closed it mid-drag.
     aiming = true;
     cannon.setAim(point);
     refreshTrajectory();
+  }
+
+  /** Whether the cannon may be aimed: aiming, or settling while debris comes to rest
+   * (D26). A shot is refused during flight, after a win, and after a loss. */
+  function canShoot(): boolean {
+    const phase = rules.snapshot().phase;
+    return (phase === 'aiming' || phase === 'settling') && cannon.ammoLeft() > 0;
   }
 
   function cancelAim(): void {
@@ -264,6 +290,16 @@ export function createGame(options: GameOptions): Game {
     const velocity = cannon.launchVelocity();
     if (!velocity || !aim || Math.hypot(aim.pull.x, aim.pull.y) < MIN_DRAG) {
       // A click with no drag (or a negligible one) must not spend ammo.
+      cancelAim();
+      return false;
+    }
+    const phase = rules.snapshot().phase;
+    if (phase !== 'aiming' && phase !== 'settling') {
+      // Won, lost, or mid-flight: the shot is refused and the gesture is dropped.
+      cancelAim();
+      return false;
+    }
+    if (cannon.ammoLeft() === 0) {
       cancelAim();
       return false;
     }
@@ -307,6 +343,7 @@ export function createGame(options: GameOptions): Game {
     trajectory = [];
     pigCounter = 0;
     for (const body of level.bodies) adapter.addBody(body);
+    warmup();
     refreshDisplay();
     bus.emit('levelLoaded', { levelId: level.def.name, name: level.def.name, ammo: level.ammo.length, bounds: level.def.bounds });
     bus.emit('phaseChanged', { phase: rules.snapshot().phase });

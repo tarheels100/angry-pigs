@@ -224,3 +224,28 @@ consumed the way pigs are, so damping is the fix, not a rest rule.
 raising bird friction (Matter takes `max(frictionA, frictionB)`, so it would change how
 birds rest on beams, not just how they roll); consuming settled birds like pigs (a bird
 is a target, not ammo).
+
+## D26 — A shot is legal while debris is settling
+**Decision.** `rules.launch()` accepts `aiming` and `settling`; `game.releaseAim()` refuses
+`in_flight`, `won`, `lost`, and `ready`, and refuses when ammo is spent.
+**Why.** Launch was accepted only from `aiming`, so a player (or the aiming bot) who fired
+again while debris was still coming to rest had the gesture accepted by the cannon and the
+shot silently swallowed until the 240-step settle timeout expired. Playtests read that as
+"the cannon stopped responding". Firing into a settling pile is the intended Angry Birds
+rhythm.
+**Rejected.** Auto-waiting for the settle timeout before accepting a shot (a dead interface
+either way); letting a shot fire during flight (two pigs at once makes attribution and
+camera follow ambiguous); making `launch()` return a boolean (rules already expose phase).
+
+## D27 — A level settles before the player gets control
+**Decision.** `game.settleWarmup()` steps the world `SETTLE_WARMUP_STEPS` (90) times with
+damage suppressed, before `levelLoaded` and after `restart()`. Suppression is a flag in the
+game layer, not a physics-engine option.
+**Why.** Bodies authored a pixel apart collide in the first steps; that settling spent
+health and moved stacks, so a level appeared to "fall slightly on first draw" and started
+partly damaged, which muddied the baseline for every shot. 90 steps is enough for Matter's
+60-step sleep threshold to bring authored stacks to rest (docs/physics.md gotcha 14).
+**Rejected.** Placing bodies with exact contact (Matter still nudges them); disabling sleep
+during load (more movement, not less); suppressing damage inside the adapter (damage maths
+belongs to the game layer); freezing bodies at load (a frozen world reads as settled and
+stops collapse when the first pig lands).

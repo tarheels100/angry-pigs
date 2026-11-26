@@ -74,20 +74,31 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
       no health; a slow roll does not kill a target (`tests/physics.test.ts`).
 - [x] **Settle timeout honesty.** When the window expires, `adapter.freezeAll()` zeroes
       velocity and sleeps everything (D16), so `settled` means visually stopped before
-      scoring reads it. Sweep timeouts: 117 (stage-01), 144 (stage-02), 48 (stage-03).
+      scoring reads it. Sweep timeouts: 97 (stage-01), 131 (stage-02), 84 (stage-03).
+- [x] **A level starts settled and undamaged.** `settleWarmup()` simulates 90 steps with
+      damage suppressed before control is handed over (D27); a headless test asserts every
+      block and bird begins at full health and resting. Notes complained objects fell a
+      little on the first drawn frame and started partly damaged.
+- [x] **A second shot does not wait for the settle timeout.** `rules.launch()` accepts
+      `aiming` and `settling` (D26); a test fires during `settling` and asserts the shot
+      launches, counts, and costs ammo.
+- [x] **Materials are distinguishable.** Tron draws grain, speckle, a metal double wall
+      and glass sheen; Pixel draws plank joints, brick courses, a metal band and
+      translucent glass. `tests/themes.test.ts` asserts the recipes differ per material,
+      and every palette covers `wood`.
 - [x] **Best results persist.** Browser test clears Stage 01, reloads the page, and
       asserts `localStorage['angry-pigs:best:stage-01']` holds the record and the HUD
       shows `best ★★★ 3500` with the stage restarted fresh (D24).
 - [x] **Determinism (cross-runtime).** `npm run check:determinism` bundles
       `scratch/sweep-entry.ts` twice — ESM for node, IIFE for chromium — and runs the
       same 72 combos (3 pulls × 8 angles × 3 stages) by stepping the game directly.
-      **Result:** 0 mismatches; 3 wins, 11 combos hit the settle timeout. The entry
+      **Result:** 0 mismatches; 3 wins, 9 combos hit the settle timeout. The entry
       records no timing, so there is nothing legitimate that can differ.
       Cross-machine drift would show up as a mismatch in CI, which runs this on Linux.
 - [x] **Score.** Targets pay 1000; a clear pays 500 per unused pig (D23), so a
       one-shot Stage 01 clear scores 3500 vs 3000 for a two-shot clear.
-- [x] **Partial destruction.** Damage per impact is `0.35 * energy / threshold`
-      (`DAMAGE_SCALE`), so the sweep reports blocks gone 0–4 with partially damaged
+- [x] **Partial destruction.** Damage per impact is `0.3 * energy / threshold`
+      (`DAMAGE_SCALE`), so the sweep reports blocks gone 0–3 with partially damaged
       survivors instead of binary 0-or-3. Tron and Pixel both render partial damage from
       `health`/`healthMax`.
 
@@ -104,14 +115,19 @@ combinations per stage (`scratch/sweep-probe.ts <index>`):
 
 | stage | wins | one-shot clears | birds killed | blocks fully gone | blocks untouched | partially damaged | settle timeouts |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| stage-01 | 94 | 94 | 445/990 | 0–3 | 295 | 216 | 93 |
-| stage-02 | 35 | 35 | 365/990 | 0–4 | 187 | 481 | 59 |
-| stage-03 | 39 | 40 | 230/990 | 0–3 | 306 | 495 | 45 |
+| stage-01 | 75 | 75 | 425/990 | 0–3 | 336 | 252 | 97 |
+| stage-02 | 19 | 19 | 265/990 | 0–3 | 266 | 344 | 131 |
+| stage-03 | 10 | 10 | 150/990 | 0–2 | 407 | 198 | 84 |
 
 Stage 01 reference shots (measured): a flat full pull shatters the columns and drops the
 beam bird (`fall`); a +20° pull clears both birds in one shot (three stars); a −70° pull
 misses everything and proves the lose path. Peak impact energies for the flat shot: pig
 vs column 75.4, pig vs ground 53.9, pig vs second column 24.4, debris hits 1–15.
+
+Clearability with the structure-aware bot (`scratch/greedy-probe.ts`, mirrored in
+`tests/levels.test.ts`): stage 01 in 1 pig, stage 02 in 2, stage 03 in 3 — all inside the
+authored ammo. The bot aims at the support holding a bird up and never repeats a shot that
+killed nothing.
 
 - Preview cost: `simulateTrajectory` is ~0.07 ms per call (120 steps, 7 bodies), so
   recomputing per pointermove is free at this scale. Re-measure before adding 100+ bodies.

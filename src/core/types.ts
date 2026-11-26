@@ -3,8 +3,8 @@
  * fields to visuals (see docs/theme-contract.md).
  */
 
-export type EntityKind = 'cannon' | 'pig' | 'bird' | 'block' | 'ground' | 'wall';
-export type MaterialId = 'glass' | 'stone' | 'metal' | 'feather' | 'ground' | 'light';
+export type EntityKind = 'cannon' | 'pig' | 'bird' | 'block' | 'ground' | 'wall' | 'scenery';
+export type MaterialId = 'glass' | 'wood' | 'stone' | 'metal' | 'feather' | 'ground' | 'light';
 export type ShapeId = 'box' | 'circle';
 
 export interface Vec2 { x: number; y: number; }
@@ -33,6 +33,11 @@ export interface EntityState {
   /** Presentation-only lifetime for a destroyed entity's flash, 1 -> fresh, 0 -> gone.
    * Set on display extras only; live physics bodies never carry it (D17). */
   fade?: number;
+  /** Presentation hint that is not appearance: a pig's ammo type id, or a scenery prop
+   * kind ("tree", "platform"). Themes decide how to draw it (docs/theme-contract.md).
+   * Never read by the simulation.
+   */
+  variant?: string;
   /** Highest impact energy seen by this entity since it was created. */
   impactEnergy: number;
 }

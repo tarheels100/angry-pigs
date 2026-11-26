@@ -3,8 +3,10 @@
 A theme supplies exactly three things. It reads entity state; it never mutates it,
 and it never reads collision, health-math, or level logic.
 
-1. **Manifest** — `id`, `name`, and `palette` (background, outline, grid,
-   per-material accents, pig/bird/cannon colours, aim guide, destroyed flash).
+1. **Manifest** — `id`, `name`, and `palette` (background, outline, grid, per-material
+   accents for every `MaterialId` including `wood`, pig/bird/cannon colours, aim guide,
+   destroyed flash). A palette must cover all materials, because a level may use any of
+   them.
 2. **Draw recipes** — `paintBackground`, `paintEntity`, `paintOverlay`, taking
    `(ctx, state | frame, viewport)`. `paintOverlay` receives a `RenderFrame`
    (`camera`, `phase`, `aim`), not physics internals. The renderer owns the camera
@@ -19,11 +21,13 @@ sound or spawn particles, because effects must keep working for every theme.
 
 `EntityState`: `kind`, `shape`, `material`, `x`, `y`, `angle`, `radius`,
 `halfWidth`, `halfHeight`, `vx`, `vy`, `sleeping`, `destroyed`, `health`,
-`healthMax`, `fade`, `impactEnergy`.
+`healthMax`, `fade`, `variant`, `impactEnergy`.
 
 `healthMax` lets a theme show partial damage (cracks, tilt) without knowing damage
 maths. `fade` is set only on short-lived display extras — a destroyed body is not in
-the snapshot at all (D17), so a theme never paints a permanent silhouette.
+the snapshot at all (D17), so a theme never paints a permanent silhouette. `variant` is
+a hint that is not appearance: a pig's ammo type id, or a scenery prop kind. The theme
+decides how to draw it, and the simulation never reads it.
 
 Semantic state, not appearance: "bird destroyed" renders identically in any theme.
 Add a field here only if a theme genuinely needs the *state*, not the style.
@@ -46,3 +50,11 @@ Add a field here only if a theme genuinely needs the *state*, not the style.
   glow, damage painted as missing chunks. Added as registry entries only: `npm run
   test:browser` asserts painted pixels change, and `tests/themes.test.ts` asserts theme
   files import nothing outside the contract.
+
+## Material texture
+
+A theme may draw material *texture* inside a block (plank grain, brick courses, a metal
+double wall, glass sheen), derived from `material` plus the palette colour only. Two
+themes render the same material completely differently — Tron reads materials as
+construction, Pixel as masonry — and neither reads physics (docs/post-m13-notes.md,
+M14). This is a recipe inside `paintEntity`, not a new pipeline stage.

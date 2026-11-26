@@ -11,7 +11,8 @@ export const tronPalette: ThemePalette = {
   grid: '#0b2431',
   materials: {
     glass: '#7df9ff',
-    stone: '#4f6f7d',
+    wood: '#f0a35a',
+    stone: '#5d7f92',
     metal: '#00e5ff',
     feather: '#ff2d6f',
     ground: '#136c7a',
@@ -27,8 +28,74 @@ export const tronPalette: ThemePalette = {
 /** Glow radius in CSS pixels; kept small because shadowBlur is the costly part. */
 const GLOW = 10;
 /** Grid spacing in screen pixels. The background is painted before the camera
- * transform, so the grid is a field texture, not a world object. */
+ * transform, so the grid is a field texture, not a world object.
+ */
 const GRID = 44;
+
+/**
+ * Material texture inside a block, drawn from the palette colour only, so two themes
+ * can render the same material completely differently (docs/theme-contract.md).
+ * Tron reads materials as construction: planks, speckle, double-walled metal, sheen.
+ */
+function paintMaterialTexture(ctx: CanvasRenderingContext2D, state: EntityState, palette: ThemePalette): void {
+  if (state.shape !== 'box' || state.kind !== 'block') return;
+  const hw = state.halfWidth ?? 20;
+  const hh = state.halfHeight ?? 20;
+  const colour = palette.materials[state.material];
+  ctx.save();
+  ctx.strokeStyle = colour;
+  ctx.fillStyle = colour;
+  ctx.globalAlpha = 0.45;
+  ctx.lineWidth = 1;
+
+  switch (state.material) {
+    case 'wood': {
+      // Grain: horizontal planks along the longer axis.
+      ctx.beginPath();
+      const planks = Math.max(3, Math.round(hh / 10));
+      for (let i = 1; i < planks; i++) {
+        const y = -hh + (i / planks) * 2 * hh;
+        ctx.moveTo(-hw, y);
+        ctx.lineTo(hw, y);
+      }
+      ctx.stroke();
+      break;
+    }
+    case 'stone': {
+      // Speckle: aggregate in the mortar.
+      const dots = Math.max(6, Math.round(hw * hh / 200));
+      for (let i = 0; i < dots; i++) {
+        const x = -hw + ((i * 7) % (2 * hw));
+        const y = -hh + ((i * 11) % (2 * hh));
+        ctx.fillRect(x, y, 2, 2);
+      }
+      break;
+    }
+    case 'metal': {
+      // Double wall plus rivets: the inner outline says "load-bearing".
+      ctx.globalAlpha = 0.6;
+      ctx.strokeRect(-hw + 4, -hh + 4, 2 * hw - 8, 2 * hh - 8);
+      ctx.globalAlpha = 0.8;
+      ctx.fillRect(-hw + 4, -hh + 4, 3, 3);
+      ctx.fillRect(hw - 7, -hh + 4, 3, 3);
+      ctx.fillRect(-hw + 4, hh - 7, 3, 3);
+      ctx.fillRect(hw - 7, hh - 7, 3, 3);
+      break;
+    }
+    case 'glass': {
+      // Sheen: one diagonal highlight, nothing else.
+      ctx.globalAlpha = 0.35;
+      ctx.beginPath();
+      ctx.moveTo(-hw * 0.7, -hh * 0.7);
+      ctx.lineTo(hw * 0.4, hh * 0.1);
+      ctx.stroke();
+      break;
+    }
+    default:
+      break;
+  }
+  ctx.restore();
+}
 
 export function createTronTheme(overrides: Partial<ThemePalette> = {}, id = 'tron'): Theme {
   const palette = { ...tronPalette, ...overrides };
@@ -147,6 +214,8 @@ export function createTronTheme(overrides: Partial<ThemePalette> = {}, id = 'tro
         ctx.arc(0, 0, (state.radius ?? 16) * 0.55, 0, Math.PI * 2);
         ctx.stroke();
       }
+
+      paintMaterialTexture(ctx, state, palette);
 
       clearGlow(ctx);
       ctx.restore();

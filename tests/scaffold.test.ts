@@ -19,7 +19,9 @@ test('immovable materials have infinite health', () => {
 });
 
 test('healthFor scales with area and clamps at both ends', () => {
-  assert.equal(healthFor('glass', 4000), 4);
+  // Divisor 3200 (M14): blocks are tougher than v0 so a tower takes several hits
+  // instead of evaporating (docs/tuning.md).
+  assert.equal(healthFor('glass', 3200), 4);
   assert.equal(healthFor('glass', 1000), 4 * 0.35);
   assert.equal(healthFor('glass', 100000), 4 * 3);
 });
