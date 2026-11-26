@@ -1,44 +1,53 @@
-import type { EntityState, MaterialId } from '../core/types.ts';
-import type { AimState } from '../game/cannon.ts';
+import type { EntityState, GamePhase, MaterialId, Vec2 } from '../core/types.ts';
+import type { TrajectorySample } from '../physics/adapter.ts';
+import type { CameraApi, Viewport } from '../camera/camera.ts';
 
-/** Theme contract (see docs/theme-contract.md). A theme is data + draw recipes.
- * It reads entity state and never mutates it. */
+/** What the overlay layer may draw: aim state and phase, never physics internals. */
+export interface RenderFrame {
+  camera: CameraApi;
+  phase: GamePhase;
+  /** Present while the player is dragging the cannon. */
+  aim: { origin: Vec2; pull: Vec2; trajectory: TrajectorySample[] } | null;
+}
 
-export interface Palette {
+/**
+ * A theme is exactly three things plus a manifest (docs/theme-contract.md). It
+ * reads EntityState and RenderFrame and never mutates either.
+ */
+export interface ThemePalette {
   background: string;
   outline: string;
-  /** Per-material accent colours. */
+  grid: string;
   materials: Record<MaterialId, string>;
   pig: string;
   bird: string;
   cannon: string;
   aimGuide: string;
-  destroyedFlash: string;
-}
-
-export interface Viewport {
-  /** World units → canvas pixels transform, computed by the camera. */
-  scale: number;
-  offsetX: number;
-  offsetY: number;
-  width: number;
-  height: number;
-}
-
-export interface OverlayState {
-  aim: AimState | null;
-  trajectory: { x: number; y: number }[];
+  /** Colour used for one step after an entity is destroyed. */
+  flash: string;
 }
 
 export interface Theme {
   id: string;
-  palette: Palette;
+  name: string;
+  palette: ThemePalette;
   paintBackground(ctx: CanvasRenderingContext2D, viewport: Viewport): void;
-  paintEntity(ctx: CanvasRenderingContext2D, entity: EntityState, viewport: Viewport): void;
-  paintOverlay(ctx: CanvasRenderingContext2D, overlay: OverlayState, viewport: Viewport): void;
+  paintEntity(ctx: CanvasRenderingContext2D, state: EntityState, viewport: Viewport): void;
+  paintOverlay(ctx: CanvasRenderingContext2D, frame: RenderFrame, viewport: Viewport): void;
 }
 
-/** Stub — the real Tron theme is M10. */
-export function createPlaceholderTheme(): Theme {
-  throw new Error('not implemented: createPlaceholderTheme (M6)');
+const registry = new Map<string, Theme>();
+
+export function registerTheme(theme: Theme): void {
+  registry.set(theme.id, theme);
+}
+
+export function getTheme(id: string): Theme {
+  const theme = registry.get(id);
+  if (!theme) throw new Error(`unknown theme "${id}"; registered: ${[...registry.keys()].join(', ') || 'none'}`);
+  return theme;
+}
+
+export function listThemes(): string[] {
+  return [...registry.keys()];
 }

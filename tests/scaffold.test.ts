@@ -5,7 +5,6 @@ import { MATERIALS, healthFor, materialSpec } from '../src/physics/materials.ts'
 import { createEventBus } from '../src/core/eventBus.ts';
 import { createLoop } from '../src/core/loop.ts';
 import { createPhysicsAdapter } from '../src/physics/adapter.ts';
-import { createRenderer } from '../src/render/renderer.ts';
 import { createGameRules } from '../src/game/rules.ts';
 
 test('materials registry orders mass metal > stone > glass > feather', () => {
@@ -44,6 +43,5 @@ test('core event bus and loop are implemented (M5)', () => {
 });
 
 test('unimplemented stubs report their milestone', () => {
-  assert.throws(() => createRenderer({} as HTMLCanvasElement), /M6/);
   assert.throws(() => createGameRules(), /M8/);
 });

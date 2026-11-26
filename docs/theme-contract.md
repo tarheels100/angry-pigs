@@ -3,10 +3,12 @@
 A theme supplies exactly three things. It reads entity state; it never mutates it,
 and it never reads collision, health-math, or level logic.
 
-1. **Manifest** — `id` and `palette` (background, outline, per-material accents,
-   pig/bird/cannon colours, aim guide, destroyed flash).
+1. **Manifest** — `id`, `name`, and `palette` (background, outline, grid,
+   per-material accents, pig/bird/cannon colours, aim guide, destroyed flash).
 2. **Draw recipes** — `paintBackground`, `paintEntity`, `paintOverlay`, taking
-   `(ctx, state, viewport)`.
+   `(ctx, state | frame, viewport)`. `paintOverlay` receives a `RenderFrame`
+   (`camera`, `phase`, `aim`), not physics internals. The renderer owns the camera
+   transform, so themes draw in world coordinates and cannot change framing.
 3. **Asset set** — optional sprites/fonts/audio keyed by manifest ids (v0 ships none).
 
 ## What a theme may read
@@ -29,5 +31,6 @@ Add a field here only if a theme genuinely needs the *state*, not the style.
 ## Available themes
 
 - `placeholder` (M6) — flat colours, no glow; used to prove the state → render
-  pipeline before art exists.
+  pipeline before art exists. Instances capture their own palette, so a variant
+  proves a theme swap changes colours without touching the pipeline.
 - `tron` (M10) — default: dark background, neon outlines, additive glow.

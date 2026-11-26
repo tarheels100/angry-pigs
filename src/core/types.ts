@@ -51,7 +51,7 @@ export interface TrajectorySample {
  * Phase machine identifier. Owned by the game layer (M8) but typed in core because
  * the event bus payload is a core contract.
  */
-export type GamePhase = 'ready' | 'aiming' | 'flight' | 'settling' | 'won' | 'lost';
+export type GamePhase = 'ready' | 'aiming' | 'in_flight' | 'settling' | 'won' | 'lost' | 'no_ammo';
 
 /** Everything the game layer broadcasts. The event bus is the only upward channel;
  * presentation never mutates game state. */

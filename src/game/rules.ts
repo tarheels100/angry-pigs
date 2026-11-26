@@ -1,8 +1,9 @@
-import type { Vec2 } from '../core/types.ts';
+import type { GamePhase, Vec2 } from '../core/types.ts';
 
 /** Gameplay rules contract — implemented in M8. M7 deliberately has no rules. */
 
-export type Phase = 'aiming' | 'in_flight' | 'settling' | 'won' | 'lost' | 'no_ammo';
+/** The phase machine vocabulary lives in core so event payloads stay typed (M5). */
+export type Phase = GamePhase;
 
 export interface RulesSnapshot {
   phase: Phase;

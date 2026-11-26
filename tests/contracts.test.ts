@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import type { PhysicsAdapter, BodyInit, Impact, TrajectorySample, WorldInit } from '../src/physics/adapter.ts';
-import type { Theme, Viewport, OverlayState } from '../src/render/theme.ts';
+import type { Theme, RenderFrame } from '../src/render/theme.ts';
+import type { Viewport, CameraApi } from '../src/camera/camera.ts';
 import type { GameRules, RulesSnapshot, Phase } from '../src/game/rules.ts';
 import type { EntityState, MaterialId } from '../src/core/types.ts';
 import type { Vec2 } from '../src/core/types.ts';
@@ -81,24 +82,35 @@ function fakeTheme(): Theme {
   const palette = {
     background: '#08090c',
     outline: '#6ef3ff',
+    grid: '#12181f',
     materials: {
       glass: '#8ef7ff', stone: '#ff9d5c', metal: '#c8d6e0',
       feather: '#ffd166', ground: '#2b3a44', light: '#6ef3ff',
     } satisfies Record<MaterialId, string>,
     pig: '#ffd166', bird: '#ff5f7a', cannon: '#6ef3ff',
-    aimGuide: '#6ef3ff', destroyedFlash: '#ffffff',
+    aimGuide: '#6ef3ff', flash: '#ffffff',
   };
-  const viewport: Viewport = { scale: 1, offsetX: 0, offsetY: 0, width: 1600, height: 900 };
+  const viewport: Viewport = { width: 1600, height: 900, dpr: 1 };
+  const camera: CameraApi = {
+    position: () => ({ x: 800, y: 450 }),
+    zoom: () => 1,
+    panTo: () => {},
+    setZoom: () => {},
+    worldToScreen: (p: Vec2) => p,
+    screenToWorld: (p: Vec2) => p,
+    fitZoom: () => 1,
+  };
   return {
     id: 'fake',
+    name: 'Fake theme',
     palette,
     paintBackground(_ctx: CanvasRenderingContext2D, _vp: Viewport): void {},
     paintEntity(_ctx: CanvasRenderingContext2D, entity: EntityState, _vp: Viewport): void {
       // Appearance is derived purely from semantic state.
       void entity.kind; void entity.material; void entity.destroyed;
     },
-    paintOverlay(_ctx: CanvasRenderingContext2D, overlay: OverlayState, _vp: Viewport): void {
-      void overlay.aim; void overlay.trajectory;
+    paintOverlay(_ctx: CanvasRenderingContext2D, frame: RenderFrame, _vp: Viewport): void {
+      void frame.camera; void frame.phase; void frame.aim;
     },
   };
 }
@@ -146,16 +158,32 @@ test('Theme contract reads only semantic state', () => {
   const theme = fakeTheme();
   const state = fakeState('bird-1');
   state.destroyed = true;
-  const vp: Viewport = { scale: 1, offsetX: 0, offsetY: 0, width: 1600, height: 900 };
+  const vp: Viewport = { width: 1600, height: 900, dpr: 1 };
   theme.paintEntity({} as CanvasRenderingContext2D, state, vp);
-  theme.paintOverlay({} as CanvasRenderingContext2D, { aim: null, trajectory: [] }, vp);
+  theme.paintOverlay({} as CanvasRenderingContext2D, {
+    camera: fakeCamera(),
+    phase: 'aiming',
+    aim: { origin: { x: 120, y: 480 }, pull: { x: 40, y: 20 }, trajectory: [{ x: 200, y: 400, hit: false }] },
+  }, vp);
   assert.equal(theme.id, 'fake');
 });
 
+function fakeCamera(): CameraApi {
+  return {
+    position: () => ({ x: 800, y: 450 }),
+    zoom: () => 1,
+    panTo: () => {},
+    setZoom: () => {},
+    worldToScreen: (p: Vec2) => p,
+    screenToWorld: (p: Vec2) => p,
+    fitZoom: () => 1,
+  };
+}
+
 test('GameRules contract covers every phase', () => {
   const rules = fakeRules();
-  const phases: Phase[] = ['aiming', 'in_flight', 'settling', 'won', 'lost', 'no_ammo'];
-  assert.equal(phases.length, 6);
+  const phases: Phase[] = ['ready', 'aiming', 'in_flight', 'settling', 'won', 'lost', 'no_ammo'];
+  assert.equal(phases.length, 7);
 
   // Missed bird: back to aiming, ammo consumed.
   rules.onImpact('pig-1', 'block-1', 1, { x: 0, y: 0 });
