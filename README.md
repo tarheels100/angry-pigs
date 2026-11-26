@@ -106,6 +106,11 @@ need `.js` extensions — but the shipped artifact is a single file, so no brows
 module resolution happens at runtime. Source specifiers use `.ts` extensions so
 `node --test` can run TS directly.
 
+**Controls (M7 slice):** press and drag anywhere on the canvas — the drag vector from
+the press point sets launch direction and power (clamped to `maxPull`, ±75° from
+horizontal); release to fire. `t` cycles registered themes (dev check for the theme
+contract).
+
 ```jsonc
 "scripts": {
   "dev":   "node server.js",   // static server, no-cache headers
