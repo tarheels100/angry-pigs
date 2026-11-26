@@ -11,6 +11,10 @@ and it never reads collision, health-math, or level logic.
    transform, so themes draw in world coordinates and cannot change framing.
 3. **Asset set** — optional sprites/fonts/audio keyed by manifest ids (v0 ships none).
 
+Presentation effects are **not** themes. Particles, camera shake, and sound subscribe to
+`GameEvents` and draw through the renderer's `fx` layer (D21); a theme may not emit
+sound or spawn particles, because effects must keep working for every theme.
+
 ## What a theme may read
 
 `EntityState`: `kind`, `shape`, `material`, `x`, `y`, `angle`, `radius`,
@@ -37,4 +41,8 @@ Add a field here only if a theme genuinely needs the *state*, not the style.
 - `placeholder` (M6) — flat colours, no glow; used to prove the state → render
   pipeline before art exists. Instances capture their own palette, so a variant
   proves a theme swap changes colours without touching the pipeline.
-- `tron` (M10) — default: dark background, neon outlines, additive glow.
+- `tron` (M10) — default: dark background, neon outlines, additive glow, grid.
+- `pixel` (M12) — chunky solids snapped to a 4-unit grid, checkerboard background, no
+  glow, damage painted as missing chunks. Added as registry entries only: `npm run
+  test:browser` asserts painted pixels change, and `tests/themes.test.ts` asserts theme
+  files import nothing outside the contract.

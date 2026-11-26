@@ -6,11 +6,16 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
-**Status:** M1–M7 complete (scaffold, contracts, physics spike validating Matter.js,
-Matter adapter, event bus + fixed-step loop, theme-driven renderer + camera math,
-and a playable vertical slice: stage 01, drag aim, trajectory preview, ammo, impact
-damage, settle, win/lose). **Next milestone: M8** — damage/crush tuning, star scoring,
-live tuning UI.
+**Status:** M1–M13 complete. The game runs in a browser from a single self-contained
+`dist/index.html`: three stages, drag aim, trajectory preview, ammo, per-impact damage
+with partial destruction, crush/fall attribution, star scoring, camera follow and
+re-framing, the Tron theme (default) plus a Pixel theme proving the theme contract, and
+deployed to GitHub Pages (`https://tarheels100.github.io/angry-pigs/`). Gates: `npm run
+check` (typecheck + 99 headless tests + build) and `npm run test:browser` (9 Playwright
+tests against the built artifact), both run in CI.
+
+Remaining open work is tuning and feel rather than plumbing — see the open questions in
+`docs/tuning.md` and the manual touch check in `docs/checklist.md`.
 
 On each level the player gets a fixed number of launches. Launch pigs from the
 cannon to destroy every bird target on the stage. Destroying all birds within the
@@ -108,21 +113,34 @@ need `.js` extensions — but the shipped artifact is a single file, so no brows
 module resolution happens at runtime. Source specifiers use `.ts` extensions so
 `node --test` can run TS directly.
 
-**Controls (M7 slice):** press, then **drag** — the pull is the vector from the cannon
-origin to the pointer (launch direction is the opposite, clamped to `maxPull` and
-±75° from horizontal), so the *pointer position* sets the shot, not the press point.
-A press alone shows no guide and fires nothing; releasing without a drag (or with a
-pull under 12 units) cancels and costs no ammo. `t` cycles registered themes (dev
-check for the theme contract).
+**Controls:** press, then **drag** — the pull is the vector from the cannon origin to
+the pointer (launch direction is the opposite, clamped to `maxPull` and ±75° from
+horizontal), so the *pointer position* sets the shot, not the press point. A press alone
+shows no guide and fires nothing; releasing without a drag (or with a pull under 12
+units) cancels and costs no ammo. The HUD Restart button does the same as `R`.
+
+| Key | Effect |
+| --- | --- |
+| `R` | restart the current stage |
+| `N` / `P` | next / previous stage (wraps) |
+| `T` | cycle themes — tron (default), placeholder, placeholder-dark, pixel |
+| `M` | mute / unmute sound |
+| wheel | zoom the camera |
+| `F2` | debug overlay: entity bounds, ids, fps, step count |
+
+On a win the stage advances automatically after ~1.4s; on a fail, restart with `R`.
 
 ```jsonc
 "scripts": {
-  "dev":      "node scripts/dev.js",  // esbuild watch + static server, one process
-  "dev:open": "node scripts/dev.js --open",
-  "serve":    "node server.js",
-  "watch":    "esbuild src/main.ts --bundle --watch=forever --format=iife --outfile=dist/main.js",
-  "build":    "esbuild src/main.ts --bundle --minify --format=iife && node build-html.js",
-  "test":     "node --test tests/"
+  "dev":          "node scripts/dev.js",  // esbuild watch + static server, one process
+  "dev:open":     "node scripts/dev.js --open",
+  "serve":        "node server.js",
+  "watch":        "esbuild src/main.ts --bundle --watch=forever --format=iife --outfile=dist/main.js",
+  "build":        "esbuild src/main.ts --bundle --minify --legal-comments=none --format=iife && node build-html.js",
+  "test":         "node --test \"tests/**/*.test.ts\"",
+  "test:browser": "npm run build && node --test \"tests/browser/*.browser.mjs\"",
+  "check":        "npm run typecheck && npm test && npm run build",
+  "typecheck":    "tsc --noEmit"
 }
 ```
 
@@ -160,29 +178,30 @@ Everything an agent needs to get oriented, filled in as the roadmap progresses:
 - `docs/tuning.md` — gameplay tuning log (launch caps, HP values, settle windows)
 - `docs/deployment.md` — dev server, esbuild pipeline, GitHub Pages steps and constraints
 - `docs/checklist.md` — verification checklist: browser checks, simulation evaluation,
-  measured baselines, contract/CI gaps to close before M9
-- `docs/browser-testing.md` — options for real-browser testing (Playwright / CDP / manual)
+  measured baselines, and the contract/CI items that were closed
+- `docs/browser-testing.md` — how real-browser checks are run (Playwright harness,
+  `npm run test:browser`) and why the artifact rather than the source is tested
 
 ## Roadmap
 
 Numbered milestones. Each has deliverables and an acceptance check; an milestone is
 done only when its check passes.
 
-| # | Milestone | Depends on |
-| --- | --- | --- |
-| 1 | Repo scaffold, tooling, stubs | — |
-| 2 | Design decisions + interface contracts in docs | 1 |
-| 3 | Physics spike (throwaway prototype) | 2 |
-| 4 | Physics adapter layer | 3 |
-| 5 | Core engine: loop, events, entity registry | 2 |
-| 6 | Minimal renderer + placeholder theme | 4, 5 |
-| 7 | **Vertical slice** — aim, launch, destroy, visible result | 4, 5, 6 |
-| 8 | Game rules & state machine | 7 |
-| 9 | Level system + camera follow | 8 |
-| 10 | Tron theme (default) | 7 |
-| 11 | Polish: particles, audio, debug overlay | 8, 10 |
-| 12 | Theme-swap proof (second theme) | 10 |
-| 13 | Tests, tuning, single-file build & Pages deploy | 8, 9, 11 |
+| # | Milestone | Depends on | Status |
+| --- | --- | --- | --- |
+| 1 | Repo scaffold, tooling, stubs | — | done |
+| 2 | Design decisions + interface contracts in docs | 1 | done |
+| 3 | Physics spike (throwaway prototype) | 2 | done |
+| 4 | Physics adapter layer | 3 | done |
+| 5 | Core engine: loop, events, entity registry | 2 | done |
+| 6 | Minimal renderer + placeholder theme | 4, 5 | done |
+| 7 | **Vertical slice** — aim, launch, destroy, visible result | 4, 5, 6 | done |
+| 8 | Game rules & state machine | 7 | done |
+| 9 | Level system + camera follow | 8 | done |
+| 10 | Tron theme (default) | 7 | done |
+| 11 | Polish: particles, audio, shake, debug overlay | 8, 10 | done |
+| 12 | Theme-swap proof (second theme) | 10 | done |
+| 13 | Tests, tuning, single-file build & Pages deploy | 8, 9, 11 | done |
 
 ### 1. Repo scaffold, tooling, stubs
 

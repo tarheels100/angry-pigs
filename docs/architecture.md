@@ -9,7 +9,7 @@ mutates simulation state.
 | core | `src/core/*` | fixed-timestep loop, event bus, entity registry, semantic entity state |
 | physics | `src/physics/*` | Matter.js behind `PhysicsAdapter`, material properties, impacts, settle query |
 | game | `src/game/*` | cannon, ammo, projectiles, targets, rules, scoring |
-| presentation | `src/render/*`, `src/camera/*`, `src/input/*`, `src/ui/*` | theme draw recipes, viewport mapping, pointer input, HUD |
+| presentation | `src/render/*`, `src/camera/*`, `src/input/*`, `src/ui/*`, `src/fx/*`, `src/audio/*` | theme draw recipes, viewport mapping, pointer input, HUD, particles/shake, procedural sound |
 
 ## Data flow
 

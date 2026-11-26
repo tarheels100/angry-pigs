@@ -352,3 +352,21 @@ test('switching levels reports the new bounds so the camera can re-frame (D20)',
   assert.equal(game.rules.snapshot().targetsTotal, 2, 'the new level owns the target count');
   assert.equal(game.rules.snapshot().ammoLeft, 5, 'the new level owns the ammo count');
 });
+
+test('bird deaths are attributed to the pig or to the collapse', () => {
+  const { game, bus, loaded } = makeGame();
+  const deaths: Array<{ id: string; cause: string }> = [];
+  bus.on('destroyed', (e) => deaths.push({ id: e.id, cause: e.cause }));
+
+  aim(game, 20); // clears both birds: one by direct hit, one by the collapse
+  game.releaseAim();
+  settle(game);
+  assert.equal(game.rules.snapshot().phase, 'won');
+
+  const birdDeaths = deaths.filter((d) => d.id.startsWith('bird'));
+  assert.equal(birdDeaths.length, 2, 'both birds died');
+  assert.ok(birdDeaths.some((d) => d.cause === 'impact'), 'a direct pig hit is attributed to the pig');
+  assert.ok(birdDeaths.some((d) => d.cause !== 'impact'), 'the collapse kill is attributed to debris or the ground');
+  for (const d of birdDeaths) assert.ok(['impact', 'crush', 'fall'].includes(d.cause), `${d.cause} is a valid cause`);
+  void loaded;
+});

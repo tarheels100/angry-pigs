@@ -74,6 +74,9 @@ export function createGame(options: GameOptions): Game {
   /** Destroyed bodies no longer appear in the snapshot (D17); these display-only
    * extras flash where they died, then drop out. */
   const corpses = new Map<string, { state: EntityState; steps: number }>();
+  /** Last collision partner per body, so a death can be attributed to the pig that
+   * hit it or to falling debris (docs/checklist.md §2). */
+  const lastHit = new Map<string, { partnerKind: EntityState['kind'] }>();
   let flightSteps = 0;
   let settleSteps = 0;
   let trajectory: TrajectorySample[] = [];
@@ -196,6 +199,12 @@ export function createGame(options: GameOptions): Game {
     const impacts = adapter.step(dt);
     for (const impact of impacts) {
       bus.emit('impact', impact);
+      const a = adapter.state(impact.aId);
+      const b = adapter.state(impact.bId);
+      if (a && b) {
+        lastHit.set(impact.aId, { partnerKind: b.kind });
+        lastHit.set(impact.bId, { partnerKind: a.kind });
+      }
       applySliceDamage(impact.aId, impact.bId, impact.energy);
     }
     for (const id of adapter.destroyedLastStep()) {
@@ -203,7 +212,11 @@ export function createGame(options: GameOptions): Game {
       // Keep the last known state for a short flash; the body itself is gone (D17).
       const s = adapter.state(id);
       if (s) corpses.set(id, { state: s, steps: 0 });
-      bus.emit('destroyed', { id, cause: 'impact' });
+      // Attribution: a pig hit is a direct kill, debris is a crush, hitting the ground
+      // or a wall is a fall. Only events carry it; nothing scores on it yet.
+      const partner = lastHit.get(id)?.partnerKind;
+      const cause = partner === 'pig' ? 'impact' : partner === 'ground' || partner === 'wall' ? 'fall' : 'crush';
+      bus.emit('destroyed', { id, cause });
     }
     for (const [id, corpse] of corpses) {
       corpse.steps++;
@@ -273,6 +286,7 @@ export function createGame(options: GameOptions): Game {
     pigs.clear();
     aiming = false;
     corpses.clear();
+    lastHit.clear();
     level = next;
     cannon = createCannon({ origin: next.cannonOrigin, maxPull: next.maxPull, powerScale: next.powerScale, ammo: next.ammo });
     rules = createRules({ targetIds: next.targetIds, ammo: next.ammo });
@@ -288,6 +302,7 @@ export function createGame(options: GameOptions): Game {
     adapter.clear();
     pigs.clear();
     corpses.clear();
+    lastHit.clear();
     settleSteps = 0;
     trajectory = [];
     pigCounter = 0;
