@@ -42,8 +42,8 @@ export interface Game {
   cannon: Cannon;
   step(dt: number): void;
   frame(): Frame;
-  /** Begin a drag from a pointer position in world coordinates. */
-  beginAim(worldPoint: Vec2): void;
+  /** Open a drag gesture. A press alone is not a shot; only drags set a pull. */
+  beginAim(): void;
   dragAim(worldPoint: Vec2): void;
   cancelAim(): void;
   /** Release the drag: fire the next pig if ammo remains. */
@@ -199,8 +199,7 @@ export function createGame(options: GameOptions): Game {
       : [];
   }
 
-  function beginAim(point: Vec2): void {
-    void point;
+  function beginAim(): void {
     if (rules.snapshot().phase !== 'aiming' || cannon.ammoLeft() === 0) return;
     // A press alone is not a shot: the pull starts at zero and only drags move it.
     aiming = true;
@@ -209,7 +208,10 @@ export function createGame(options: GameOptions): Game {
   }
 
   function dragAim(point: Vec2): void {
-    if (!aiming || rules.snapshot().phase !== 'aiming') return;
+    if (rules.snapshot().phase !== 'aiming' || cannon.ammoLeft() === 0) return;
+    // Moves are reported only while a button is held (src/input/pointer.ts), so a
+    // drag can re-open the gesture if restart()/loadLevel() closed it mid-drag.
+    aiming = true;
     cannon.setAim(point);
     refreshTrajectory();
   }

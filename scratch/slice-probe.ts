@@ -10,7 +10,8 @@ function shot(deg: number) {
   const game = createGame({ level, adapter, bus: createEventBus() });
   const origin = level.cannonOrigin;
   const a = deg * Math.PI / 180;
-  game.beginAim({ x: origin.x - level.maxPull * Math.cos(a), y: origin.y - level.maxPull * Math.sin(a) });
+  game.beginAim();
+  game.dragAim({ x: origin.x - level.maxPull * Math.cos(a), y: origin.y - level.maxPull * Math.sin(a) });
   game.releaseAim();
   for (let i = 0; i < 300; i++) game.step(1 / 60);
   const killed = adapter.snapshot().filter((e) => e.kind === 'bird' && e.destroyed).map((e) => e.id);

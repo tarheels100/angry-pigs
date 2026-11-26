@@ -50,7 +50,7 @@ if (!canvas || !hudEl) {
   window.addEventListener('resize', refit);
 
   const pointer = createPointerSource(canvas);
-  pointer.onDown((p) => game.beginAim(camera.screenToWorld(p)));
+  pointer.onDown(() => game.beginAim());
   pointer.onMove((p) => game.dragAim(camera.screenToWorld(p)));
   pointer.onUp(() => game.releaseAim());
   pointer.onCancel(() => game.cancelAim());

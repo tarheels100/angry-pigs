@@ -30,7 +30,7 @@ function pullFor(loaded: ReturnType<typeof loadLevel>, deg: number) {
 
 /** Press then drag; the shot is only decided on release (src/input/pointer.ts). */
 function aim(game: ReturnType<typeof createGame>, deg: number): void {
-  game.beginAim(level.cannonOrigin);
+  game.beginAim();
   game.dragAim(pullFor(level, deg));
 }
 
@@ -202,13 +202,13 @@ test('the cannon and the waiting pig are visible before a launch', () => {
 
 test('a press alone is not a shot and does not spend ammo', () => {
   const { game } = makeGame();
-  game.beginAim(level.cannonOrigin);
+  game.beginAim();
   assert.equal(game.releaseAim(), false, 'press + release without a drag fires nothing');
   assert.equal(game.rules.snapshot().ammoLeft, 4, 'a click does not spend ammo');
   assert.equal(game.rules.snapshot().launches, 0);
 
   // Press somewhere far from the cannon: still no pull until a drag.
-  game.beginAim({ x: 700, y: 300 });
+  game.beginAim();
   assert.equal(game.cannon.aim(), null, 'the press position alone does not set a pull');
   assert.equal(game.frame().trajectory.length, 0, 'no preview before a drag');
   game.cancelAim();
@@ -219,7 +219,7 @@ test('the shot uses the final drag position, not the press position', () => {
   const launched: Array<{ velocity: { x: number; y: number } }> = [];
   bus.on('launch', (e) => launched.push({ velocity: e.velocity }));
 
-  game.beginAim({ x: 600, y: 200 }); // press high-right, unrelated to the shot
+  game.beginAim(); // press high-right, unrelated to the shot
   game.dragAim(pullFor(level, 0)); // drag flat-left
   assert.ok(game.cannon.aim(), 'dragging sets the pull');
   assert.ok(game.frame().trajectory.length > 0, 'the preview follows the drag');
@@ -238,11 +238,32 @@ test('a restart restores drag-to-aim behaviour', () => {
   settle(game);
 
   game.restart();
-  game.beginAim(level.cannonOrigin);
+  game.beginAim();
   game.dragAim(pullFor(level, 12));
   assert.ok(game.cannon.aim(), 'dragging aims again after a restart');
   assert.ok(game.frame().trajectory.length > 0, 'the preview is rebuilt after a restart');
   assert.ok(game.releaseAim(), 'the shot fires after a restart');
   assert.equal(game.rules.snapshot().launches, 1);
   assert.ok(game.entities.get('pig-1'), 'a pig exists after the restarted shot');
+});
+
+test('a drag re-opens the gesture when restart or loadLevel closed it', () => {
+  const { game } = makeGame();
+  game.beginAim();
+  game.dragAim(pullFor(level, 0));
+  game.restart();
+  assert.equal(game.releaseAim(), false, 'restart does not fire the interrupted drag');
+
+  // The pointer is still held, so the next move aims again.
+  game.dragAim(pullFor(level, 12));
+  assert.ok(game.cannon.aim(), 'dragging aims after an interrupted gesture');
+  assert.ok(game.releaseAim());
+  assert.equal(game.rules.snapshot().launches, 1);
+
+  game.beginAim();
+  game.dragAim(pullFor(level, 0));
+  game.loadLevel(loadLevel(levelAt(0)));
+  assert.equal(game.releaseAim(), false, 'loadLevel does not fire the interrupted drag');
+  game.dragAim(pullFor(level, 20));
+  assert.ok(game.releaseAim(), 'dragging aims after loadLevel');
 });
