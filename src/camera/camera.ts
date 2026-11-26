@@ -35,12 +35,21 @@ export interface CameraApi {
    * leaves the level (docs/adr.md D20).
    */
   follow(target: Vec2 | null, dt: number): void;
+  /** Decay shake and advance the jitter phase. Call once per simulation step. */
+  update(dt: number): void;
+  /** Add a screen-space shake impulse (0..1). Presentation only: it never moves the world. */
+  shake(strength: number): void;
+  /** Current shake offset in screen pixels, added by the renderer. */
+  shakeOffset(): Vec2;
 }
 
 const MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 /** Exponential smoothing rate for follow(), in units per second of remaining gap. */
 const FOLLOW_RATE = 6;
+/** Peak shake displacement in CSS pixels, and its decay rate per second. */
+const SHAKE_PIXELS = 9;
+const SHAKE_DECAY = 7;
 
 /**
  * Presentation-only camera: a pan/zoom transform over fixed world units
@@ -50,6 +59,8 @@ export function createCamera(view: Viewport, world: WorldExtent): CameraApi {
   let pos: Vec2 = { x: world.width / 2, y: world.height / 2 };
   let zoom = 1;
   let extent: WorldExtent = world;
+  let shake = 0;
+  let shakePhase = 0;
 
   function fitZoom(): number {
     return Math.min(view.width / extent.width, view.height / extent.height);
@@ -94,6 +105,19 @@ export function createCamera(view: Viewport, world: WorldExtent): CameraApi {
       const k = 1 - Math.exp(-FOLLOW_RATE * dt);
       pos = { x: pos.x + (goal.x - pos.x) * k, y: pos.y + (goal.y - pos.y) * k };
       clampPan();
+    },
+    update(dt: number) {
+      shake *= Math.exp(-SHAKE_DECAY * dt);
+      if (shake < 0.001) shake = 0;
+      shakePhase += dt * 42;
+    },
+    shake(strength: number) {
+      shake = Math.min(1, shake + Math.max(0, strength));
+    },
+    shakeOffset(): Vec2 {
+      if (shake === 0) return { x: 0, y: 0 };
+      // Deterministic jitter from the phase counter, so tests and replays match.
+      return { x: shake * SHAKE_PIXELS * Math.sin(shakePhase), y: shake * SHAKE_PIXELS * 0.6 * Math.cos(shakePhase * 1.7) };
     },
     worldToScreen(p) {
       const c = center();

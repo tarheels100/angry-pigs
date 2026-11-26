@@ -5,6 +5,7 @@ import { drawFrame } from '../src/render/renderer.ts';
 import { createCamera } from '../src/camera/camera.ts';
 import { registerTheme, getTheme, listThemes, type Theme, type RenderFrame } from '../src/render/theme.ts';
 import { createTronTheme, tronPalette } from '../src/render/themes/tron.ts';
+import { createPixelTheme, pixelPalette } from '../src/render/themes/pixel.ts';
 import { createPlaceholderTheme } from '../src/render/themes/placeholder.ts';
 import type { EntityState } from '../src/core/types.ts';
 
@@ -112,4 +113,48 @@ test('no aim means no overlay paint', () => {
   const theme = createTronTheme();
   const ops = afterBackground(paint(theme, []));
   assert.ok(!ops.some((o) => o.op === 'stroke' && o.colour === tronPalette.aimGuide));
+});
+
+test('pixel theme paints chunky solids, no glow', () => {
+  const theme = createPixelTheme();
+  const ops = afterBackground(paint(theme, [entity({ kind: 'pig', shape: 'circle', material: 'metal', radius: 18 })]));
+  assert.ok(ops.filter((o) => o.op === 'fillRect').length >= 3, 'body plus rim fills');
+  assert.ok(!ops.some((o) => o.op === 'stroke'), 'pixel has no outlines');
+  assert.ok(!ops.some((o) => (o.shadow ?? 0) > 0), 'pixel has no glow');
+});
+
+test('pixel fade extra paints the flash colour', () => {
+  const theme = createPixelTheme();
+  const ops = afterBackground(paint(theme, [entity({ destroyed: true, fade: 0.6 })]));
+  assert.ok(ops.some((o) => o.op === 'fillRect' && o.colour === pixelPalette.flash));
+});
+
+test('pixel aim overlay paints square nodes', () => {
+  const theme = createPixelTheme();
+  const aim = {
+    origin: { x: 120, y: 420 },
+    pull: { x: -60, y: 20 },
+    trajectory: Array.from({ length: 60 }, (_, i) => ({ x: 120 + i * 10, y: 420 - i * 2, hit: false })),
+  };
+  const ops = afterBackground(paint(theme, [], aim));
+  assert.ok(ops.filter((o) => o.op === 'fillRect').length > 5, 'trajectory nodes');
+  assert.ok(!ops.some((o) => o.op === 'stroke'), 'no vector lines in pixel');
+});
+
+test('themes depend only on the contract, not on the pipeline or the game', async () => {
+  // M12 acceptance: a theme is a registry entry. It may import its manifest type,
+  // entity state, and the viewport type — never physics, game, or level code.
+  const fs = await import('node:fs/promises');
+  const files = await fs.readdir(new URL('../src/render/themes/', import.meta.url));
+  for (const file of files) {
+    const source = await fs.readFile(new URL(`../src/render/themes/${file}`, import.meta.url), 'utf8');
+    const imports = [...source.matchAll(/from '([^']+)'/g)].map((m) => m[1]!);
+    for (const specifier of imports) {
+      assert.ok(
+        specifier.endsWith('/theme.ts') || specifier.endsWith('/types.ts') || specifier.endsWith('/camera.ts'),
+        `${file} imports ${specifier}, which is outside the theme contract`,
+      );
+    }
+  }
+  assert.ok(files.includes('tron.ts') && files.includes('pixel.ts'), 'tron and pixel both ship');
 });

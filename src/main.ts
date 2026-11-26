@@ -6,9 +6,12 @@ import { createRenderer } from './render/renderer.ts';
 import { registerTheme, getTheme, listThemes, type Theme } from './render/theme.ts';
 import { createPlaceholderTheme } from './render/themes/placeholder.ts';
 import { createTronTheme } from './render/themes/tron.ts';
+import { createPixelTheme } from './render/themes/pixel.ts';
 import { createPointerSource } from './input/pointer.ts';
 import { createGame } from './game/game.ts';
 import { createHud } from './ui/hud.ts';
+import { createParticleSystem } from './fx/particles.ts';
+import { createSfx } from './audio/sfx.ts';
 import { WORLD, LEVELS, levelAt, loadLevel } from './levels/index.ts';
 
 /**
@@ -27,6 +30,8 @@ if (!canvas || !hudEl) {
   registerTheme(createTronTheme());
   registerTheme(createPlaceholderTheme());
   registerTheme(createPlaceholderTheme({ background: '#151a20', pig: '#7fd6a0', bird: '#ff8a5c' }, 'placeholder-dark'));
+  // Second theme through the contract only (M12): no pipeline change was needed.
+  registerTheme(createPixelTheme());
   // Tron is the product look (M10); the placeholders stay selectable for contract checks.
   let theme: Theme = getTheme('tron');
 
@@ -89,8 +94,37 @@ if (!canvas || !hudEl) {
   const game = createGame({ level: loadLevel(levelAt(0)), adapter, bus });
   hud.setLevel(levelLabel(0));
 
+  // Presentation effects (M11). They subscribe to the same events the HUD does and
+  // never touch the simulation.
+  const particles = createParticleSystem();
+  const sfx = createSfx();
+  sfx.attach(bus);
+
+  bus.on('impact', (e) => {
+    const at = game.entities.get(e.aId) ?? game.entities.get(e.bId);
+    if (at) particles.spawnBurst({ x: at.x, y: at.y }, theme.palette.outline, Math.min(8, 2 + Math.round(e.energy / 60)), 180);
+    camera.shake(Math.min(0.6, e.energy / 300));
+  });
+
+  bus.on('destroyed', (e) => {
+    const at = game.entities.get(e.id);
+    if (at) particles.spawnBurst({ x: at.x, y: at.y }, theme.palette.flash, 14, 300);
+    camera.shake(0.45);
+  });
+
+  bus.on('launch', () => {
+    particles.spawnBurst(game.cannon.config().origin, theme.palette.pig, 10, 220);
+    camera.shake(0.3);
+  });
+
+  bus.on('levelLoaded', () => particles.clear());
+
   const pointer = createPointerSource(canvas);
-  pointer.onDown(() => game.beginAim());
+  pointer.onDown(() => {
+    // Audio needs a user gesture; the first press is the natural unlock point.
+    sfx.unlock();
+    game.beginAim();
+  });
   pointer.onMove((p) => game.dragAim(camera.screenToWorld(p)));
   pointer.onUp(() => game.releaseAim());
   pointer.onCancel(() => game.cancelAim());
@@ -126,6 +160,14 @@ if (!canvas || !hudEl) {
       case 'p':
         loadLevelIndex(levelIndex - 1);
         break;
+      case 'm':
+        sfx.unlock();
+        sfx.setMuted(!sfx.muted());
+        hud.message(sfx.muted() ? 'sound: off' : 'sound: on');
+        break;
+      case 'F2':
+        renderer.setDebug(!renderer.debugEnabled(), () => ({ fps: lastFps, steps: loop.stepsTaken(), elapsed: performance.now() / 1000 }));
+        break;
     }
   });
 
@@ -136,12 +178,17 @@ if (!canvas || !hudEl) {
     return pig ? { x: pig.x, y: pig.y } : null;
   }
 
+  let lastFps = 0;
+
   const loop = createLoop({
     step: (dt) => {
       game.step(dt);
       camera.follow(followTarget(), dt);
+      camera.update(dt);
+      particles.update(dt);
     },
-    render: () => {
+    render: (dt) => {
+      lastFps = dt > 0 ? 1 / dt : 0;
       const frame = game.frame();
       renderer.draw(
         {
@@ -150,6 +197,7 @@ if (!canvas || !hudEl) {
           aim: frame.aim ? { origin: frame.aim.origin, pull: frame.aim.pull, trajectory: frame.trajectory } : null,
         },
         frame.entities.all(),
+        [particles],
       );
       hud.update(game.rules.snapshot());
     },

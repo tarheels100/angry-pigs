@@ -7,7 +7,18 @@ export interface Renderer {
   /** cssWidth/cssHeight are layout pixels; the backing store is scaled by dpr. */
   resize(cssWidth: number, cssHeight: number): void;
   setTheme(theme: Theme): void;
-  draw(frame: RenderFrame, entities: EntityState[]): void;
+  /** Dev diagnostics (F2): entity bounds, ids, and loop counters. Theme-independent. */
+  setDebug(enabled: boolean, stats?: () => DebugStats): void;
+  debugEnabled(): boolean;
+  /** `fx` draws in world space after entities (particles, debris). Optional. */
+  draw(frame: RenderFrame, entities: EntityState[], fx?: Array<{ paint(ctx: CanvasRenderingContext2D): void }>): void;
+}
+
+export interface DebugStats {
+  fps: number;
+  steps: number;
+  /** Seconds since the page started; diagnostics only. */
+  elapsed: number;
 }
 
 /**
@@ -21,17 +32,53 @@ export function drawFrame(
   frame: RenderFrame,
   entities: EntityState[],
   viewport: Viewport,
+  debug?: { enabled: boolean; stats: () => DebugStats },
+  fx: Array<{ paint(ctx: CanvasRenderingContext2D): void }> = [],
 ): void {
   theme.paintBackground(ctx, viewport);
 
   const pos = frame.camera.position();
   const zoom = frame.camera.zoom();
+  const shake = frame.camera.shakeOffset();
   ctx.save();
-  ctx.translate(viewport.width / 2, viewport.height / 2);
+  ctx.translate(viewport.width / 2 + shake.x, viewport.height / 2 + shake.y);
   ctx.scale(zoom, zoom);
   ctx.translate(-pos.x, -pos.y);
   for (const entity of entities) theme.paintEntity(ctx, entity, viewport);
   theme.paintOverlay(ctx, frame, viewport);
+  for (const layer of fx) layer.paint(ctx);
+  ctx.restore();
+
+  if (debug?.enabled) paintDebug(ctx, frame, entities, viewport, debug.stats());
+}
+
+/** Dev overlay (docs/checklist.md F2). Drawn in screen space after the camera
+ * transform is restored, so diagnostics stay readable at any zoom. */
+function paintDebug(ctx: CanvasRenderingContext2D, frame: RenderFrame, entities: EntityState[], viewport: Viewport, stats: DebugStats): void {
+  ctx.save();
+  ctx.strokeStyle = '#00ffa3';
+  ctx.lineWidth = 1;
+  ctx.setLineDash?.([4, 4]);
+  ctx.font = '12px monospace';
+  for (const entity of entities) {
+    const p = frame.camera.worldToScreen(entity);
+    const hw = (entity.halfWidth ?? entity.radius ?? 16) * frame.camera.zoom();
+    const hh = (entity.halfHeight ?? entity.radius ?? 16) * frame.camera.zoom();
+    ctx.strokeRect(p.x - hw, p.y - hh, hw * 2, hh * 2);
+    ctx.fillStyle = '#00ffa3';
+    ctx.fillText(entity.id, p.x - hw, p.y - hh - 3);
+  }
+  ctx.setLineDash?.([]);
+
+  const lines = [
+    `fps ${stats.fps.toFixed(1)}  steps ${stats.steps}  t ${stats.elapsed.toFixed(1)}s`,
+    `phase ${frame.phase}  camera ${frame.camera.position().x.toFixed(0)},${frame.camera.position().y.toFixed(0)} zoom ${frame.camera.zoom().toFixed(2)}`,
+    `entities ${entities.length}  pigs ${entities.filter((e) => e.kind === 'pig').length}  birds ${entities.filter((e) => e.kind === 'bird').length}`,
+  ];
+  ctx.fillStyle = 'rgba(4, 8, 12, 0.75)';
+  ctx.fillRect(8, 8, 320, 58);
+  ctx.fillStyle = '#a8f7ff';
+  lines.forEach((line, i) => ctx.fillText(line, 14, 24 + i * 16));
   ctx.restore();
 }
 
@@ -41,6 +88,8 @@ export function createRenderer(canvas: HTMLCanvasElement, theme: Theme): Rendere
 
   let viewport: Viewport = { width: canvas.clientWidth || canvas.width, height: canvas.clientHeight || canvas.height, dpr: 1 };
   let currentTheme = theme;
+  let debugEnabled = false;
+  let debugStats: () => DebugStats = () => ({ fps: 0, steps: 0, elapsed: 0 });
 
   return {
     viewport: () => viewport,
@@ -55,9 +104,14 @@ export function createRenderer(canvas: HTMLCanvasElement, theme: Theme): Rendere
     setTheme(next) {
       currentTheme = next;
     },
-    draw(frame, entities) {
+    setDebug(enabled, stats) {
+      debugEnabled = enabled;
+      if (stats) debugStats = stats;
+    },
+    debugEnabled: () => debugEnabled,
+    draw(frame, entities, fx) {
       ctx.setTransform(viewport.dpr, 0, 0, viewport.dpr, 0, 0);
-      drawFrame(ctx, currentTheme, frame, entities, viewport);
+      drawFrame(ctx, currentTheme, frame, entities, viewport, { enabled: debugEnabled, stats: debugStats }, fx);
     },
   };
 }
