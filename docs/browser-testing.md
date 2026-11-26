@@ -9,7 +9,8 @@ what a frame actually looks like. Options, in order of cost.
 `npm i -D playwright` downloads a Chromium build (~120 MB, dev-only; nothing enters
 the shipped bundle). It gives:
 
-- **Real pointer gestures.** `page.mouse.down/move/up`, touch taps, and `pointercancel`
+- **Real pointer gestures.** `page.mouse.down/move/up`, touch taps (`hasTouch` contexts,
+  `page.touchscreen.tap`), and `pointercancel`
   through a real browser — the input semantics in `src/input/pointer.ts` get asserted,
   not simulated.
 - **Canvas pixels.** Screenshot a frame and sample pixels (theme colour, glow), so a

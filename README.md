@@ -11,7 +11,7 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 with partial destruction, crush/fall attribution, star scoring, camera follow and
 re-framing, the Tron theme (default) plus a Pixel theme proving the theme contract, and
 deployed to GitHub Pages (`https://tarheels100.github.io/angry-pigs/`). Gates: `npm run
-check` (typecheck + 106 headless tests + build), `npm run test:browser` (10 Playwright
+check` (typecheck + 106 headless tests + build), `npm run test:browser` (12 Playwright
 tests against the built artifact), and `npm run check:determinism` (the same bundle run in
 node and chromium, 72 combos, 0 mismatches) — all three run in CI. Best results per stage
 persist in `localStorage` (D24).

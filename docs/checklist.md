@@ -48,9 +48,12 @@ Covered by `tests/browser/game.browser.mjs` unless marked manual. Serve with
       the served file). Reload is manual by design — no HMR.
       **Gotcha:** a comment-only edit does not change the bundle, so the hash stays put;
       that is expected, not a broken watcher.
-- [/] **Touch.** Playwright cannot emulate a finger drag; gesture-cancel paths are
-      covered headlessly by `tests/pointer.test.ts` (pointer capture, cancel, dispose).
-      Manual check on a real touch device still yours.
+- [~] **Touch.** Tap gestures are covered in Chromium (`hasTouch` contexts):
+      `tests/browser/game.browser.mjs` asserts a canvas tap spends no ammo (a tap is a
+      press, not a shot — D14) and a tap on the HUD restart button restarts the stage.
+      Gesture-cancel/capture paths are covered headlessly by `tests/pointer.test.ts`.
+      **Still manual:** a real finger drag (touch move + pointer capture) cannot be
+      emulated; verify aim-by-drag on a device.
 - [x] **Pages deploy.** Published by the workflow on push to `main`.
       Verified: `https://tarheels100.github.io/angry-pigs/` returns 200, served bytes are
       sha256-identical to `dist/index.html`, one inline `<script>`, no absolute URLs, no

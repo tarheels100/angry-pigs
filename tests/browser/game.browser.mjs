@@ -72,6 +72,44 @@ test('pressing without dragging never fires', async () => {
   });
 });
 
+// Touch coverage is partial: a tap exercises the browser's pointer-event path, but a
+// real finger drag (touch move + capture) still needs a physical device
+// (docs/checklist.md §1, docs/browser-testing.md).
+test('a touch tap on the canvas spends no ammo', async () => {
+  const { errors } = await withPage(async (page) => {
+    await open(page, await baseUrl());
+    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
+    const tap = await screenOf(page, origin);
+    await page.touchscreen.tap(tap.x, tap.y);
+    assert.equal((await snapshot(page)).launches, 0, 'a tap is a press, not a shot');
+    assert.equal((await snapshot(page)).ammoLeft, 4);
+  }, { hasTouch: true });
+  assert.deepEqual(errors, [], 'a touch tap raises no page or console errors');
+});
+
+test('a touch tap on the HUD restart button restarts the stage', async () => {
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
+    const rad = (WIN.deg * Math.PI) / 180;
+    await page.evaluate(({ origin, pull, rad }) => {
+      window.__game.beginAim();
+      window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
+      window.__game.releaseAim();
+    }, { origin, pull: WIN.pull, rad });
+    await page.waitForFunction(() => window.__game.rules.snapshot().launches === 1, null, { timeout: 4000 });
+
+    const box = await page.locator('.hud-restart').boundingBox();
+    assert.ok(box, 'the restart button is visible');
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+
+    const snap = await snapshot(page);
+    assert.equal(snap.launches, 0, 'the tap restarted the round');
+    assert.equal(snap.ammoLeft, 4);
+    assert.equal(snap.targetsAlive, snap.targetsTotal);
+  }, { hasTouch: true });
+});
+
 test('theme swap changes painted pixels', async () => {
   await withPage(async (page) => {
     await open(page, await baseUrl());

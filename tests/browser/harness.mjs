@@ -31,6 +31,9 @@ export async function withPage(body, options = {}) {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
     deviceScaleFactor: options.deviceScaleFactor ?? 1,
+    // Touch taps go through the browser's pointer-event path, which is what the
+    // drag-to-aim gesture listens for (docs/browser-testing.md).
+    hasTouch: options.hasTouch ?? false,
   });
   const page = await context.newPage();
   const errors = [];
