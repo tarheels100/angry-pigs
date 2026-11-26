@@ -1,5 +1,20 @@
 # Working rules for this repo
 
+## Scope and interaction
+
+1. **Stay inside the requested scope.** Do the change the user asked for and nothing
+   adjacent. Do not add extra files, refactors, "while you're there" fixes, or
+   follow-up work the request did not call for. If related work seems useful, name it
+   as a suggestion at the end and let the user decide — do not do it.
+2. **Answer, don't edit.** A short question that does not intend to change the repo
+   ("what does X do?", "is Y green?", "where is Z defined?") gets a direct answer from
+   reading or running commands. No file writes, no commits.
+3. **Broad autonomous work needs an explicit instruction.** Only run a wide, multi-step
+   push without checking back when the user says so plainly. Otherwise stop after the
+   scoped task and report; ask rather than assume.
+4. **Ambiguity → ask, don't expand.** If the request could be read narrowly or broadly,
+   do the narrow reading and surface the broader option.
+
 ## Push work plans (required for large pushes)
 
 A **large push** is any change that spans more than one milestone area, touches several
