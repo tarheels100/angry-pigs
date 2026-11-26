@@ -159,6 +159,9 @@ Everything an agent needs to get oriented, filled in as the roadmap progresses:
 - `docs/glossary.md` — pig / cannon / bird / stage / settle / material definitions
 - `docs/tuning.md` — gameplay tuning log (launch caps, HP values, settle windows)
 - `docs/deployment.md` — dev server, esbuild pipeline, GitHub Pages steps and constraints
+- `docs/checklist.md` — verification checklist: browser checks, simulation evaluation,
+  measured baselines, contract/CI gaps to close before M9
+- `docs/browser-testing.md` — options for real-browser testing (Playwright / CDP / manual)
 
 ## Roadmap
 

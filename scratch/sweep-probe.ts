@@ -1,0 +1,63 @@
+import { createPhysicsAdapter } from '../src/physics/adapter.ts';
+import { createEventBus } from '../src/core/eventBus.ts';
+import { createGame } from '../src/game/game.ts';
+import { loadLevel, levelAt } from '../src/levels/index.ts';
+
+/**
+ * Stage 01 outcome sweep (docs/checklist.md section 3). Re-run before and after each
+ * damage/scoring change so tuning is measured, not guessed.
+ *
+ *   npx esbuild scratch/sweep-probe.ts --bundle --platform=node --format=cjs --outfile=scratch/sweep-probe.cjs
+ *   node scratch/sweep-probe.cjs
+ */
+const loaded = loadLevel(levelAt(0));
+const DT = 1 / 60;
+
+function oneShot(deg: number, pullLen: number) {
+  const adapter = createPhysicsAdapter({ width: loaded.def.bounds.width, height: loaded.def.bounds.height, gravityY: 1, frictionAir: 0.001 });
+  const game = createGame({ level: loaded, adapter, bus: createEventBus() });
+  const a = (deg * Math.PI) / 180;
+  game.beginAim();
+  game.dragAim({ x: loaded.cannonOrigin.x - pullLen * Math.cos(a), y: loaded.cannonOrigin.y - pullLen * Math.sin(a) });
+  if (!game.releaseAim()) return { fired: false as const };
+
+  let steps = 0;
+  while (steps < 400) {
+    const phase = game.rules.snapshot().phase;
+    if (phase === 'aiming' || phase === 'won' || phase === 'lost') break;
+    game.step(DT);
+    steps++;
+  }
+  return {
+    fired: true as const,
+    phase: game.rules.snapshot().phase,
+    killed: game.rules.snapshot().targetsTotal - game.rules.snapshot().targetsAlive,
+    blocks: adapter.snapshot().filter((e) => e.kind === 'block' && e.destroyed).length,
+    steps,
+    // 239 steps means the settle timeout cut the round, not genuine rest.
+    byTimeout: steps >= 239,
+  };
+}
+
+let wins = 0, fires = 0, oneShotClears = 0, timeouts = 0, total = 0;
+for (const pullLen of [30, 45, 90]) {
+  for (let deg = -40; deg <= 40; deg += 5) {
+    const r = oneShot(deg, pullLen);
+    total++;
+    if (!r.fired) continue;
+    fires++;
+    if (r.killed === 2) oneShotClears++;
+    if (r.phase === 'won') wins++;
+    if (r.byTimeout) timeouts++;
+    console.log(`pull ${pullLen} @ ${deg}deg -> killed ${r.killed}, blocks ${r.blocks}, phase ${r.phase}, steps ${r.steps}${r.byTimeout ? ' (settle timeout)' : ''}`);
+  }
+}
+console.log(`\ncombos ${total}, fired ${fires}, won ${wins}, one-shot clears ${oneShotClears}, ended by settle timeout ${timeouts}`);
+
+// Preview cost, for the per-pointermove trajectory recomputation.
+const adapter = createPhysicsAdapter({ width: loaded.def.bounds.width, height: loaded.def.bounds.height, gravityY: 1, frictionAir: 0.001 });
+for (const b of loaded.bodies) adapter.addBody(b);
+const t0 = performance.now();
+for (let i = 0; i < 100; i++) adapter.simulateTrajectory(loaded.cannonOrigin, { x: 19.8, y: -2 }, 120, 18);
+const t1 = performance.now();
+console.log(`simulateTrajectory: ${((t1 - t0) / 100).toFixed(2)} ms per call (120 steps, ${loaded.bodies.length} bodies)`);
