@@ -16,6 +16,21 @@ export interface LevelStatic {
   h: number;
 }
 
+/**
+ * Background props. Scenery is never a physics body: it paints behind entities and
+ * collides with nothing (docs/theme-contract.md). `kind` is a presentation hint the
+ * theme draws ("tree", "ridge").
+ */
+export interface SceneryItem {
+  kind: string;
+  x: number;
+  y: number;
+  /** Full size for a box prop; a circle prop uses `r`. */
+  w?: number;
+  h?: number;
+  r?: number;
+}
+
 export interface LevelObject {
   type: 'block' | 'ball';
   material: MaterialId;
@@ -37,6 +52,8 @@ export interface LevelDef {
   objects: LevelObject[];
   /** Shorthand for objects with target: true; merged by the loader. */
   targets?: LevelObject[];
+  /** Art-only props painted behind entities (M15). */
+  scenery?: SceneryItem[];
 }
 
 export interface LoadedLevel {
@@ -49,6 +66,10 @@ export interface LoadedLevel {
   ammo: string[];
   maxPull: number;
   powerScale: number;
+  /** Art-only props, validated but never added to physics. */
+  scenery: SceneryItem[];
+  /** World y of the ground surface, from the level's ground static (M16 debris). */
+  groundTop: number;
 }
 
 /** Validation errors name the offending field instead of crashing (loader rule). */
@@ -113,6 +134,17 @@ export function validateLevel(def: LevelDef): void {
   requireNumber('cannon.maxPull', def.cannon.maxPull);
   requireNumber('cannon.powerScale', def.cannon.powerScale);
   if ((def.targets ?? []).length === 0) throw new LevelError('targets', 'a level must have at least one target');
+  def.scenery?.forEach((item, i) => {
+    if (!item.kind) throw new LevelError(`scenery[${i}].kind`, 'required ("tree", "ridge")');
+    requireNumber(`scenery[${i}].x`, item.x);
+    requireNumber(`scenery[${i}].y`, item.y);
+    if (item.r === undefined && (item.w === undefined || item.h === undefined)) {
+      throw new LevelError(`scenery[${i}]`, 'needs either r or w and h');
+    }
+    if (item.r !== undefined) requireNumber(`scenery[${i}].r`, item.r);
+    if (item.w !== undefined) requireNumber(`scenery[${i}].w`, item.w);
+    if (item.h !== undefined) requireNumber(`scenery[${i}].h`, item.h);
+  });
 }
 
 export function loadLevel(def: LevelDef): LoadedLevel {
@@ -161,6 +193,18 @@ export function loadLevel(def: LevelDef): LoadedLevel {
     }
   }
 
+  // Scenery is art: it is placed inside bounds but never becomes a body.
+  for (const item of def.scenery ?? []) {
+    if (item.x < 0 || item.x > width || item.y < 0 || item.y > height) {
+      throw new LevelError(`scenery[${item.kind}]`, `position (${item.x}, ${item.y}) is outside bounds`);
+    }
+  }
+
+  // Ground surface for presentation effects (debris heaps, M16). Levels author one
+  // ground static; if a level has none, the bottom edge of bounds is the surface.
+  const grounds = def.statics.filter((s) => s.type === 'ground');
+  const groundTop = grounds.length === 0 ? height : Math.min(...grounds.map((s) => s.y - s.h / 2));
+
   return {
     def,
     bodies,
@@ -169,5 +213,7 @@ export function loadLevel(def: LevelDef): LoadedLevel {
     ammo: [...def.cannon.ammo],
     maxPull: def.cannon.maxPull,
     powerScale: def.cannon.powerScale,
+    scenery: [...(def.scenery ?? [])],
+    groundTop,
   };
 }

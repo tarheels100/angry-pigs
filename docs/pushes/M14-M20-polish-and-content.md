@@ -47,20 +47,20 @@ Mapping of each note to a milestone (note text abbreviated):
 
 ### M15 — entity art, cannon art, motion trail, scenery
 
-- [ ] Stylized pigs and birds drawn per theme (Tron + Pixel + placeholder), still contract-only.
-- [ ] Cannon drawn as a barrel that tilts to the aim and compresses a coil spring with pull;
+- [x] Stylized pigs and birds drawn per theme (Tron + Pixel + placeholder), still contract-only.
+- [x] Cannon drawn as a barrel that tilts to the aim and compresses a coil spring with pull;
       launch animation (recoil) after fire.
-- [ ] Motion trail behind flying pigs (presentation-only, deterministic).
-- [ ] Background scenery: trees/silhouettes as display-only extras from level data.
-- [ ] Theme contract extended with the new state fields (`variant`, cannon aim, scenery kind)
+- [x] Motion trail behind flying pigs (presentation-only, deterministic).
+- [x] Background scenery: trees/silhouettes as display-only extras from level data.
+- [x] Theme contract extended with the new state fields (`variant`, cannon aim, scenery kind)
       and documented; theme tests updated.
 
 ### M16 — debris heaps
 
-- [ ] `src/fx/debris.ts`: fragments with gravity that land and pile into a heap per column,
+- [x] `src/fx/debris.ts`: fragments with gravity that land and pile into a heap per column,
       then fade; painted behind entities via an ordered fx layer.
-- [ ] Spawned on `destroyed` events; cleared on level load; deterministic.
-- [ ] Renderer gains fx ordering (behind/front) without theme changes.
+- [x] Spawned on `destroyed` events; cleared on level load; deterministic.
+- [x] Renderer gains fx ordering (behind/front) without theme changes.
 
 ### M17 — procedural soundtrack
 
@@ -115,3 +115,19 @@ Mapping of each note to a milestone (note text abbreviated):
   D26), and the aiming bot aimed at birds instead of supports (fixed in
   `scratch/greedy-probe.ts` and `tests/levels.test.ts`). Gates: 110 headless, 12 browser,
   determinism 0 mismatches. Sweeps: 75 / 19 / 10 wins of 495; clearable in 1 / 2 / 3 pigs.
+- 2026-11-26 — **M15 done.** Pig faces (ears, snout, nostrils, eyes, per-type marks), bird
+  wing/beak/comb/eye, cannon barrel tilt + spring compression + recoil blink drawn from
+  `pull`/`aimAngle`/`recoil` on the display extra (D28), step-aged trail in the new
+  `behind` layer (D30), `scenery` props (`tree`, `ridge`) validated and loaded as extras
+  that never become bodies (D29). `variant` hints are stamped by the entity registry
+  (`setVariant`/`clearVariants`). Gates: 118 headless, 15 browser, determinism 0 mismatches.
+- 2026-11-26 — **M16 done.** `src/fx/debris.ts` (D31): fragments fall, land on
+  `LoadedLevel.groundTop`, pile upward per 24-unit bucket, fade after `fadeSteps` at rest,
+  capped at 120. Spawned from `destroyed` events sized by the block, cleared on
+  `levelLoaded`. Gates: 120 headless, 16 browser, determinism 0 mismatches (effects are
+  outside the simulation path).
+- Deviation note: the renderer gained named `behind`/`front` layers (a pipeline change,
+  D30). M15's acceptance wording says "no changes outside `src/render/themes/` plus
+  presentation modules"; layering is draw-order behaviour owned by the renderer, and themes
+  still change appearance only — the pixel assertions in `tests/browser/game.browser.mjs`
+  and the theme-only imports in `tests/themes.test.ts` still hold.

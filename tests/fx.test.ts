@@ -172,3 +172,128 @@ test('sfx is harmless without an AudioContext', () => {
   sfx.unlock();
   assert.doesNotThrow(() => bus.emit('launch', { id: 'pig-1', velocity: { x: 10, y: -2 } }));
 });
+
+test('a trail records the flying pig, ages out, and replays identically', async () => {
+  const { createTrail } = await import('../src/fx/trail.ts');
+  const pig = (x: number, y: number, vx: number): EntityState => ({
+    id: 'pig-1', kind: 'pig', shape: 'circle', material: 'light',
+    x, y, angle: 0, vx, vy: 0, sleeping: false, destroyed: false,
+    health: Infinity, impactEnergy: 0, radius: 10,
+  });
+
+  const trail = createTrail({ maxAge: 5, maxPoints: 6 });
+  // A moving pig leaves points; a resting one does not.
+  trail.update([pig(100, 300, 8)]);
+  trail.update([pig(110, 300, 8)]);
+  trail.update([pig(120, 300, 0)]);
+  assert.equal(trail.points().length, 2, 'only the moving steps are recorded');
+  assert.deepEqual(trail.points()[1], { x: 110, y: 300, age: 1 }, 'the newest point has aged one step');
+  assert.deepEqual(trail.points()[0], { x: 100, y: 300, age: 2 }, 'older points age by step');
+
+  // Determinism: the same entity sequence yields the same points.
+  const again = createTrail({ maxAge: 5, maxPoints: 6 });
+  again.update([pig(100, 300, 8)]);
+  again.update([pig(110, 300, 8)]);
+  again.update([pig(120, 300, 0)]);
+  assert.deepEqual(again.points(), trail.points(), 'a recorded run replays identically');
+
+  // Everything ages out, so a trail cannot linger after the pig lands.
+  for (let i = 0; i < 5; i++) trail.update([pig(120, 300, 0)]);
+  assert.equal(trail.points().length, 0, 'points drop once they reach maxAge');
+
+  // The point cap keeps a long flight bounded, dropping the oldest point first.
+  const capped = createTrail({ maxAge: 40, maxPoints: 3 });
+  for (let i = 0; i < 10; i++) capped.update([pig(i * 20, 300, 8)]);
+  assert.equal(capped.points().length, 3, 'the cap holds');
+  assert.equal(capped.points()[0]?.x, 140, 'the oldest points are dropped');
+
+  capped.reset();
+  assert.equal(capped.points().length, 0, 'reset clears the trail');
+});
+
+test('debris fragments fall, pile on the ground, and fade out', async () => {
+  const { createDebris } = await import('../src/fx/debris.ts');
+  const block = (x: number, y: number): EntityState => ({
+    id: 'block-1', kind: 'block', shape: 'box', material: 'wood',
+    x, y, angle: 0, vx: 0, vy: 0, sleeping: false, destroyed: true,
+    health: 0, impactEnergy: 0, halfWidth: 20, halfHeight: 20,
+  });
+
+  const debris = createDebris({ groundTop: 400, fadeSteps: 60 });
+  debris.spawnFrom(block(300, 300), 4, 40);
+  assert.equal(debris.fragments().length, 4, 'a destroyed block crumbles');
+
+  // Fragments fall and never sink through the ground.
+  for (let i = 0; i < 30; i++) debris.update();
+  for (const f of debris.fragments()) {
+    assert.ok(f.y <= 400, `fragment rests on or above the ground (y ${f.y.toFixed(1)})`);
+  }
+
+  // Landing friction stops them, and a stopped fragment starts its fade.
+  for (let i = 0; i < 20; i++) debris.update();
+  assert.ok(debris.fragments().length > 0, 'a fresh heap is still painted');
+  assert.ok(debris.fragments().every((f) => f.restSteps > 0), 'settled fragments start fading');
+  assert.ok(debris.fragments().every((f) => Math.abs(f.vx) < 1), 'a heap is at rest, not rolling');
+
+  // The heap grows upward: later fragments in the same bucket rest higher.
+  const pile = createDebris({ groundTop: 400, fadeSteps: 400 });
+  pile.spawnFrom(block(300, 200), 1, 0);
+  for (let i = 0; i < 40; i++) pile.update();
+  const first = pile.fragments()[0]!;
+  pile.spawnFrom(block(300, 200), 1, 0);
+  for (let i = 0; i < 40; i++) pile.update();
+  const second = pile.fragments()[1]!;
+  assert.ok(second.y < first.y, `the second fragment rests on top of the first (${second.y} < ${first.y})`);
+
+  // Resting fragments are dropped once their fade window expires, so heaps do not linger.
+  const fading = createDebris({ groundTop: 300, fadeSteps: 10 });
+  fading.spawnFrom(block(300, 200), 2, 10);
+  for (let i = 0; i < 60; i++) fading.update();
+  assert.equal(fading.fragments().length, 0, 'the heap fades away');
+
+  // Determinism: the same spawn replays identically; the cap keeps a burst bounded.
+  const a = createDebris({ groundTop: 400 });
+  const b = createDebris({ groundTop: 400 });
+  for (let i = 0; i < 12; i++) {
+    a.spawnFrom(block(200 + i * 10, 250), 3, 30);
+    b.spawnFrom(block(200 + i * 10, 250), 3, 30);
+    a.update();
+    b.update();
+  }
+  assert.deepEqual(a.fragments(), b.fragments(), 'a recorded crumble replays identically');
+
+  const capped = createDebris({ groundTop: 400, maxFragments: 6 });
+  capped.spawnFrom(block(300, 200), 20, 80);
+  assert.equal(capped.fragments().length, 6, 'the fragment cap holds, oldest dropped');
+
+  capped.clear();
+  assert.equal(capped.fragments().length, 0, 'clear empties the heap');
+});
+
+test('debris paints in its material colour and fades its alpha', async () => {
+  const { createDebris } = await import('../src/fx/debris.ts');
+  const ops: Array<{ op: string; colour: string | undefined; alpha: number }> = [];
+  const target: Record<string, unknown> = { globalAlpha: 1 };
+  let fillStyle = '';
+  Object.defineProperty(target, 'fillStyle', { get: () => fillStyle, set: (v: string) => { fillStyle = v; } });
+  for (const name of ['save', 'restore', 'translate', 'rotate', 'fillRect']) {
+    target[name] = () => ops.push({ op: name, colour: name === 'fillRect' ? fillStyle : undefined, alpha: target.globalAlpha as number });
+  }
+  const ctx = target as unknown as CanvasRenderingContext2D;
+
+  const debris = createDebris({ groundTop: 300, fadeSteps: 12 });
+  debris.spawnFrom(
+    { id: 'block-2', kind: 'block', shape: 'box', material: 'stone', x: 200, y: 200, angle: 0, vx: 0, vy: 0, sleeping: false, destroyed: true, health: 0, impactEnergy: 0, halfWidth: 16, halfHeight: 16 },
+    3,
+    30,
+  );
+  const colours = createPlaceholderTheme().palette.materials;
+  debris.paint(ctx, colours);
+  assert.ok(ops.some((o) => o.op === 'fillRect' && o.colour === colours.stone), 'fragments use the material colour');
+
+  // After settling, the painted alpha drops toward zero.
+  for (let i = 0; i < 40; i++) debris.update();
+  ops.length = 0;
+  debris.paint(ctx, createPlaceholderTheme().palette.materials);
+  assert.ok(ops.every((o) => o.op !== 'fillRect' || (o.alpha ?? 1) < 1), 'a resting heap is painted faintly');
+});

@@ -249,3 +249,48 @@ partly damaged, which muddied the baseline for every shot. 90 steps is enough fo
 during load (more movement, not less); suppressing damage inside the adapter (damage maths
 belongs to the game layer); freezing bodies at load (a frozen world reads as settled and
 stops collapse when the first pig lands).
+
+## D28 — The launcher is drawn from aim state on a display extra
+**Decision.** The cannon stays a display-only entity (D12). The game writes `pull`,
+`aimAngle`, and `recoil` onto its `EntityState`; themes turn those into a tilting barrel,
+a compressing spring, and a muzzle flash that decays `RECOIL_DECAY` per step. The waiting
+pig is drawn part-way down the barrel, `LOAD_DEPTH` of the pull back along the launch
+direction.
+**Why.** "Cannon tilts, spring compresses" is a look, and the only honest source for it is
+the aim state the game already computes. Passing it as state keeps the theme a data-driven
+recipe (docs/theme-contract.md) instead of a theme that reaches into `Cannon`.
+**Rejected.** Drawing the cannon from the pointer position (a press without a drag would
+tilt the barrel); making the cannon a physics body (it would collide with the pig it just
+launched); storing a barrel angle in the game layer (the aim already carries the direction).
+
+## D29 — Scenery is art, never a body
+**Decision.** `LevelDef.scenery` holds props (`tree`, `ridge`) validated by the loader and
+added as display extras. They are painted in the `behind` layer and collide with nothing.
+**Why.** Background props should not change outcomes. A prop that is a body would alter
+collisions, sleep behaviour, and sweeps, and the determinism gate would drift with art work.
+**Rejected.** Static bodies marked non-colliding via collision filters (still participate in
+sleep/wake bookkeeping); drawing props inside `paintBackground` (the background is screen
+space, so props would not scale or pan with the camera).
+
+## D30 — Presentation layers name their depth
+**Decision.** `Renderer.draw(frame, entities, { behind, front })`. Trail and debris paint in
+`behind`; particles and flashes in `front`. Draw order is background → behind → entities →
+overlay → front, and it belongs to the renderer, not the theme.
+**Why.** A trail or a debris heap must sit under the game objects, and a theme must not be
+able to reorder it: layering is pipeline behaviour, appearance stays in the theme.
+**Rejected.** An unsorted `fx` array (order became an accident of wiring); painting debris in
+`paintEntity` (entities are drawn per body, and debris is not a body).
+
+
+## D31 — Debris is a presentation heap, not a physics pile
+**Decision.** A destroyed block spawns fragments in `src/fx/debris.ts`: they fall under a
+local gravity constant, land on the level's `groundTop`, pile upward per ground bucket,
+and fade after `fadeSteps` at rest. They paint in the `behind` layer using material
+colours and never collide with anything.
+**Why.** "Fragments pile into heaps" is a look. Real bodies would need a second body set,
+would push live blocks around, and would make every sweep outcome depend on how many
+fragments a theme wants. Keeping them presentation-side keeps the determinism gate about
+the simulation (docs/checklist.md §2).
+**Rejected.** Static bodies added per fragment (pollutes the snapshot and win/lose entity
+counts); Matter debris with collision filters (still consumes solver time and can wake
+live bodies via `wakeNear`); fading fragments instantly (no heap, which is the point of M16).

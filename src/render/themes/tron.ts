@@ -176,6 +176,14 @@ export function createTronTheme(overrides: Partial<ThemePalette> = {}, id = 'tro
         return;
       }
 
+      if (state.kind === 'scenery') {
+        // Art-only prop (M15): painted in the `behind` layer, never a body.
+        paintScenery(ctx, state, palette);
+        clearGlow(ctx);
+        ctx.restore();
+        return;
+      }
+
       // Dark inner fill keeps outlines readable; a damaged body fills less, so
       // partial damage reads as a hollowing wireframe.
       ctx.fillStyle = `rgba(6, 16, 22, ${0.6 - damaged * 0.45})`;
@@ -206,14 +214,12 @@ export function createTronTheme(overrides: Partial<ThemePalette> = {}, id = 'tro
         ctx.stroke();
       }
 
-      if (state.kind === 'pig' || state.kind === 'bird') {
-        // Inner ring: the marker that separates projectiles from targets at a glance.
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = strength * 0.6;
-        ctx.beginPath();
-        ctx.arc(0, 0, (state.radius ?? 16) * 0.55, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      // Entity art: a pig has a face, a bird has a wing and beak, the launcher has a
+      // tilting barrel and a compressing spring. Drawn in local space, so a rolling
+      // pig rolls its face with it (docs/theme-contract.md).
+      if (state.kind === 'pig') paintPig(ctx, state.radius ?? 16, state.variant ?? 'basic');
+      else if (state.kind === 'bird') paintBird(ctx, state.radius ?? 16);
+      else if (state.kind === 'cannon') paintCannon(ctx, state, palette);
 
       paintMaterialTexture(ctx, state, palette);
 
@@ -252,4 +258,160 @@ export function createTronTheme(overrides: Partial<ThemePalette> = {}, id = 'tro
       ctx.restore();
     },
   };
+}
+
+/**
+ * A pig: round body, two ears, a snout with nostrils, eyes. `variant` is the ammo
+ * type id (M18); heavy/bomb/cluster get a distinguishing mark.
+ */
+function paintPig(ctx: CanvasRenderingContext2D, r: number, variant: string): void {
+  // Ears: two bumps on top.
+  ctx.beginPath();
+  for (const side of [-1, 1]) {
+    ctx.moveTo(side * r * 0.55, -r * 0.75);
+    ctx.arc(side * r * 0.55, -r * 0.75, r * 0.28, 0, Math.PI * 2);
+  }
+  ctx.stroke();
+
+  // Snout: a bump on the leading edge with two nostrils.
+  ctx.beginPath();
+  ctx.arc(r * 0.55, 0, r * 0.3, 0, Math.PI * 2);
+  ctx.stroke();
+  for (const side of [-1, 1]) ctx.fillRect(r * 0.62 + side * r * 0.1, -r * 0.08, 2, 2);
+
+  // Eyes.
+  for (const side of [-1, 1]) ctx.fillRect(-r * 0.15, -r * 0.45 + side * r * 0.18, 2.5, 2.5);
+
+  // Type marks: data-driven hints, so a theme can style a type before it has behaviour.
+  ctx.beginPath();
+  if (variant === 'heavy') {
+    ctx.moveTo(-r * 0.7, r * 0.35);
+    ctx.lineTo(r * 0.4, r * 0.35);
+  } else if (variant === 'bomb') {
+    ctx.moveTo(0, -r);
+    ctx.lineTo(r * 0.25, -r * 1.35);
+  } else if (variant === 'cluster') {
+    ctx.moveTo(-r * 0.5, 0);
+    ctx.lineTo(r * 0.5, 0);
+  }
+  if (variant !== 'basic') ctx.stroke();
+}
+
+/** A bird: round body, folded wing, beak, comb, eye. */
+function paintBird(ctx: CanvasRenderingContext2D, r: number): void {
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.35, -r * 0.1);
+  ctx.lineTo(r * 0.1, r * 0.35);
+  ctx.lineTo(r * 0.45, -r * 0.05);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(r * 0.75, -r * 0.1);
+  ctx.lineTo(r * 1.15, 0);
+  ctx.lineTo(r * 0.75, r * 0.12);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.1, -r * 0.85);
+  ctx.lineTo(r * 0.15, -r * 1.1);
+  ctx.stroke();
+
+  ctx.fillRect(r * 0.2, -r * 0.4, 2.5, 2.5);
+}
+
+/** Pull length that fully compresses the launcher spring (appearance, not gameplay). */
+const SPRING_FULL = 90;
+
+/**
+ * The launcher: base box (drawn by the body path), a barrel that tilts with the aim,
+ * a spring that compresses with the pull, and a recoil flash just after a shot (D28).
+ * Aim state arrives on the display extra as `pull`, `aimAngle`, and `recoil`.
+ */
+function paintCannon(ctx: CanvasRenderingContext2D, state: EntityState, palette: ThemePalette): void {
+  const hw = state.halfWidth ?? 30;
+  const hh = state.halfHeight ?? 14;
+  const pull = state.pull ?? 0;
+  const aimAngle = state.aimAngle ?? 0;
+  const recoil = state.recoil ?? 0;
+  const compress = Math.min(1, pull / SPRING_FULL);
+  const pivotY = -hh - 2;
+
+  ctx.save();
+  ctx.strokeStyle = palette.cannon;
+  ctx.lineWidth = 3;
+  ctx.translate(0, pivotY);
+  ctx.rotate(aimAngle);
+  ctx.beginPath();
+  ctx.moveTo(-hw * 0.5, 0);
+  ctx.lineTo(hw * 1.15, 0);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(hw * 1.15, 0, 4, 0, Math.PI * 2);
+  ctx.stroke();
+  if (recoil > 0) {
+    ctx.globalAlpha = recoil;
+    ctx.strokeStyle = palette.flash;
+    ctx.beginPath();
+    ctx.arc(hw * 1.15, 0, 4 + recoil * 9, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Spring coils between the base and the barrel's back end; shorter as the pull grows.
+  ctx.save();
+  ctx.strokeStyle = palette.pig;
+  ctx.lineWidth = 1.5;
+  const coils = 4;
+  const length = 18 * (1 - compress * 0.6);
+  ctx.beginPath();
+  for (let i = 0; i <= coils; i++) {
+    const x = -hw * 0.5 - (length * i) / coils;
+    const y = pivotY + (i % 2 === 0 ? -3 : 3);
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Scenery props (M15): a tree, or a low ridge silhouette. Art only, never a body. */
+function paintScenery(ctx: CanvasRenderingContext2D, state: EntityState, palette: ThemePalette): void {
+  const hw = state.halfWidth ?? state.radius ?? 16;
+  const hh = state.halfHeight ?? state.radius ?? 16;
+  ctx.save();
+  ctx.strokeStyle = palette.grid;
+  ctx.fillStyle = palette.grid;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.75;
+
+  if (state.variant === 'ridge') {
+    ctx.beginPath();
+    ctx.moveTo(-hw, hh);
+    // Three notches along the ridge line: a silhouette, not a structure.
+    for (let i = 0; i < 3; i++) {
+      const x = -hw + ((i + 1) * hw) / 3;
+      ctx.lineTo(x - hw / 6, -hh * (0.4 + (i % 2) * 0.35));
+      ctx.lineTo(x, hh * 0.1);
+    }
+    ctx.lineTo(hw, hh);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  // Tree: trunk in the lower part of the bounds, canopy in the upper part.
+  ctx.fillRect(-hw * 0.3, hh * 0.1, hw * 0.6, hh * 0.9);
+  ctx.strokeRect(-hw * 0.3, hh * 0.1, hw * 0.6, hh * 0.9);
+  ctx.beginPath();
+  for (let i = 0; i < 3; i++) {
+    const cy = -hh * 0.45 + i * hh * 0.28;
+    const cw = hw * (1 - i * 0.22);
+    ctx.moveTo(-cw, cy + hh * 0.22);
+    ctx.lineTo(0, cy - hh * 0.28);
+    ctx.lineTo(cw, cy + hh * 0.22);
+  }
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
 }

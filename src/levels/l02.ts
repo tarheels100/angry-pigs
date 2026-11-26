@@ -30,4 +30,6 @@ export const LEVEL_02: LevelDef = {
     // Balanced on the pedestal column (column top = 670).
     { type: 'ball', material: 'feather', x: 1220, y: 650, r: 20, target: true },
   ],
+
+  scenery: [{"kind":"tree","x":520,"y":770,"w":36,"h":140},{"kind":"tree","x":1180,"y":780,"w":30,"h":120},{"kind":"ridge","x":1360,"y":822,"w":200,"h":36}],
 };

@@ -34,10 +34,17 @@ export interface EntityState {
    * Set on display extras only; live physics bodies never carry it (D17). */
   fade?: number;
   /** Presentation hint that is not appearance: a pig's ammo type id, or a scenery prop
-   * kind ("tree", "platform"). Themes decide how to draw it (docs/theme-contract.md).
+   * kind ("tree", "ridge"). Themes decide how to draw it (docs/theme-contract.md).
    * Never read by the simulation.
    */
   variant?: string;
+  /** Launcher aim state, set on the cannon display extra only (D28): pull length in
+   * world units, launch direction in radians, and recoil 1 -> just fired, 0 -> at rest.
+   * A theme maps these to a tilting barrel and a compressing spring.
+   */
+  pull?: number;
+  aimAngle?: number;
+  recoil?: number;
   /** Highest impact energy seen by this entity since it was created. */
   impactEnergy: number;
 }

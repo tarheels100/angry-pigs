@@ -6,12 +6,14 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
-**Status:** M1–M14 complete. The game runs in a browser from a single self-contained
+**Status:** M1–M16 complete. The game runs in a browser from a single self-contained
 `dist/index.html`: three stages, drag aim, trajectory preview, ammo, per-impact damage
 with partial destruction, crush/fall attribution, star scoring, camera follow and
 re-framing, a level warm-up so nothing starts partly damaged, glass/wood/stone materials
-that take several hits, the Tron theme (default) plus a Pixel theme proving the theme
-contract, and deployed to GitHub Pages (`https://tarheels100.github.io/angry-pigs/`).
+that take several hits, pigs and birds drawn as characters, a launcher whose barrel tilts
+and whose spring compresses, a motion trail, scenery props, and debris heaps that pile and
+fade, the Tron theme (default) plus a Pixel theme proving the theme contract, and deployed
+to GitHub Pages (`https://tarheels100.github.io/angry-pigs/`).
 Gates: `npm run check` (typecheck + 108 headless tests + build), `npm run test:browser` (12 Playwright
 tests against the built artifact), and `npm run check:determinism` (the same bundle run in
 node and chromium, 72 combos, 0 mismatches) — all three run in CI. Best results per stage
@@ -214,8 +216,8 @@ done only when its check passes.
 | 12 | Theme-swap proof (second theme) | 10 | done |
 | 13 | Tests, tuning, single-file build & Pages deploy | 8, 9, 11 | done |
 | 14 | Load stability + material realism (warmup, wood, tougher glass) | 13 | done |
-| 15 | Entity art: pigs/birds drawn as pigs/birds, cannon art, motion trail, scenery | 14 | planned |
-| 16 | Debris heaps: destroyed objects crumble into falling fragments on a back layer | 14, 11 | planned |
+| 15 | Entity art: pigs/birds drawn as pigs/birds, cannon art, motion trail, scenery | 14 | done |
+| 16 | Debris heaps: destroyed objects crumble into falling fragments on a back layer | 14, 11 | done |
 | 17 | Procedural soundtrack, one flavour per level | 11 | planned |
 | 18 | Pig types: basic, heavy, bomb, cluster | 14 | planned |
 | 19 | Title screen + options screen (real options, persisted) | 15, 17 | planned |
@@ -388,6 +390,13 @@ background scenery props from level data (trees, silhouettes) painted behind ent
 only (`variant`, cannon aim state); browser tests assert painted pixels change when the
 aim changes; no changes outside `src/render/themes/` plus presentation modules.
 
+**Delivered (M15).** Pig face (ears, snout, nostrils, eyes) with per-type marks, bird wing
++ beak + comb, cannon barrel tilt (`aimAngle`) and spring compression (`pull`) plus a
+decaying recoil flash (D28), a step-aged motion trail in the `behind` layer (D30), and
+`scenery` props (`tree`, `ridge`) that are validated but never bodies (D29). The one
+change outside the theme files is the renderer's named `behind`/`front` layers, which is
+pipeline behaviour, not appearance.
+
 ### 16. Debris heaps
 
 **Deliverables:** fragments spawned on destruction that have gravity, land, pile into a
@@ -395,6 +404,11 @@ heap, and fade; painted on a layer behind live entities; cleared on level load.
 
 **Acceptance:** headless test asserts fragments settle into a heap near the destruction
 point and disappear after their lifetime; deterministic for a given seed.
+
+**Delivered (M16).** `src/fx/debris.ts`: fragments fall under a local gravity constant,
+land on the level's `groundTop`, pile upward per ground bucket, and fade while at rest
+(D31). They paint behind entities and collide with nothing, so gameplay stays identical —
+the determinism gate still reports 0 mismatches.
 
 ### 17. Procedural soundtrack
 

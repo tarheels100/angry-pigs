@@ -11,6 +11,8 @@ import { createPointerSource } from './input/pointer.ts';
 import { createGame } from './game/game.ts';
 import { createHud } from './ui/hud.ts';
 import { createParticleSystem } from './fx/particles.ts';
+import { createTrail } from './fx/trail.ts';
+import { createDebris } from './fx/debris.ts';
 import { createSfx } from './audio/sfx.ts';
 import { createSaveStore, memoryStore, type KeyValueStore } from './game/save.ts';
 import { WORLD, LEVELS, levelAt, loadLevel } from './levels/index.ts';
@@ -126,6 +128,10 @@ if (!canvas || !hudEl) {
   // Presentation effects (M11). They subscribe to the same events the HUD does and
   // never touch the simulation.
   const particles = createParticleSystem();
+  /** The flying pig's recent path, painted behind entities (M15). */
+  const trail = createTrail();
+  /** Fragments of destroyed blocks: they fall, pile on the ground, and fade (M16). */
+  const debris = createDebris({ groundTop: game.groundTop() });
   const sfx = createSfx();
   sfx.attach(bus);
 
@@ -137,7 +143,12 @@ if (!canvas || !hudEl) {
 
   bus.on('destroyed', (e) => {
     const at = game.entities.get(e.id);
-    if (at) particles.spawnBurst({ x: at.x, y: at.y }, theme.palette.flash, 14, 300);
+    if (at) {
+      particles.spawnBurst({ x: at.x, y: at.y }, theme.palette.flash, 14, 300);
+      // Crumble: fragment count follows the block's size, spread follows its width.
+      const span = (at.halfWidth ?? at.radius ?? 12) * 2;
+      debris.spawnFrom(at, Math.min(8, 3 + Math.round(span / 20)), span);
+    }
     camera.shake(0.45);
   });
 
@@ -146,7 +157,12 @@ if (!canvas || !hudEl) {
     camera.shake(0.3);
   });
 
-  bus.on('levelLoaded', () => particles.clear());
+  bus.on('levelLoaded', () => {
+    particles.clear();
+    trail.reset();
+    // A new stage starts with a clean floor; the heap belongs to the stage that made it.
+    debris.clear();
+  });
 
   const pointer = createPointerSource(canvas);
   pointer.onDown(() => {
@@ -215,10 +231,14 @@ if (!canvas || !hudEl) {
       camera.follow(followTarget(), dt);
       camera.update(dt);
       particles.update(dt);
+      // Trail ages by fixed step, so a recorded run replays identically.
+      trail.update(game.entities.all());
+      debris.update();
     },
     render: (dt) => {
       lastFps = dt > 0 ? 1 / dt : 0;
       const frame = game.frame();
+      const pigColour = theme.palette.pig;
       renderer.draw(
         {
           camera,
@@ -226,7 +246,14 @@ if (!canvas || !hudEl) {
           aim: frame.aim ? { origin: frame.aim.origin, pull: frame.aim.pull, trajectory: frame.trajectory } : null,
         },
         frame.entities.all(),
-        [particles],
+        {
+          // Trail and debris sit behind entities; particles and flashes sit above them.
+          behind: [
+            { paint: (ctx: CanvasRenderingContext2D) => trail.paint(ctx, pigColour) },
+            { paint: (ctx: CanvasRenderingContext2D) => debris.paint(ctx, theme.palette.materials) },
+          ],
+          front: [particles],
+        },
       );
       hud.update(game.rules.snapshot());
     },
@@ -237,6 +264,10 @@ if (!canvas || !hudEl) {
   // game reads it, and it exposes no setters beyond the game's own API.
   (window as unknown as { __game: unknown }).__game = game;
   (window as unknown as { __camera: unknown }).__camera = camera;
+  // Read-only so browser tests can assert a flight leaves a trail (M15).
+  (window as unknown as { __trail: unknown }).__trail = trail;
+  // Same seam for debris heaps (M16).
+  (window as unknown as { __debris: unknown }).__debris = debris;
 
   console.log(`angry-pigs: ${LEVELS.length} level(s), themes: ${listThemes().join(', ')}`);
 }

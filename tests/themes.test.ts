@@ -9,7 +9,15 @@ import { createPixelTheme, pixelPalette } from '../src/render/themes/pixel.ts';
 import { createPlaceholderTheme } from '../src/render/themes/placeholder.ts';
 import type { EntityState } from '../src/core/types.ts';
 
-interface Op { op: string; colour: string | undefined; shadow: number | undefined; alpha: number | undefined }
+interface Op {
+  op: string;
+  colour: string | undefined;
+  shadow: number | undefined;
+  alpha: number | undefined;
+  /** Numeric arguments, rounded: enough to compare geometry between two states.
+   */
+  args: number[];
+}
 
 /** Canvas stand-in for theme recipes: records paints plus the glow/alpha state. */
 function recordingContext(): { ops: Op[]; ctx: CanvasRenderingContext2D } {
@@ -21,13 +29,14 @@ function recordingContext(): { ops: Op[]; ctx: CanvasRenderingContext2D } {
   Object.defineProperty(target, 'strokeStyle', { get: () => strokeStyle, set: (v: string) => { strokeStyle = v; } });
   const PAINT_OPS = new Set(['fillRect', 'strokeRect', 'fill', 'stroke']);
   for (const name of ['fillRect', 'strokeRect', 'beginPath', 'fill', 'stroke', 'arc', 'rect', 'moveTo', 'lineTo', 'save', 'restore', 'translate', 'scale', 'rotate', 'setTransform']) {
-    target[name] = () => {
+    target[name] = (...values: unknown[]) => {
       const t = target as Record<string, unknown>;
       ops.push({
         op: name,
         colour: PAINT_OPS.has(name) ? (name === 'fillRect' || name === 'fill' ? fillStyle : strokeStyle) : undefined,
         shadow: PAINT_OPS.has(name) ? (t.shadowBlur as number) : undefined,
         alpha: PAINT_OPS.has(name) ? (t.globalAlpha as number) : undefined,
+        args: values.filter((v) => typeof v === 'number').map((v) => Math.round(v * 100) / 100),
       });
     };
   }
@@ -191,4 +200,96 @@ test('materials read differently inside a block, in both themes', () => {
     afterBackground(paint(pixel, [entity({ material: material as EntityState['material'], health: 1000, healthMax: 1000 })]));
   assert.ok(pixelOps('wood').length > pixelOps('metal').length, 'pixel plank joints add drawing');
   assert.ok(pixelOps('glass').some((o) => (o.alpha ?? 1) < 1), 'pixel glass is the translucent one');
+});
+
+/** A circular entity without box fields, so the theme reads it as a radius. */
+function roundState(overrides: Partial<EntityState>): EntityState {
+  return {
+    id: 'pig-0', kind: 'pig', shape: 'circle', material: 'light',
+    x: 100, y: 100, angle: 0, vx: 0, vy: 0, sleeping: false, destroyed: false,
+    health: Infinity, impactEnergy: 0, radius: 24, ...overrides,
+  };
+}
+
+function cannonState(pull: number, aimAngle: number, recoil: number): EntityState {
+  return {
+    id: 'cannon', kind: 'cannon', shape: 'box', material: 'metal',
+    x: 140, y: 700, angle: 0, vx: 0, vy: 0, sleeping: true, destroyed: false,
+    health: Infinity, impactEnergy: 0, halfWidth: 30, halfHeight: 14,
+    variant: 'cannon', pull, aimAngle, recoil,
+  };
+}
+
+test('a pig is painted as a character, and pig types read differently', () => {
+  for (const theme of [createTronTheme(), createPixelTheme()]) {
+    // A plain circle of the same size is the baseline; a pig must add face drawing.
+    const ball = afterBackground(paint(theme, [roundState({ kind: 'block', material: 'feather' })]));
+    const pig = afterBackground(paint(theme, [roundState({ variant: 'basic' })]));
+    assert.ok(pig.length > ball.length, `${theme.id}: a pig draws more than a plain circle`);
+    assert.ok(pig.filter((o) => o.op === 'fillRect').length >= 4, `${theme.id}: eyes and nostrils are painted`);
+
+    // Type marks: heavy, bomb, and cluster add a mark over the basic pig (M18 hints).
+    for (const variant of ['heavy', 'bomb', 'cluster']) {
+      const marked = afterBackground(paint(theme, [roundState({ variant })]));
+      assert.ok(marked.length > pig.length, `${theme.id}: pig type "${variant}" adds a mark`);
+    }
+  }
+});
+
+test('a bird gets a wing and a beak, and a destroyed bird keeps only the body', () => {
+  for (const theme of [createTronTheme(), createPixelTheme()]) {
+    const ball = afterBackground(paint(theme, [roundState({ kind: 'block', material: 'feather' })]));
+    const bird = afterBackground(paint(theme, [roundState({ kind: 'bird', material: 'feather', id: 'bird-1' })]));
+    assert.ok(bird.length > ball.length, `${theme.id}: a bird draws more than a plain circle`);
+    // Tron strokes the wing/beak/comb; Pixel stacks squares for the same parts.
+    const parts = bird.filter((o) => o.op === 'stroke' || o.op === 'strokeRect' || o.op === 'fillRect').length;
+    assert.ok(parts >= 4, `${theme.id}: wing, beak, and comb are painted (${parts} parts)`);
+
+    // The death flash is a plain silhouette: face details must not survive it (D17).
+    const flash = afterBackground(paint(theme, [roundState({ kind: 'bird', material: 'feather', id: 'bird-1', fade: 0.6 })]));
+    assert.ok(flash.length < bird.length, `${theme.id}: the flash paints less than the live bird`);
+  }
+});
+
+test('the launcher tilts with the aim and compresses its spring', () => {
+  for (const theme of [createTronTheme(), createPixelTheme()]) {
+    const rest = afterBackground(paint(theme, [cannonState(0, 0, 0)]));
+    const aimed = afterBackground(paint(theme, [cannonState(60, -0.6, 0)]));
+
+    // Tron rotates the barrel; Pixel steps squares along the aim direction instead,
+    // so the tilt assertion is per theme (docs/theme-contract.md).
+    if (theme.id === 'tron') {
+      const rotations = aimed.filter((o) => o.op === 'rotate').map((o) => o.args[0] ?? 0);
+      assert.ok(rotations.some((a) => Math.abs(a + 0.6) < 0.01), 'tron: the barrel follows aimAngle');
+    } else {
+      const muzzle = aimed.filter((o) => o.op === 'fillRect').map((o) => o.args.join(','));
+      const restMuzzle = rest.filter((o) => o.op === 'fillRect').map((o) => o.args.join(','));
+      assert.notDeepEqual(muzzle, restMuzzle, 'pixel: the barrel steps change with the aim');
+    }
+
+    // A pull changes the spring geometry, so the painted path differs.
+    const geometry = (ops: Op[]) => ops.filter((o) => o.op === 'moveTo' || o.op === 'lineTo' || o.op === 'fillRect').map((o) => o.args.join(','));
+    assert.notDeepEqual(geometry(aimed), geometry(rest), `${theme.id}: a pull changes the spring and barrel geometry`);
+
+    // Recoil adds a flash right after a shot.
+    const fired = afterBackground(paint(theme, [cannonState(60, -0.6, 1)]));
+    assert.ok(fired.length > aimed.length, `${theme.id}: recoil adds a muzzle flash`);
+  }
+});
+
+test('scenery props are painted as props, not as structures', () => {
+  const tree: EntityState = {
+    id: 'scenery-tree-560', kind: 'scenery', shape: 'box', material: 'ground',
+    x: 560, y: 770, angle: 0, vx: 0, vy: 0, sleeping: true, destroyed: false,
+    health: Infinity, impactEnergy: 0, halfWidth: 18, halfHeight: 70, variant: 'tree',
+  };
+  const ridge: EntityState = { ...tree, id: 'scenery-ridge-1300', variant: 'ridge', halfWidth: 130, halfHeight: 20 };
+
+  for (const theme of [createTronTheme(), createPixelTheme()]) {
+    const treeOps = afterBackground(paint(theme, [tree]));
+    assert.ok(treeOps.filter((o) => o.op === 'fillRect' || o.op === 'fill').length >= 2, `${theme.id}: a tree has a trunk and a canopy`);
+    const ridgeOps = afterBackground(paint(theme, [ridge]));
+    assert.ok(ridgeOps.length > 0, `${theme.id}: a ridge is painted`);
+    assert.notDeepEqual(ridgeOps, treeOps, `${theme.id}: a ridge looks different from a tree`);
+  }
 });

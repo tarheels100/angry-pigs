@@ -13,6 +13,12 @@ export interface EntityRegistry {
   byKind(kind: EntityState['kind']): EntityState[];
   /** Replace the display-only entities. Ids here are not physics ids. */
   setExtras(list: EntityState[]): void;
+  /** Attach a presentation hint to a physics body (a pig's ammo type id). The adapter
+   * never knows about variants; the registry stamps them onto snapshots.
+   */
+  setVariant(id: string, variant: string): void;
+  /** Forget every variant hint (called when a level is rebuilt). */
+  clearVariants(): void;
 }
 
 /**
@@ -24,11 +30,25 @@ export interface EntityRegistry {
 
 export function createEntityRegistry(adapter: PhysicsAdapter): EntityRegistry {
   let extras: EntityState[] = [];
-  const merged = () => [...adapter.snapshot(), ...extras];
+  const variants = new Map<string, string>();
+  const stamp = (state: EntityState): EntityState => {
+    const variant = variants.get(state.id);
+    return variant === undefined ? state : { ...state, variant };
+  };
+  const merged = () => [...adapter.snapshot().map(stamp), ...extras];
   return {
     all: merged,
-    get: (id) => adapter.state(id) ?? extras.find((e) => e.id === id),
+    get: (id) => {
+      const state = adapter.state(id) ?? extras.find((e) => e.id === id);
+      return state === undefined ? undefined : stamp(state);
+    },
     byKind: (kind) => merged().filter((e) => e.kind === kind),
+    setVariant: (id, variant) => {
+      variants.set(id, variant);
+    },
+    clearVariants: () => {
+      variants.clear();
+    },
     setExtras: (list) => {
       // Namespace guard: an extra that collides with a physics id would shadow a
       // live body's state, which is a bug rather than a look. Throwing here keeps

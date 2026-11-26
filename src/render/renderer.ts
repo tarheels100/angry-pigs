@@ -2,6 +2,17 @@ import type { EntityState } from '../core/types.ts';
 import type { Viewport } from '../camera/camera.ts';
 import type { RenderFrame, Theme } from './theme.ts';
 
+/** A world-space layer painted by presentation (trail, debris, particles). */
+export interface PaintLayer {
+  paint(ctx: CanvasRenderingContext2D): void;
+}
+
+/** Where a layer sits in the draw order: behind entities, or above them. */
+export interface RenderLayers {
+  behind?: PaintLayer[];
+  front?: PaintLayer[];
+}
+
 export interface Renderer {
   viewport(): Viewport;
   /** cssWidth/cssHeight are layout pixels; the backing store is scaled by dpr. */
@@ -10,8 +21,8 @@ export interface Renderer {
   /** Dev diagnostics (F2): entity bounds, ids, and loop counters. Theme-independent. */
   setDebug(enabled: boolean, stats?: () => DebugStats): void;
   debugEnabled(): boolean;
-  /** `fx` draws in world space after entities (particles, debris). Optional. */
-  draw(frame: RenderFrame, entities: EntityState[], fx?: Array<{ paint(ctx: CanvasRenderingContext2D): void }>): void;
+  /** Layers draw in world space: `behind` before entities, `front` after (M15/M16). */
+  draw(frame: RenderFrame, entities: EntityState[], layers?: RenderLayers): void;
 }
 
 export interface DebugStats {
@@ -33,7 +44,7 @@ export function drawFrame(
   entities: EntityState[],
   viewport: Viewport,
   debug?: { enabled: boolean; stats: () => DebugStats },
-  fx: Array<{ paint(ctx: CanvasRenderingContext2D): void }> = [],
+  layers: RenderLayers = {},
 ): void {
   theme.paintBackground(ctx, viewport);
 
@@ -44,9 +55,10 @@ export function drawFrame(
   ctx.translate(viewport.width / 2 + shake.x, viewport.height / 2 + shake.y);
   ctx.scale(zoom, zoom);
   ctx.translate(-pos.x, -pos.y);
+  for (const layer of layers.behind ?? []) layer.paint(ctx);
   for (const entity of entities) theme.paintEntity(ctx, entity, viewport);
   theme.paintOverlay(ctx, frame, viewport);
-  for (const layer of fx) layer.paint(ctx);
+  for (const layer of layers.front ?? []) layer.paint(ctx);
   ctx.restore();
 
   if (debug?.enabled) paintDebug(ctx, frame, entities, viewport, debug.stats());
@@ -109,9 +121,9 @@ export function createRenderer(canvas: HTMLCanvasElement, theme: Theme): Rendere
       if (stats) debugStats = stats;
     },
     debugEnabled: () => debugEnabled,
-    draw(frame, entities, fx) {
+    draw(frame, entities, layers) {
       ctx.setTransform(viewport.dpr, 0, 0, viewport.dpr, 0, 0);
-      drawFrame(ctx, currentTheme, frame, entities, viewport, { enabled: debugEnabled, stats: debugStats }, fx);
+      drawFrame(ctx, currentTheme, frame, entities, viewport, { enabled: debugEnabled, stats: debugStats }, layers);
     },
   };
 }

@@ -9,10 +9,10 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 
 ## 0. Baseline gate
 
-- [x] `npm run check` — typecheck, 99 headless tests, build in one command.
-      **Expected:** all pass, `dist/index.html` written (~115 KB inline, one `<script>`).
+- [x] `npm run check` — typecheck, 120 headless tests, build in one command.
+      **Expected:** all pass, `dist/index.html` written (~125 KB inline, one `<script>`).
 - [x] `npm run test:browser` — builds the artifact and drives it in headless Chromium.
-      **Expected:** 10 pass. CI runs this and `npm run check:determinism` as one browser
+      **Expected:** 16 pass. CI runs this and `npm run check:determinism` as one browser
       job, and `deploy` waits for it (`docs/adr.md` D22).
 
 ## 1. Browser-only checks
@@ -41,6 +41,16 @@ Covered by `tests/browser/game.browser.mjs` unless marked manual. Serve with
       `tests/game.test.ts` (headless) and by theme tests.
 - [x] **Debug overlay (F2).** Renders entity bounds + ids and fps/steps/elapsed counters
       in screen space; off by default (`tests/fx.test.ts`).
+- [x] **The launcher repaints while aiming.** Pixel-sampled around the cannon: rest, drag,
+      and post-shot each paint different pixels, so the barrel tilt, spring compression, and
+      recoil flash are real (D28). Headless counterparts: `tests/themes.test.ts`.
+- [x] **Motion trail.** `window.__trail.points()` is empty before a shot, non-empty
+      mid-flight, and empty again after restart. Trail points age by step, so a recorded
+      run replays identically (M15).
+- [x] **Debris heap.** `window.__debris.fragments()` is empty before a shot, non-empty
+      after a block is destroyed, never below `game.groundTop()`, and empty after restart
+      (M16). Fragments pile upward per ground bucket and fade while at rest
+      (`tests/fx.test.ts`).
 - [x] **Tab hidden, then resumed.** Hide the tab for ~10s during flight.
       **Result:** pigs resume in place — the loop discards surplus time (M5).
 - [x] **Watch workflow.** Verified: start `npm run dev`, edit a source line, the rebuilt
@@ -86,6 +96,15 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
       and glass sheen; Pixel draws plank joints, brick courses, a metal band and
       translucent glass. `tests/themes.test.ts` asserts the recipes differ per material,
       and every palette covers `wood`.
+- [x] **Entities read as characters.** A pig paints ears, snout, eyes, and a type mark per
+      `variant`; a bird paints a wing, beak, and comb; the launcher tilts with `aimAngle`
+      and compresses with `pull`; scenery props paint as trees and ridges. Asserted per
+      theme in `tests/themes.test.ts`, and the death flash keeps only the body outline.
+- [x] **Scenery cannot change outcomes.** `scenery` items are validated and loaded as
+      display extras, never bodies (`tests/levels.test.ts`, D29).
+- [x] **Effects stay out of the simulation.** Trail, debris, particles, and shake are
+      presentation: `npm run check:determinism` steps the game without any of them and
+      reports 0 mismatches, so art work cannot drift gameplay (D30, D31).
 - [x] **Best results persist.** Browser test clears Stage 01, reloads the page, and
       asserts `localStorage['angry-pigs:best:stage-01']` holds the record and the HUD
       shows `best ★★★ 3500` with the stage restarted fresh (D24).

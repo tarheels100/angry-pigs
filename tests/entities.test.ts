@@ -50,3 +50,19 @@ test("the game's own extras never collide with physics ids", () => {
   assert.ok(game.entities.get('cannon'), 'the cannon extra survives the launch');
   assert.equal(game.entities.byKind('pig').length, 1, 'only the live pig during flight');
 });
+
+test('a variant hint is stamped onto physics bodies and cleared with the level', async () => {
+  const { createEntityRegistry } = await import('../src/core/entities.ts');
+  const { createPhysicsAdapter } = await import('../src/physics/adapter.ts');
+  const adapter = createPhysicsAdapter({ width: 800, height: 600, gravityY: 1, frictionAir: 0.001 });
+  adapter.addBody({ id: 'pig-1', kind: 'pig', shape: 'circle', material: 'light', x: 100, y: 100, radius: 10 });
+  const registry = createEntityRegistry(adapter);
+
+  assert.equal(registry.get('pig-1')?.variant, undefined, 'bodies carry no variant until one is attached');
+  registry.setVariant('pig-1', 'bomb');
+  assert.equal(registry.get('pig-1')?.variant, 'bomb', 'the hint appears on the snapshot');
+  assert.equal(registry.byKind('pig')[0]?.variant, 'bomb', 'and on kind queries');
+
+  registry.clearVariants();
+  assert.equal(registry.get('pig-1')?.variant, undefined, 'clearing forgets the hint');
+});

@@ -144,3 +144,35 @@ test('every stage is clearable with its authored ammo', () => {
     );
   }
 });
+
+test('scenery is art: validated, loaded, and never a physics body', () => {
+  const base = LEVELS[0]!;
+  const withScenery: LevelDef = {
+    ...base,
+    scenery: [
+      { kind: 'tree', x: 560, y: 770, w: 36, h: 140 },
+      { kind: 'ridge', x: 1300, y: 820, w: 260, h: 40 },
+    ],
+  };
+  const loaded = loadLevel(withScenery);
+  assert.equal(loaded.scenery.length, 2, 'scenery survives the load');
+  assert.ok(loaded.bodies.every((b) => b.kind !== 'scenery'), 'scenery never becomes a body');
+
+  // Validation names the offending field instead of crashing.
+  assert.throws(() => loadLevel({ ...base, scenery: [{ kind: '', x: 100, y: 100, w: 20, h: 20 }] }), /scenery\[0\]\.kind/);
+  assert.throws(() => loadLevel({ ...base, scenery: [{ kind: 'tree', x: 100, y: 100 }] }), /needs either r or w and h/);
+  assert.throws(() => loadLevel({ ...base, scenery: [{ kind: 'tree', x: 9999, y: 100, w: 20, h: 20 }] }), /outside bounds/);
+
+  // The shipped stages ship props, so the theme path is exercised in play.
+  for (const def of LEVELS) {
+    assert.ok((def.scenery ?? []).length > 0, `${def.name} ships scenery props`);
+    assert.ok((def.scenery ?? []).every((s) => s.kind === 'tree' || s.kind === 'ridge'), `${def.name} props are trees or ridges`);
+  }
+
+  // Display extras carry the props, and props cannot collide with anything.
+  const adapter = createPhysicsAdapter({ width: base.bounds.width, height: base.bounds.height, gravityY: 1, frictionAir: 0.001 });
+  const game = createGame({ level: loadLevel(withScenery), adapter, bus: createEventBus() });
+  game.step(1 / 60);
+  assert.equal(game.entities.byKind('scenery').length, 2, 'props appear as display extras');
+  assert.ok(game.entities.byKind('scenery').every((e) => e.variant === 'tree' || e.variant === 'ridge'), 'props carry their kind hint');
+});

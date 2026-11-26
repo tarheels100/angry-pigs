@@ -46,6 +46,21 @@ time (D6). Coordinates are world units; the stage is 1600x900 with +y downward.
   before the player gets control (D27), so authored stacks rest and nothing starts
   partly damaged. Author bodies that rest, not bodies already leaning on each other.
 
+## scenery (M15)
+
+Background props. `kind` is a presentation hint a theme draws ("tree", "ridge");
+a prop is validated and painted behind entities, but it never becomes a physics body, so
+props cannot change outcomes (docs/adr.md D29).
+
+```json
+"scenery": [
+  { "kind": "tree", "x": 560, "y": 770, "w": 36, "h": 140 },
+  { "kind": "ridge", "x": 1300, "y": 820, "w": 260, "h": 40 }
+]
+```
+
+A prop needs `r`, or `w` and `h`. Positions must be inside `bounds`.
+
 ## Design rules (learned from the sweeps)
 
 1. **Never shelter a bird under stone.** Stone health and its damage threshold make it
@@ -70,6 +85,8 @@ time (D6). Coordinates are world units; the stage is 1600x900 with +y downward.
    health scales with area — keep beams ~16 units tall) or drop the bird about 120 units
    to the ground. A bird nudged sideways along a beam survives, and a stage that depends
    on it is unfair.
+7. **Scenery never carries the level.** If a bird or a block depends on a prop, make it an
+   `objects` entry, not `scenery` (D29).
 
 ## Materials available (v0)
 

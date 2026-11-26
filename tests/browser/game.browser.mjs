@@ -279,3 +279,99 @@ test('best results persist across a reload', async () => {
     assert.equal(await page.evaluate(() => window.__game.rules.snapshot().launches), 0, 'the stage starts fresh');
   });
 });
+
+test('aiming tilts the barrel and compresses the spring', async () => {
+  // M15/D28: the launcher is drawn from the aim state, so a drag must repaint it.
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
+
+    const litAroundCannon = () =>
+      page.evaluate((o) => {
+        const canvas = document.getElementById('stage');
+        const ctx = canvas.getContext('2d');
+        const p = window.__camera.worldToScreen(o);
+        const scale = canvas.width / canvas.clientWidth;
+        const x = Math.max(0, Math.round((p.x - 45) * scale));
+        const y = Math.max(0, Math.round((p.y - 45) * scale));
+        const data = ctx.getImageData(x, y, Math.round(90 * scale), Math.round(90 * scale)).data;
+        let lit = 0;
+        for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 200) lit++;
+        return lit;
+      }, origin);
+
+    const rest = await litAroundCannon();
+    assert.ok(rest > 0, 'the launcher is painted at rest');
+
+    await page.evaluate(({ origin }) => {
+      window.__game.beginAim();
+      window.__game.dragAim({ x: origin.x - 80, y: origin.y - 25 });
+    }, { origin });
+    await page.waitForTimeout(120);
+    const aimed = await litAroundCannon();
+    assert.notEqual(aimed, rest, 'a drag repaints the launcher: barrel tilt and spring compression');
+
+    await page.evaluate(() => window.__game.releaseAim());
+    await page.waitForFunction(() => window.__game.rules.snapshot().launches === 1, null, { timeout: 4000 });
+
+    // The recoil flash is state the theme draws (D28); it decays over ~20 steps, so it
+    // is readable just after the shot and gone shortly after.
+    const recoilJustAfter = await page.evaluate(() => window.__game.entities.get('cannon')?.recoil ?? 0);
+    assert.ok(recoilJustAfter > 0, `recoil is still lit after the shot (${recoilJustAfter})`);
+    await page.waitForTimeout(400);
+    const recoilLater = await page.evaluate(() => window.__game.entities.get('cannon')?.recoil ?? 0);
+    assert.ok(recoilLater < recoilJustAfter, `the recoil decays (${recoilJustAfter} -> ${recoilLater})`);
+  });
+});
+
+test('a flying pig leaves a motion trail', async () => {
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
+    const rad = (WIN.deg * Math.PI) / 180;
+    assert.equal(await page.evaluate(() => window.__trail.points().length), 0, 'no trail before a shot');
+
+    await page.evaluate(({ origin, pull, rad }) => {
+      window.__game.beginAim();
+      window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
+      window.__game.releaseAim();
+    }, { origin, pull: WIN.pull, rad });
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'in_flight', null, { timeout: 4000 });
+    await page.waitForTimeout(200);
+    assert.ok(await page.evaluate(() => window.__trail.points().length > 0), 'the flight records trail points');
+
+    // Restarting a stage clears the trail (M15).
+    await page.keyboard.press('r');
+    await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 4, null, { timeout: 2000 });
+    assert.equal(await page.evaluate(() => window.__trail.points().length), 0, 'restart clears the trail');
+  });
+});
+
+test('destroyed blocks leave a debris heap that clears on restart', async () => {
+  // M16: fragments fall onto the ground surface, pile, and are presentation only.
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    const groundTop = await page.evaluate(() => window.__game.groundTop());
+    assert.equal(await page.evaluate(() => window.__debris.fragments().length), 0, 'no debris before a shot');
+
+    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
+    await page.evaluate(({ origin }) => {
+      window.__game.beginAim();
+      window.__game.dragAim({ x: origin.x - 90, y: origin.y }); // flat full pull: the measured column-shattering shot
+      window.__game.releaseAim();
+    }, { origin });
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase !== 'in_flight', null, { timeout: 6000 });
+    await page.waitForTimeout(300);
+
+    const fragments = await page.evaluate(() => window.__debris.fragments());
+    assert.ok(fragments.length > 0, 'a destroyed block crumbled into fragments');
+    for (const f of fragments) {
+      assert.ok(f.y <= groundTop, `fragment stays on or above the ground (y ${f.y})`);
+      assert.ok(Number.isFinite(f.x) && Number.isFinite(f.vx), 'fragments carry finite state');
+    }
+
+    await page.keyboard.press('r');
+    await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 4, null, { timeout: 2000 });
+    assert.equal(await page.evaluate(() => window.__debris.fragments().length), 0, 'restart clears the heap');
+  });
+});

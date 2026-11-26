@@ -39,6 +39,11 @@ file together.
 | camera fit padding | 120 world units | camera `fitZoom` | Zoom at load shows the whole level plus margin (D20). |
 | `FOLLOW_RATE` | 6 units/s toward the projectile | camera `follow` | Fast enough to keep a flying pig on screen, slow enough that the camera never jitters. |
 | `SHAKE_PIXELS` / `SHAKE_DECAY` | 9 px, 7/s | camera `shake` | Screen-space shake, capped at ±10 px and decayed to zero within a second; it never moves world coordinates, so physics is unaffected. |
+| `SPRING_FULL` | 90 world units | cannon spring look | Pull at which the barrel spring reads as fully compressed (D28). Matches `maxPull`, so a max drag looks maxed. |
+| `LOAD_DEPTH` / `RECOIL_DECAY` | 0.5 / 0.05 per step | cannon display extra | The waiting pig is drawn half-way down the barrel against the pull; the muzzle flash decays (D28). Presentation only. |
+| trail `maxAge` / `maxPoints` / `minSpeed` | 24 steps / 40 points / speed 2 | motion trail (M15) | Ages out by step, so a trail never lingers after the pig lands; resting pigs leave no trail. |
+| debris `gravity` / `fadeSteps` / `maxFragments` | 0.35 / 90 steps / 120 | fragment fall, fade window, cap (M16) | A heap fades within ~1.5 s; the cap bounds a big collapse. |
+| debris `PILE_DAMPING` / `REST_SPEED` / `rollDamping` | 0.45 / speed 1 / 0.92 | landing friction and rest threshold (M16) | Debris stops fast rather than rolling across the stage. |
 | particle life | 0.24–0.59 s, gravity 1400/s², cap 220 | `src/fx/particles.ts` | Debris reads as a burst and clears before the next shot. Deterministic seed, so a burst draws identically in two runs. |
 | sfx envelopes | 0.08–0.4 s blips, gain 0.12–0.26 | `src/audio/sfx.ts` | Procedural oscillators, no assets (the artifact stays one file). Impact loudness scales with energy, capped at 1. |
 | `DEBUG` overlay | F2 toggles bounds, ids, fps/steps | renderer | Dev diagnostics drawn in screen space after the camera transform (docs/checklist.md §1). |

@@ -173,3 +173,23 @@ test('zoomBy multiplies the current zoom and stays clamped', () => {
   camera.zoomBy(10);
   assert.equal(camera.zoom(), 3);
 });
+
+test('layered fx draw behind entities, then above them', () => {
+  const camera = createCamera(viewport, { width: 1600, height: 900 });
+  const { ops, ctx } = recordingContext();
+  const theme = createPlaceholderTheme();
+  drawFrame(ctx, theme, makeFrame(camera), [entity()], viewport, undefined, {
+    behind: [{ paint: (c: CanvasRenderingContext2D) => { c.fillStyle = 'behind'; c.fillRect(0, 0, 10, 10); } }],
+    front: [{ paint: (c: CanvasRenderingContext2D) => { c.fillStyle = 'front'; c.fillRect(0, 0, 10, 10); } }],
+  });
+
+  const painted = ops.filter((o) => o.op === 'fillRect' || o.op === 'fill' || o.op === 'stroke').map((o) => o.colour);
+  const behind = painted.indexOf('behind');
+  const front = painted.indexOf('front');
+  const entityPaint = painted.indexOf(basePalette.materials.glass);
+  assert.ok(behind >= 0 && front >= 0, 'both layers painted');
+  assert.ok(entityPaint >= 0, 'the entity was painted');
+  // Order: background, behind layer, entity, overlay/front layer.
+  assert.ok(behind < entityPaint, 'a behind layer draws before entities');
+  assert.ok(entityPaint < front, 'a front layer draws after entities');
+});

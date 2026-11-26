@@ -27,6 +27,11 @@ const DAMAGE_SCALE = 0.3;
 const SETTLE_WARMUP_STEPS = 90;
 /** Steps a destroyed entity keeps a flashing silhouette after it leaves the world. */
 const FLASH_STEPS = 10;
+/** How fast the cannon recoil relaxes after a shot (presentation only, D28). A flash
+ * of about 20 steps reads as a muzzle blink without lingering into the next shot. */
+const RECOIL_DECAY = 0.05;
+/** How far the waiting pig sits down the barrel, as a fraction of the pull (D28). */
+const LOAD_DEPTH = 0.5;
 
 export interface GameOptions {
   level: LoadedLevel;
@@ -59,6 +64,8 @@ export interface Game {
   releaseAim(): boolean;
   loadLevel(level: LoadedLevel): void;
   restart(): void;
+  /** World y of the ground surface, for presentation effects (debris heaps, M16). */
+  groundTop(): number;
 }
 
 export function createGame(options: GameOptions): Game {
@@ -88,6 +95,8 @@ export function createGame(options: GameOptions): Game {
   let aiming = false;
   /** True only while a freshly built level is settling; impacts spend no health. */
   let damagePaused = false;
+  /** 1 just after a shot, decaying to 0; drives the barrel recoil (D28). */
+  let recoil = 0;
 
   /**
    * Simulate the authored world before play starts. Bodies authored a pixel apart
@@ -117,21 +126,52 @@ export function createGame(options: GameOptions): Game {
    */
   function refreshDisplay(): void {
     const origin = cannon.config().origin;
+    const aim = cannon.aim();
+    const pull = aim ? Math.hypot(aim.pull.x, aim.pull.y) : 0;
     const list: EntityState[] = [
       {
         id: 'cannon', kind: 'cannon', shape: 'box', material: 'metal',
         x: origin.x, y: origin.y + 16, angle: 0, vx: 0, vy: 0,
         sleeping: true, destroyed: false, health: Infinity, impactEnergy: 0,
         halfWidth: 30, halfHeight: 14,
+        variant: 'cannon',
+        // Aim state the theme turns into a tilting barrel and a compressed spring.
+        pull,
+        aimAngle: aim ? Math.atan2(aim.direction.y, aim.direction.x) : 0,
+        recoil,
       },
     ];
-    if (rules.snapshot().phase === 'aiming' && cannon.ammoLeft() > 0) {
+    if (canShoot()) {
+      // The next pig rests in the barrel; while aiming it is drawn pulled back along
+      // the pull, which is what the spring compression means visually.
+      const depth = aim ? pull * LOAD_DEPTH : 0;
+      const back = aim ? { x: -aim.direction.x, y: -aim.direction.y } : { x: 1, y: 0 };
       list.push({
         id: 'cannon-pig', kind: 'pig', shape: 'circle', material: 'light',
-        x: origin.x, y: origin.y, angle: 0, vx: 0, vy: 0,
+        x: origin.x + back.x * depth, y: origin.y + back.y * depth, angle: aim ? Math.atan2(aim.direction.y, aim.direction.x) : 0,
+        vx: 0, vy: 0,
         sleeping: true, destroyed: false, health: Infinity, impactEnergy: 0,
         radius: PIG_RADIUS,
+        variant: cannon.nextAmmo() ?? 'basic',
       });
+    }
+    for (const prop of level.scenery) {
+      // Art-only props: display extras, never bodies (docs/level-format.md).
+      const extra: EntityState = {
+        id: `scenery-${prop.kind}-${prop.x}`,
+        kind: 'scenery',
+        shape: prop.r !== undefined ? 'circle' : 'box',
+        material: 'ground',
+        x: prop.x, y: prop.y, angle: 0, vx: 0, vy: 0,
+        sleeping: true, destroyed: false, health: Infinity, impactEnergy: 0,
+        variant: prop.kind,
+      };
+      if (prop.r !== undefined) extra.radius = prop.r;
+      else {
+        extra.halfWidth = (prop.w ?? 0) / 2;
+        extra.halfHeight = (prop.h ?? 0) / 2;
+      }
+      list.push(extra);
     }
     for (const corpse of corpses.values()) {
       list.push({ ...corpse.state, destroyed: true, fade: 1 - corpse.steps / FLASH_STEPS });
@@ -243,6 +283,8 @@ export function createGame(options: GameOptions): Game {
     }
     updatePigs();
     advancePhase();
+    // Recoil relaxes so the barrel returns to rest after a shot (presentation only).
+    if (recoil > 0) recoil = Math.max(0, recoil - RECOIL_DECAY);
     refreshDisplay();
   }
 
@@ -307,7 +349,9 @@ export function createGame(options: GameOptions): Game {
     adapter.addBody({ id, kind: 'pig', shape: 'circle', material: 'light', x: cannon.config().origin.x, y: cannon.config().origin.y, radius: PIG_RADIUS });
     adapter.launch(id, velocity);
     pigs.set(id, { slowSteps: 0 });
-    cannon.consumeAmmo();
+    // The ammo id is a presentation hint only (M18 pig types draw and behave differently).
+    entities.setVariant(id, cannon.consumeAmmo() ?? 'basic');
+    recoil = 1;
     rules.launch();
     flightSteps = 0;
     trajectory = [];
@@ -323,6 +367,8 @@ export function createGame(options: GameOptions): Game {
     aiming = false;
     corpses.clear();
     lastHit.clear();
+    entities.clearVariants();
+    recoil = 0;
     level = next;
     cannon = createCannon({ origin: next.cannonOrigin, maxPull: next.maxPull, powerScale: next.powerScale, ammo: next.ammo });
     rules = createRules({ targetIds: next.targetIds, ammo: next.ammo });
@@ -339,6 +385,8 @@ export function createGame(options: GameOptions): Game {
     pigs.clear();
     corpses.clear();
     lastHit.clear();
+    entities.clearVariants();
+    recoil = 0;
     settleSteps = 0;
     trajectory = [];
     pigCounter = 0;
@@ -364,6 +412,7 @@ export function createGame(options: GameOptions): Game {
     get cannon() {
       return cannon;
     },
+    groundTop: () => level.groundTop,
     step,
     frame: () => {
       refreshDisplay();

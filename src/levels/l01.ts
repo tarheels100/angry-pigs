@@ -27,4 +27,6 @@ export const LEVEL_01: LevelDef = {
     // Bird on the beam: beam top = 696, centre = 676. Dies when the tower comes down.
     { type: 'ball', material: 'feather', x: 1080, y: 676, r: 20, target: true },
   ],
+
+  scenery: [{"kind":"tree","x":560,"y":770,"w":36,"h":140},{"kind":"tree","x":1080,"y":770,"w":36,"h":140},{"kind":"ridge","x":1300,"y":820,"w":260,"h":40}],
 };
