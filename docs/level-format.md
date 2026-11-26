@@ -7,7 +7,7 @@ time (D6). Coordinates are world units; the stage is 1600x900 with +y downward.
 {
   "name": "stage-01",
   "bounds": { "width": 1600, "height": 900 },
-  "cannon": { "x": 120, "y": 480, "maxPull": 90, "powerScale": 0.42, "ammo": ["basic", "basic", "heavy"] },
+  "cannon": { "x": 120, "y": 480, "maxPull": 90, "powerScale": 0.22, "ammo": ["basic", "basic", "heavy"] },
   "statics": [ { "type": "ground", "x": 0, "y": 860, "w": 1600, "h": 40 } ],
   "objects": [ { "type": "block", "material": "glass", "x": 900, "y": 800, "w": 40, "h": 120 } ],
   "targets": [ { "type": "ball", "material": "feather", "x": 1100, "y": 780, "r": 24 } ]
@@ -39,6 +39,20 @@ time (D6). Coordinates are world units; the stage is 1600x900 with +y downward.
 ## Notes
 
 - `x, y` are body centres, matching Matter body positions, so the renderer and
-  physics agree.
+  physics agree. Bodies resting on the ground are placed at `groundTop - halfSize`.
 - Health is `healthFor(material, area)`, so the same material at a larger size is
   tougher (see docs/tuning.md).
+
+## Design rules (learned from the sweeps)
+
+1. **Never shelter a bird under stone.** Stone health and its damage threshold make it
+   immune to a pig at `DAMAGE_SCALE 0.35` (docs/physics.md gotcha 12); an unreachable
+   bird under a stone roof makes the stage unwinnable. Kill elevated birds by collapsing
+   the glass structure beside them.
+2. **Keep direct-hit targets within ~700 units of the cannon**; beyond that a flat shot
+   reaches the ground first, so distant birds must die by collapse.
+3. **Every stage must be clearable within its authored ammo.** `scratch/greedy-probe.ts`
+   is the check: it fires a greedy bot at each stage and asserts a win.
+4. **Do not rely on blocks being fully destroyed.** The sweep shows many runs leave
+   partially damaged blocks standing (docs/tuning.md), which is intended — damage is
+   per impact, not per level.

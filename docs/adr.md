@@ -160,3 +160,30 @@ pull combinations after retuning — one-shot clears are rare, so they should be
 the top tier. The rule scales with target count instead of hardcoding Stage 01.
 **Rejected.** Score-based stars (score is a constant per target today, so it encodes
 nothing about skill); hand-picked thresholds.
+
+## D21 — Presentation effects subscribe to events
+**Decision.** Particles, camera shake, and sound live in the presentation layer
+(`src/fx/`, `src/audio/`, camera) and are driven only by `GameEvents`. The game and
+physics layers emit events and know nothing about effects.
+**Why.** M11 must not leak into simulation: a theme or an effect change has to stay a
+presentation-only diff, and headless tests must keep asserting physics without a canvas
+or an audio context. Events already carry what effects need (position, energy, cause).
+**Rejected.** A "effects" object inside `GameRules` (coupling, and rules would need
+canvas/audio types); deriving effects by polling entity state (misses one-shot events
+like `destroyed`).
+**Notes.** Audio is procedural WebAudio oscillators — no asset files, so the artifact
+stays a single HTML file. The `AudioContext` is created on the first pointer press
+because browsers reject audio before a gesture, and `M` mutes without unsubscribing.
+
+## D22 — Browser tests run against the built artifact
+**Decision.** `npm run test:browser` builds `dist/` and drives `dist/index.html` in
+headless Chromium over both `file://` and `http://`. The dev server listens on port 0
+(an OS-assigned ephemeral port) and is closed in an `after()` hook. CI runs it as a
+separate job, and `deploy` waits for both `build` and `browser`.
+**Why.** What ships is the artifact, not `src/`. Offline `file://` loading, request
+counts, DPR backing-store size, pointer capture across a resize, and painted pixels can
+only be observed in a real browser, and asserting them against the source bundle would
+prove the wrong thing.
+**Rejected.** Fixed test ports (collide with a leftover listener and tempt process
+killing); running browser tests inside `npm run check` (adds Chromium startup to every
+local iteration).

@@ -30,6 +30,29 @@ file together.
 | stone damageThreshold | 9 | `MATERIALS` | A full-speed pig removes ~5 health; stone survives roughly three solid hits. |
 | feather damageThreshold | 2 | `MATERIALS` | Birds are fragile: any real hit kills; a gentle nudge does not. |
 | health area scaling | `area/4000`, clamped 0.35–3 | `healthFor()` | Large blocks take more hits; clamp stops huge walls becoming immortal. |
+| camera fit padding | 120 world units | camera `fitZoom` | Zoom at load shows the whole level plus margin (D20). |
+| `FOLLOW_RATE` | 6 units/s toward the projectile | camera `follow` | Fast enough to keep a flying pig on screen, slow enough that the camera never jitters. |
+| `SHAKE_PIXELS` / `SHAKE_DECAY` | 9 px, 7/s | camera `shake` | Screen-space shake, capped at ±10 px and decayed to zero within a second; it never moves world coordinates, so physics is unaffected. |
+| particle life | 0.24–0.59 s, gravity 1400/s², cap 220 | `src/fx/particles.ts` | Debris reads as a burst and clears before the next shot. Deterministic seed, so a burst draws identically in two runs. |
+| sfx envelopes | 0.08–0.4 s blips, gain 0.12–0.26 | `src/audio/sfx.ts` | Procedural oscillators, no assets (the artifact stays one file). Impact loudness scales with energy, capped at 1. |
+| `DEBUG` overlay | F2 toggles bounds, ids, fps/steps | renderer | Dev diagnostics drawn in screen space after the camera transform (docs/checklist.md §1). |
+
+## Stage sweeps (scratch/sweep-probe.ts, greedy-probe.ts)
+
+Greedy bot, full pull, angles −80°…+40°, per stage (495 combinations each):
+
+| stage | wins | one-shot clears | birds killed | blocks fully gone | blocks untouched | partially damaged | settle timeouts |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| stage-01 | 92 | 92 | 437/990 | 0–3 | 295 | 216 | 117 |
+| stage-02 | 30 | 30 | 339/990 | 0–3 | 187 | 481 | 144 |
+| stage-03 | 52 | 52 | 238/990 | 0–4 | 309 | 495 | 48 |
+
+Wins require at least one bird to die; a win is not necessarily a one-shot clear.
+`scratch/greedy-probe.ts` confirms every stage is clearable within its authored ammo.
+
+**Level design rule:** nothing critical may sit under stone. Stone health
+(`area/4000` with a 3 clamp) far exceeds any pig impact energy at `DAMAGE_SCALE 0.35`,
+so a bird sheltered by a stone roof is unkillable (docs/physics.md gotcha 14).
 
 ## Stage 01 reference shots (measured, scratch/sweep-probe.ts)
 
@@ -53,9 +76,10 @@ starting point, not a tuned curve.
 
 ## Open tuning questions (resolve in the tuning pass)
 
-- Crush vs shatter attribution: bird deaths from direct pig impact vs debris, counted
-  separately (docs/checklist.md §2).
-- Whether rolling resistance should also apply to birds/balls that roll on the ground.
+- Whether rolling resistance should also apply to birds/balls that roll on the ground
+  (currently pigs only).
 - Remaining-ammo bonus score.
 - Pig damage model: pigs currently ignore damage entirely (D15); decide whether a pig
   takes damage from heavy hits instead.
+- Stage 02 win rate is the lowest (30/495). Its birds sit on beams that survive partial
+  damage; retune beam health or glass thresholds if it feels unfair in playtests.

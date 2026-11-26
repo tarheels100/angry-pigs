@@ -103,6 +103,11 @@ Run `node scratch/physics-spike/spike.ts`. All checks pass:
     are *not yet* asleep, because an idle body sitting on a support has a sleep
     counter near the threshold and would fall asleep before gravity could move it.
     Measured: beam with one leg destroyed moved 708 → 771.6 with the fix, 708.4 without.
+12. **Stone is effectively immune to a pig.** Stone health is `area/4000` clamped to 3
+    and its damage threshold is 9; the hardest pig impact measured is ~75 energy, which
+    at `DAMAGE_SCALE 0.35` spends ~2.6 health per hit. A stone roof therefore never
+    breaks, so a level must never shelter a bird under stone — kill elevated birds by
+    collapsing the glass structure beside them instead (docs/level-format.md).
 
 ## What the M7 slice proved
 
