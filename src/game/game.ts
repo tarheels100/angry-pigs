@@ -18,6 +18,12 @@ const TRAJECTORY_STEPS = 120;
 const PIG_RADIUS = 18;
 /** A release must drag at least this far from the cannon to count as a shot. */
 const MIN_DRAG = 12;
+/** Fraction of `energy / threshold` health that one impact spends (docs/tuning.md).
+ * Below 1 so a single hit rarely erases a block: partial health is what makes tilt and
+ * partial shatter visible. */
+const DAMAGE_SCALE = 0.35;
+/** Steps a destroyed entity keeps a flashing silhouette after it leaves the world. */
+const FLASH_STEPS = 10;
 
 export interface GameOptions {
   level: LoadedLevel;
@@ -65,6 +71,9 @@ export function createGame(options: GameOptions): Game {
   let rules = createRules({ targetIds: level.targetIds, ammo: level.ammo });
 
   const pigs = new Map<string, { slowSteps: number }>();
+  /** Destroyed bodies no longer appear in the snapshot (D17); these display-only
+   * extras flash where they died, then drop out. */
+  const corpses = new Map<string, { state: EntityState; steps: number }>();
   let flightSteps = 0;
   let settleSteps = 0;
   let trajectory: TrajectorySample[] = [];
@@ -103,6 +112,9 @@ export function createGame(options: GameOptions): Game {
         radius: PIG_RADIUS,
       });
     }
+    for (const corpse of corpses.values()) {
+      list.push({ ...corpse.state, destroyed: true, fade: 1 - corpse.steps / FLASH_STEPS });
+    }
     entities.setExtras(list);
   }
 
@@ -120,7 +132,7 @@ export function createGame(options: GameOptions): Game {
       const s = adapter.state(id);
       if (!s || s.destroyed || s.kind === 'pig' || s.kind === 'ground' || s.kind === 'wall') continue;
       const threshold = materialSpec(s.material).damageThreshold;
-      if (energy > threshold) adapter.applyDamage(id, energy / threshold);
+      if (energy > threshold) adapter.applyDamage(id, (DAMAGE_SCALE * energy) / threshold);
     }
   }
 
@@ -165,11 +177,14 @@ export function createGame(options: GameOptions): Game {
       settleSteps++;
       const settled = adapter.allSleeping() || settleSteps >= SETTLE_TIMEOUT_STEPS;
       if (!settled) return;
+      // A window that expired is not a rest: freeze so "settled" means visually
+      // stopped before scoring reads it (docs/adr.md D16).
+      if (!adapter.allSleeping()) adapter.freezeAll();
       const won = targetsAlive() === 0;
       rules.worldSettled(won);
       const snap = rules.snapshot();
       bus.emit('phaseChanged', { phase: snap.phase });
-      if (snap.phase === 'won') bus.emit('levelWon', { levelId: level.def.name, score: snap.score, stars: 1 });
+      if (snap.phase === 'won') bus.emit('levelWon', { levelId: level.def.name, score: snap.score, stars: snap.stars });
       if (snap.phase === 'lost') bus.emit('levelLost', { levelId: level.def.name });
     }
   }
@@ -185,7 +200,14 @@ export function createGame(options: GameOptions): Game {
     }
     for (const id of adapter.destroyedLastStep()) {
       rules.targetDestroyed(id);
+      // Keep the last known state for a short flash; the body itself is gone (D17).
+      const s = adapter.state(id);
+      if (s) corpses.set(id, { state: s, steps: 0 });
       bus.emit('destroyed', { id, cause: 'impact' });
+    }
+    for (const [id, corpse] of corpses) {
+      corpse.steps++;
+      if (corpse.steps >= FLASH_STEPS) corpses.delete(id);
     }
     updatePigs();
     advancePhase();
@@ -250,6 +272,7 @@ export function createGame(options: GameOptions): Game {
     for (const body of adapter.snapshot()) adapter.removeBody(body.id);
     pigs.clear();
     aiming = false;
+    corpses.clear();
     level = next;
     cannon = createCannon({ origin: next.cannonOrigin, maxPull: next.maxPull, powerScale: next.powerScale, ammo: next.ammo });
     rules = createRules({ targetIds: next.targetIds, ammo: next.ammo });
@@ -264,6 +287,7 @@ export function createGame(options: GameOptions): Game {
     cannon = createCannon({ origin: level.cannonOrigin, maxPull: level.maxPull, powerScale: level.powerScale, ammo: [...level.ammo] });
     adapter.clear();
     pigs.clear();
+    corpses.clear();
     settleSteps = 0;
     trajectory = [];
     pigCounter = 0;

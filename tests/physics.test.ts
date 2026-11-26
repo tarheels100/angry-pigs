@@ -141,3 +141,37 @@ test('destroying a support makes what rested on it fall', () => {
   assert.ok(fallen.y > yBefore + 20, `beam must fall when its support is removed (moved ${(fallen.y - yBefore).toFixed(1)} units)`);
   assert.equal(fallen.sleeping, false, 'a body whose support vanished must not stay asleep');
 });
+
+test('destroyed bodies leave snapshot() but state() keeps the final state', () => {
+  const adapter = stage();
+  adapter.addBody({ id: 'block', kind: 'block', shape: 'box', material: 'glass', x: 400, y: 700, halfWidth: 20, halfHeight: 20 });
+  adapter.applyDamage('block', 1000);
+
+  assert.equal(adapter.snapshot().some((e) => e.id === 'block'), false, 'a corpse is not a renderable entity (D17)');
+  const final = adapter.state('block')!;
+  assert.equal(final.destroyed, true, 'queries still report the final state');
+  assert.equal(final.health, 0);
+});
+
+test('freezeAll forces a rest so settled means visually stopped', () => {
+  const adapter = stage();
+  adapter.addBody({ id: 'block', kind: 'block', shape: 'box', material: 'glass', x: 400, y: 400, halfWidth: 20, halfHeight: 20 });
+  for (let i = 0; i < 10; i++) adapter.step(DT);
+  assert.ok(Math.hypot(adapter.state('block')!.vx, adapter.state('block')!.vy) > 0, 'still moving');
+
+  adapter.freezeAll();
+  const s = adapter.state('block')!;
+  assert.equal(Math.hypot(s.vx, s.vy), 0);
+  assert.equal(adapter.allSleeping(), true, 'a frozen world reports settled');
+});
+
+test('a pig rolls a long way on the ground instead of stopping dead', () => {
+  // Regression guard for the tuning ask: pig rolling friction was too high.
+  const adapter = stage();
+  adapter.addBody({ id: 'pig', kind: 'pig', shape: 'circle', material: 'light', x: 200, y: 820, radius: 18 });
+  adapter.launch('pig', { x: 12, y: 0 });
+  const startX = adapter.state('pig')!.x;
+  for (let i = 0; i < 90; i++) adapter.step(DT);
+  const rolled = adapter.state('pig')!.x - startX;
+  assert.ok(rolled > 120, `pig rolled only ${rolled.toFixed(1)} units; expected a long roll`);
+});

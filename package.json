@@ -20,6 +20,7 @@
     "@types/matter-js": "^0.20.2",
     "@types/node": "^26.6.10",
     "esbuild": "^0.28.2",
+    "playwright": "^1.65.1",
     "typescript": "^5.9.3"
   }
 }

@@ -121,3 +121,42 @@ settle and the phase machine (M8) would hang. Pigs flying past the stage edge al
 removing, or they fall forever.
 **Rejected.** Raising pig friction (stops pigs ~400 units, too short for a 1600-unit
 stage); relying on sleeping alone (never happens on flat ground).
+
+## D16 — Settle timeout freezes the world
+**Decision.** When a round's settle window expires instead of bodies sleeping, the game
+calls `adapter.freezeAll()` (zero velocity + sleeping) before deciding win/lose.
+**Why.** Measurements showed ~10 of 51 Stage 01 combinations ending at the 240-step cap
+with pigs still visibly moving. Scoring on a state the player can see is not moving is
+a lie; "settled" must mean at rest.
+**Rejected.** Scoring on the timeout as-is (ghost motion at the win banner); removing
+the cap (a stuck world would hang the phase machine).
+
+## D17 — Destroyed bodies leave the snapshot; flashes are display extras
+**Decision.** A destroyed body is removed from the physics world and from
+`snapshot()`. The game keeps its last state as a short-lived display extra
+(`FLASH_STEPS = 10`) carrying `fade`, so themes can flash it and then it disappears.
+**Why.** Corpses in the snapshot produced permanent white silhouettes wherever things
+died, because the placeholder theme paints `destroyed` in the flash colour. Rendering
+must be driven by a lifetime, not by stale state (docs/checklist.md).
+**Rejected.** Keeping corpses in the snapshot (permanent artifacts); deleting them
+instantly (no visible feedback for a kill).
+
+## D18 — Playwright as a dev dependency for browser tests
+**Decision.** `playwright` is a dev-only dependency; `npm run test:browser` runs
+real-browser tests separately from the dependency-free `npm test`.
+**Why.** Pointer capture, DPR mapping, resize during a drag, `file://` loading and
+theme pixels cannot be proven by a fake canvas. Headless Chromium gives assertions
+instead of manual visual checks.
+**Rejected.** Hand-written CDP client (zero deps, ~150 lines of plumbing to maintain);
+staying manual (every input claim stays unverified across machines). This deviates from
+D2's "esbuild is the only dev tool": build tooling stays single, test tooling is added.
+
+## D19 — Stars derived from shots used
+**Decision.** `starsFor(launches, targetsTotal)`: 3 stars if `launches <= max(1,
+ceil(targetsTotal/2))`, 2 if `launches <= targetsTotal`, else 1. `stars` is part of the
+rules snapshot, meaningful only when phase is `won`.
+**Why.** From the Stage 01 sweep, clearing both targets in one shot happened in 4 of 51
+pull combinations after retuning — one-shot clears are rare, so they should be worth
+the top tier. The rule scales with target count instead of hardcoding Stage 01.
+**Rejected.** Score-based stars (score is a constant per target today, so it encodes
+nothing about skill); hand-picked thresholds.

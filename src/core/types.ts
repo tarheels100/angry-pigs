@@ -27,6 +27,12 @@ export interface EntityState {
   destroyed: boolean;
   /** Remaining hit points (absolute, D10). Infinity for immovable materials. */
   health: number;
+  /** Hit points the entity was created with; lets a theme show partial damage
+   * (tilt, cracks) without knowing damage maths. Infinity for immovables. */
+  healthMax?: number;
+  /** Presentation-only lifetime for a destroyed entity's flash, 1 -> fresh, 0 -> gone.
+   * Set on display extras only; live physics bodies never carry it (D17). */
+  fade?: number;
   /** Highest impact energy seen by this entity since it was created. */
   impactEnergy: number;
 }

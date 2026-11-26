@@ -68,20 +68,18 @@ Re-run `scratch/sweep-probe.ts` (`node scratch/sweep-probe.cjs` after bundling, 
       outcomes (only the printed `ms per call` timing line differed — exclude timing
       from any replay assertion). Cross-runtime/cross-machine check still pending:
       run the suite on another Node version or machine.
-- [ ] **Partial destruction.** Block destruction is currently binary (0 or 3 blocks).
-      **Goal for M8:** intermediate states (tilt, partial shatter). Re-measure the
-      sweep after the crush model lands.
+- [x] **Partial destruction.** Retuned: damage per impact is `0.35 * energy / threshold`
+      (`DAMAGE_SCALE`), so the sweep now reports blocks gone 0–3 with partially
+      damaged survivors instead of binary 0-or-3. Intermediate visuals (cracks/tilt from
+      `health`/`healthMax`) land with the Tron theme. Re-measured after the change:
+      wins 4/51, one-shot clears 4/51.
 
-### Deferred to milestone 11 (known, deliberately not half-fixed)
+### Resolved (was deferred to milestone 11)
 
-- **White silhouettes linger where things died.** `applyDamage` marks a body
-  `destroyed` and removes it from the physics world, but it stays in the adapter's
-  `tracked` map, and `snapshot()` iterates `tracked` — so a destroyed bird or block
-  keeps producing entity state forever, and the placeholder theme paints it
-  `palette.flash` (white). Intended behaviour is a brief flash, not a permanent
-  marker. Fix belongs in milestone 11: destroyed bodies leave the snapshot, and the
-  flash becomes a short-lived overlay keyed on elapsed steps. Fixing it now would
-  mean inventing the fade twice.
+- [x] **White silhouettes linger where things died.** Fixed by D17: destroyed bodies
+      leave `snapshot()`, and the game flashes their last state as a display extra that
+      fades over `FLASH_STEPS = 10`. A test asserts corpses disappear and that `fade`
+      is in range. Particles/audio/shake remain milestone 11 work.
 
 ## 3. Baseline data to tune against
 
@@ -101,8 +99,9 @@ Stage 01 sweep, 51 pull combinations (`scratch/sweep-probe.ts`):
 
 ## 4. Contracts and CI gaps to close before M9
 
-- [ ] **`RulesSnapshot.shotsUsed`.** Stars need it; add it to `rules` (pure logic),
-      not to the HUD.
+- [x] **Shot count and stars.** `RulesSnapshot.launches` already counted shots; added
+      `stars`, derived by `starsFor(launches, targetsTotal)` (D19). Kept in rules, not
+      the HUD.
 - [ ] **Camera refit on level switch.** `main.ts` captures `bounds` once and `refit()`
       uses it, so a level with different bounds renders at the wrong zoom. Re-fit on
       `loadLevel` and add a test asserting zoom changes.

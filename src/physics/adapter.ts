@@ -47,13 +47,18 @@ export interface PhysicsAdapter {
   simulateTrajectory(origin: Vec2, velocity: Vec2, maxSteps: number, radius?: number): TrajectorySample[];
   allSleeping(): boolean;
   wakeAll(): void;
+  /** Force every dynamic body to rest (zero velocity + sleeping). Used when a
+   * round's settle window expires rather than waiting for bodies to sleep (D16). */
+  freezeAll(): void;
   /** Ids destroyed by damage during the most recent step. */
   destroyedLastStep(): string[];
 }
 
-// Note: the adapter applies pig rolling resistance (×0.94/step while in ground
+// Note: the adapter applies pig rolling resistance (×0.98/step while in ground
 // contact, docs/tuning.md) because Matter models no rolling resistance. Bounds-based
 // and low-speed pig removal is a game-layer rule (docs/adr.md D15), not physics.
+// Destroyed bodies are removed from the world and from snapshot(); the game layer
+// flashes them from destroyedLastStep() (docs/adr.md D17).
 
 /**
  * Factory indirection so game code depends on the interface rather than on

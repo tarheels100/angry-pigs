@@ -15,7 +15,11 @@ and it never reads collision, health-math, or level logic.
 
 `EntityState`: `kind`, `shape`, `material`, `x`, `y`, `angle`, `radius`,
 `halfWidth`, `halfHeight`, `vx`, `vy`, `sleeping`, `destroyed`, `health`,
-`impactEnergy`.
+`healthMax`, `fade`, `impactEnergy`.
+
+`healthMax` lets a theme show partial damage (cracks, tilt) without knowing damage
+maths. `fade` is set only on short-lived display extras — a destroyed body is not in
+the snapshot at all (D17), so a theme never paints a permanent silhouette.
 
 Semantic state, not appearance: "bird destroyed" renders identically in any theme.
 Add a field here only if a theme genuinely needs the *state*, not the style.

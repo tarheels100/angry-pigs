@@ -13,8 +13,10 @@ type BodyT = ReturnType<typeof Bodies.rectangle>;
 const STEP_MS = 1000 / 60;
 
 /** Velocity and angular velocity multiplier applied to pigs while they are in
- * ground contact. Matter has no rolling resistance (docs/tuning.md). */
-const PIG_ROLLING_DAMPING = 0.94;
+ * ground contact. Matter has no rolling resistance (docs/tuning.md). Kept close to
+ * 1 so a pig rolls instead of stopping dead; the rest of the stopping power comes
+ * from contact friction. */
+const PIG_ROLLING_DAMPING = 0.98;
 
 const CATEGORY = { static: 0x0001, object: 0x0002, target: 0x0004, projectile: 0x0008 };
 
@@ -51,6 +53,7 @@ interface Tracked {
   material: MaterialId;
   body: BodyT;
   health: number;
+  healthMax: number;
   destroyed: boolean;
   impactEnergy: number;
   radius?: number;
@@ -151,6 +154,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
       material: b.material,
       body,
       health: b.isStatic ? Infinity : healthFor(b.material, area),
+      healthMax: b.isStatic ? Infinity : healthFor(b.material, area),
       destroyed: false,
       impactEnergy: 0,
       ...dims,
@@ -225,8 +229,12 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
       vx: body.velocity.x,
       vy: body.velocity.y,
       sleeping: body.isSleeping,
+      // A destroyed body is no longer in the world, so it is not a renderable
+      // entity; the presentation layer flashes it from the `destroyed` event instead
+      // (docs/adr.md D17). Queries still see the final state.
       destroyed: t.destroyed,
       health: t.health,
+      healthMax: t.healthMax,
       impactEnergy: t.impactEnergy,
     };
     // Dimensions come from the level descriptor, not body.bounds, which is
@@ -324,18 +332,38 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
     }
   }
 
+  /**
+   * Force a rest. Used when a round's settle window expires instead of waiting for
+   * bodies to sleep on their own (docs/adr.md D16): "settled" must mean visually
+   * stopped, otherwise scoring reads a state the player can see is still moving.
+   */
+  function freezeAll(): void {
+    for (const t of tracked.values()) {
+      if (t.destroyed || t.body.isStatic) continue;
+      Body.setVelocity(t.body, { x: 0, y: 0 });
+      Body.setAngularVelocity(t.body, 0);
+      Sleeping.set(t.body, true);
+    }
+  }
+
   return {
     addBody,
     removeBody,
     clear,
     step,
-    snapshot: () => [...tracked.keys()].map((id) => state(id)).filter((s): s is EntityState => s !== undefined),
+    // Destroyed bodies leave the physics world and the snapshot; the presentation
+    // layer gets them through destroyedLastStep() and flashes them (D17).
+    snapshot: () =>
+      [...tracked.keys()]
+        .map((id) => state(id))
+        .filter((s): s is EntityState => s !== undefined && !s.destroyed),
     state,
     launch,
     applyDamage,
     simulateTrajectory,
     allSleeping,
     wakeAll,
+    freezeAll,
     destroyedLastStep: () => destroyedThisStep,
   };
 }

@@ -32,7 +32,10 @@ function oneShot(deg: number, pullLen: number) {
     fired: true as const,
     phase: game.rules.snapshot().phase,
     killed: game.rules.snapshot().targetsTotal - game.rules.snapshot().targetsAlive,
-    blocks: adapter.snapshot().filter((e) => e.kind === 'block' && e.destroyed).length,
+    // Destroyed bodies leave snapshot() (docs/adr.md D17), so destruction is counted
+    // as "blocks that are no longer in the world".
+    blocks: loaded.bodies.filter((b) => b.kind === 'block').length - adapter.snapshot().filter((e) => e.kind === 'block').length,
+    partial: adapter.snapshot().filter((e) => e.kind === 'block' && e.healthMax !== undefined && e.health < e.healthMax).length,
     steps,
     // 239 steps means the settle timeout cut the round, not genuine rest.
     byTimeout: steps >= 239,
@@ -49,7 +52,7 @@ for (const pullLen of [30, 45, 90]) {
     if (r.killed === 2) oneShotClears++;
     if (r.phase === 'won') wins++;
     if (r.byTimeout) timeouts++;
-    console.log(`pull ${pullLen} @ ${deg}deg -> killed ${r.killed}, blocks ${r.blocks}, phase ${r.phase}, steps ${r.steps}${r.byTimeout ? ' (settle timeout)' : ''}`);
+    console.log(`pull ${pullLen} @ ${deg}deg -> killed ${r.killed}, blocks gone ${r.blocks}, damaged ${r.partial}, phase ${r.phase}, steps ${r.steps}${r.byTimeout ? ' (settle timeout)' : ''}`);
   }
 }
 console.log(`\ncombos ${total}, fired ${fires}, won ${wins}, one-shot clears ${oneShotClears}, ended by settle timeout ${timeouts}`);

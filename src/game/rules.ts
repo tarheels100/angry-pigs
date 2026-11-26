@@ -13,8 +13,11 @@ export interface RulesSnapshot {
   ammoLeft: number;
   targetsAlive: number;
   score: number;
+  /** Shots actually fired (a click with no drag spends nothing). */
   launches: number;
   targetsTotal: number;
+  /** Meaningful only when phase === 'won'. */
+  stars: number;
 }
 
 export interface GameRules {
@@ -34,6 +37,20 @@ export interface GameRules {
 /** Score per destroyed target; tuned in M8 (docs/tuning.md). */
 const SCORE_PER_TARGET = 1000;
 
+/**
+ * Stars are derived from how many shots the level took, from the Stage 01 sweep
+ * (docs/checklist.md section 3): clearing 2 targets in one shot happened in 6 of 51
+ * pull combinations, so one-shot clears are rare and earn three stars. The rule is
+ * proportional to target count rather than hardcoded to Stage 01.
+ */
+export function starsFor(launches: number, targetsTotal: number): number {
+  if (targetsTotal === 0) return 3;
+  const oneShotBudget = Math.max(1, Math.ceil(targetsTotal / 2));
+  if (launches <= oneShotBudget) return 3;
+  if (launches <= targetsTotal) return 2;
+  return 1;
+}
+
 export function createRules(initial: { targetIds: string[]; ammo: string[] }): GameRules {
   const budget = { targets: initial.targetIds.length, ammo: initial.ammo.length };
   /** The level's targets as authored; a restart restores these, not the survivors. */
@@ -46,6 +63,7 @@ export function createRules(initial: { targetIds: string[]; ammo: string[] }): G
     targetsTotal: 0,
     score: 0,
     launches: 0,
+    stars: 0,
   };
   const destroyed = new Set<string>();
 
@@ -65,10 +83,10 @@ export function createRules(initial: { targetIds: string[]; ammo: string[] }): G
     worldSettled(won) {
       if (snap.phase !== 'settling') return;
       if (won) {
-        snap = { ...snap, phase: 'won' };
+        snap = { ...snap, phase: 'won', stars: starsFor(snap.launches, snap.targetsTotal) };
         return;
       }
-      snap = snap.ammoLeft > 0 ? { ...snap, phase: 'aiming' } : { ...snap, phase: 'lost' };
+      snap = snap.ammoLeft > 0 ? { ...snap, phase: 'aiming', stars: 0 } : { ...snap, phase: 'lost', stars: 0 };
     },
     targetDestroyed(id) {
       // Blocks and balls are destroyed too; only ids registered as targets count.
@@ -91,6 +109,7 @@ export function createRules(initial: { targetIds: string[]; ammo: string[] }): G
       targetsTotal: targetIds.length,
       score: 0,
       launches: 0,
+      stars: 0,
     };
   }
 }

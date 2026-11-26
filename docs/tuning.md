@@ -19,29 +19,43 @@ file together.
 | pig removal | speed < 1.2 for 45 steps, out of bounds, or 240 steps in flight | game (D15) | Pigs are consumed, not damaged; the dwell guard stops a pig nudging along forever. |
 | `MIN_DRAG` | 12 world units | game | A release must drag at least this far from the cannon to fire; a plain click cancels and spends no ammo (src/input/pointer.ts owns the gesture). |
 | `wakeNear` margin | 40 world units | adapter | When a body is destroyed or removed, dynamic bodies whose bounds overlap it (expanded by this margin) are woken. Matter does not wake a body whose support disappears, so a beam with no leg floats (docs/physics.md gotcha 11). |
-| pig rolling resistance | ×0.94 per step while grounded | adapter | Matter has no rolling resistance, so a pig on flat ground rolls forever and never sleeps. Damping velocity and angular velocity while in ground contact stops a full-pull pig at ~step 170 instead of never. |
+| pig rolling resistance | ×0.98 per step while grounded | adapter | Matter has no rolling resistance, so a pig on flat ground rolls forever and never sleeps. Raised from 0.94 because 0.94 stopped pigs too abruptly (playtest complaint). A test asserts a pig launched at speed 12 rolls more than 120 units in 90 steps. |
+| ground friction | kinetic 0.3, static 0.5 | `MATERIALS` | Matter takes `max(frictionA, frictionB)`, so the ground value governs pig rolling as well. Lower kinetic friction lets pigs roll; static friction stays high so stacks hold. |
+| `DAMAGE_SCALE` | 0.35 | game (`applySliceDamage`) | Damage per impact is `0.35 * energy / threshold`. Playtest said damage per impact was too high: at scale 1 a single hit erased a block and destruction was binary (0 or 3). Retuned sweep: blocks go 0–3 gone with partially damaged survivors; wins 4/51 combinations. |
+| `FLASH_STEPS` | 10 steps | game | A destroyed entity flashes for 10 steps as a fading display extra, then disappears (D17). |
+| settle-timeout freeze | `adapter.freezeAll()` when the window expires | game (D16) | "Settled" must mean visually stopped; ~10 of 51 Stage 01 combinations end at the 240-step cap rather than in genuine sleep. |
+| stars | 3 if shots ≤ ceil(targets/2), 2 if shots ≤ targets, else 1 | rules (D19) | Derived from the Stage 01 sweep: 4 of 51 pull combinations clear both targets in one shot. |
 | impact energy formula | `\|relV · normal\| * min(massA, massB)` | adapter | Measured peak ~84 for a speed-22 pig, ~49 for speed 18. Kept on `min(mass)` so a pig hitting a heavy wall does not score the wall's mass as damage. |
 | glass damageThreshold | 3 | `MATERIALS` | A direct pig hit (~40-50 energy) shatters glass; a rolling graze (~8) does not. |
 | stone damageThreshold | 9 | `MATERIALS` | A full-speed pig removes ~5 health; stone survives roughly three solid hits. |
 | feather damageThreshold | 2 | `MATERIALS` | Birds are fragile: any real hit kills; a gentle nudge does not. |
 | health area scaling | `area/4000`, clamped 0.35–3 | `healthFor()` | Large blocks take more hits; clamp stops huge walls becoming immortal. |
 
-## Stage 01 reference shots (measured, scratch/slice-probe.ts)
+## Stage 01 reference shots (measured, scratch/sweep-probe.ts)
 
 Two full-pull shots clear the stage — exactly what `tests/game.test.ts` asserts:
 
 | aim (degrees, +y is down) | result |
 | --- | --- |
-| 0° (flat) | pig reaches the glass tower; columns and beam shatter; the bird on the beam is crushed by the collapse |
-| +16° (slightly down) | pig reaches the bird standing in the open at x=760 |
+| 0° (flat) | pig reaches the glass tower; columns shatter, the beam survives partially; the bird on the beam is crushed by the collapse |
+| +20° (slightly down) | clears both birds in one shot — a three-star shot |
 | −70° (nearly straight up) | misses everything; burns one pig — used to prove the lose path |
 
-Birds are deliberately fragile in the slice: a feather bird is `health 2 × areaScale 0.35 = 0.7`,
-so any contact above the threshold kills it. That is a starting point, not a tuned curve.
+Measured peak impact energies for the flat full-pull shot (`scratch/impact-probe.ts`):
+pig vs `block-1` 75.4, pig vs ground 53.9, pig vs `block-2` 24.4, ground vs falling
+`block-3` 15.1, ground vs `bird-2` 7.2, debris grazes 1–5. With `DAMAGE_SCALE 0.35` the
+75.4 hit spends ~8.8 glass health (destroys a 3.6 hp column) while the 24.4 hit leaves a
+second column at 0.1 hp — partial damage rather than binary destruction.
 
-## Open tuning questions (resolve in M8)
+Birds are deliberately fragile: a feather bird is `health 2 × areaScale 0.35 = 0.7` with
+threshold 2, so a 7.2-energy fall kills it while a 1.5 debris graze does not. That is a
+starting point, not a tuned curve.
 
-- Impact energy thresholds vs. tower-collapse damage (gentle crushes) not measured yet.
+## Open tuning questions (resolve in the tuning pass)
+
+- Crush vs shatter attribution: bird deaths from direct pig impact vs debris, counted
+  separately (docs/checklist.md §2).
 - Whether rolling resistance should also apply to birds/balls that roll on the ground.
-- Remaining-ammo bonus score and star thresholds.
-- Pig damage model: pigs currently ignore damage entirely (D15); M8 decides whether a pig takes damage from heavy hits instead.
+- Remaining-ammo bonus score.
+- Pig damage model: pigs currently ignore damage entirely (D15); decide whether a pig
+  takes damage from heavy hits instead.

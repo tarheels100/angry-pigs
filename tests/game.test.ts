@@ -267,3 +267,72 @@ test('a drag re-opens the gesture when restart or loadLevel closed it', () => {
   game.dragAim(pullFor(level, 20));
   assert.ok(game.releaseAim(), 'dragging aims after loadLevel');
 });
+
+test('stars are derived from shots used, not invented (D19)', () => {
+  const { game } = makeGame();
+  assert.equal(game.rules.snapshot().targetsTotal, 2);
+
+  aim(game, 20);
+  game.releaseAim();
+  settle(game);
+  assert.equal(game.rules.snapshot().phase, 'won');
+  assert.equal(game.rules.snapshot().launches, 1);
+  assert.equal(game.rules.snapshot().stars, 3, 'a one-shot clear earns three stars');
+
+  const slow = makeGame();
+  aim(slow.game, 0);
+  slow.game.releaseAim();
+  settle(slow.game);
+  aim(slow.game, 16);
+  slow.game.releaseAim();
+  settle(slow.game);
+  assert.equal(slow.game.rules.snapshot().stars, 2, 'two shots on two targets earns two stars');
+
+  const many = makeGame();
+  for (let i = 0; i < 4; i++) {
+    aim(many.game, -70);
+    many.game.releaseAim();
+    settle(many.game);
+  }
+  assert.equal(many.game.rules.snapshot().phase, 'lost');
+  assert.equal(many.game.rules.snapshot().stars, 0, 'a lost level has no stars');
+});
+
+test('a destroyed entity flashes briefly, then is gone', () => {
+  const { game } = makeGame();
+  aim(game, 0);
+  game.releaseAim();
+
+  let flashed: string[] = [];
+  for (let i = 0; i < 200; i++) {
+    game.step(DT);
+    flashed = game.entities.all().filter((e) => e.destroyed).map((e) => e.id);
+    if (flashed.length > 0) break;
+  }
+  assert.ok(flashed.length > 0, 'something must die in a flat shot');
+  const fade = game.entities.all().find((e) => e.destroyed)!.fade!;
+  assert.ok(fade > 0 && fade <= 1, 'the flash is fading, not permanent');
+
+  // Flash lifetime expires; corpses never linger as white silhouettes.
+  for (let i = 0; i < 12; i++) game.step(DT);
+  assert.equal(game.entities.all().some((e) => e.destroyed), false, 'corpses drop out after FLASH_STEPS');
+});
+
+test('a block survives a single hit with visible partial damage', () => {
+  const { game, adapter } = makeGame();
+  aim(game, 0);
+  game.releaseAim();
+  settle(game);
+
+  const damaged = adapter.snapshot().filter((e) => e.kind === 'block' && e.healthMax !== undefined && e.health < e.healthMax);
+  assert.ok(damaged.length > 0, 'impact must leave partially damaged blocks, not binary destruction');
+  for (const d of damaged) assert.ok(d.health > 0, 'a damaged block still has health');
+});
+
+test('a settled round is asleep, whether it slept or hit the timeout', () => {
+  const { game, adapter } = makeGame();
+  aim(game, 0);
+  game.releaseAim();
+  settle(game);
+  assert.equal(adapter.allSleeping(), true, 'settled must mean at rest (D16)');
+});

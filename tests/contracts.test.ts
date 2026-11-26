@@ -75,6 +75,11 @@ function fakeAdapter(): PhysicsAdapter {
     wakeAll(): void {
       for (const b of bodies.values()) b.sleeping = false;
     },
+    freezeAll(): void {
+      for (const b of bodies.values()) {
+        b.vx = 0; b.vy = 0; b.sleeping = true;
+      }
+    },
     destroyedLastStep(): string[] {
       return [...bodies.values()].filter((b) => b.destroyed).map((b) => b.id);
     },
@@ -120,11 +125,11 @@ function fakeTheme(): Theme {
 
 function fakeRules(): GameRules {
   let targets = new Set<string>(['bird-1']);
-  let snap: RulesSnapshot = { phase: 'aiming', ammoLeft: 3, targetsAlive: 1, targetsTotal: 1, score: 0, launches: 0 };
+  let snap: RulesSnapshot = { phase: 'aiming', ammoLeft: 3, targetsAlive: 1, targetsTotal: 1, score: 0, launches: 0, stars: 0 };
 
   function loadLevel(targetIds: string[], ammo: number): void {
     targets = new Set(targetIds);
-    snap = { phase: 'aiming', ammoLeft: ammo, targetsAlive: targetIds.length, targetsTotal: targetIds.length, score: 0, launches: 0 };
+    snap = { phase: 'aiming', ammoLeft: ammo, targetsAlive: targetIds.length, targetsTotal: targetIds.length, score: 0, launches: 0, stars: 0 };
   }
 
   return {
