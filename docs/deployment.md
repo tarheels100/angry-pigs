@@ -2,14 +2,24 @@
 
 ## Dev
 
-Two terminals, no process manager:
+One command, no process manager:
 
 ```
-npm run dev     # static server on http://localhost:5173 (server.js)
-npm run watch   # esbuild watch → dist/main.js
+npm run dev       # scripts/dev.js: esbuild watch in-process + server.js → http://localhost:5173
+npm run dev:open  # same, and opens the default browser
+```
+
+Separate terminals, if you prefer:
+
+```
+npm run watch     # esbuild watch → dist/main.js
+npm run serve     # static server only
 ```
 
 Edit a file, esbuild rebuilds in ~8ms, reload the page manually (no HMR).
+Plain `esbuild --watch` exits when stdin closes, so the script uses
+`--watch=forever`; `scripts/dev.js` uses esbuild's JS API (`context.watch()`), which
+has no stdin dependency. `PORT` overrides the port (default 5173).
 `npm run typecheck` runs `tsc --noEmit`; `npm test` runs `node --test tests/`.
 
 ## Release artifact

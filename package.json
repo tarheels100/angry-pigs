@@ -4,8 +4,10 @@
   "type": "module",
   "version": "0.0.0",
   "scripts": {
-    "dev": "node server.js",
-    "watch": "esbuild src/main.ts --bundle --watch --format=iife --outfile=dist/main.js",
+    "dev": "node scripts/dev.js",
+    "dev:open": "node scripts/dev.js --open",
+    "serve": "node server.js",
+    "watch": "esbuild src/main.ts --bundle --watch=forever --format=iife --outfile=dist/main.js",
     "build": "esbuild src/main.ts --bundle --minify --format=iife --outfile=dist/main.js && node build-html.js",
     "typecheck": "tsc --noEmit",
     "test": "node --test \"tests/**/*.test.ts\""

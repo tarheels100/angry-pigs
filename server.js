@@ -1,13 +1,16 @@
 /**
  * Zero-dependency dev static server. Serves the repo root over http://localhost
  * so ES-module / fetch requests are not blocked by the file:// CORS rule.
- * No HMR: reload the page manually after `npm run watch` rebuilds dist/main.js.
+ * No HMR: reload the page manually after a rebuild.
+ *
+ * Run directly (`npm run serve`) or import `startServer()` — `scripts/dev.js` does
+ * the latter so watch + serve live in one process and Ctrl+C stops both.
  */
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, resolve, join, relative, isAbsolute } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
-const PORT = Number(process.env.PORT ?? 5173);
 const ROOT = resolve(process.cwd());
 
 const MIME = {
@@ -46,7 +49,24 @@ const server = createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`angry-pigs dev server → http://localhost:${PORT}`);
-  console.log('run `npm run watch` in a second terminal');
-});
+export function startServer(port = Number(process.env.PORT ?? 5173)) {
+  return new Promise((resolveListen, reject) => {
+    server.once('error', reject);
+    server.listen(port, () => {
+      server.removeListener('error', reject);
+      resolveListen(server);
+    });
+  });
+}
+
+/** True when this file was the process entry point rather than an import. */
+function launchedDirectly() {
+  return process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url;
+}
+
+if (launchedDirectly()) {
+  const port = Number(process.env.PORT ?? 5173);
+  await startServer(port);
+  console.log(`angry-pigs dev server → http://localhost:${port}`);
+  console.log('run `npm run watch` in a second terminal, or `npm run dev` for both');
+}

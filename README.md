@@ -97,11 +97,13 @@ development convenience, but the shipped build must not depend on it (see
 
 ## Running & deployment
 
-**Dev:** `npm run dev` starts the static server, `npm run watch` runs esbuild in
-watch mode. Two processes, esbuild is the only build tool (`typescript` and
-`@types/node` exist solely for `npm run typecheck`). Editing a file rebuilds
-`dist/main.js`; reload the page manually. Run the two scripts in separate terminals
-(no process manager dependency). Because esbuild bundles, import specifiers do not
+**Dev:** `npm run dev` launches the game in one command — `scripts/dev.js` bundles
+`src/main.ts` in esbuild watch mode in-process and spawns the static server, so
+`http://localhost:5173` is playable immediately; `npm run dev:open` also opens the
+browser. esbuild is the only build tool (`typescript` and `@types/node` exist
+solely for `npm run typecheck`). Editing a file rebuilds `dist/main.js`; reload the
+page manually. The two halves can still run in separate terminals as
+`npm run watch` + `npm run serve`. Because esbuild bundles, import specifiers do not
 need `.js` extensions — but the shipped artifact is a single file, so no browser
 module resolution happens at runtime. Source specifiers use `.ts` extensions so
 `node --test` can run TS directly.
