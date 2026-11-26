@@ -1,16 +1,17 @@
 import { createPhysicsAdapter } from '../src/physics/adapter.ts';
 import { createEventBus } from '../src/core/eventBus.ts';
 import { createGame } from '../src/game/game.ts';
-import { loadLevel, levelAt } from '../src/levels/index.ts';
+import { LEVELS, loadLevel, levelAt } from '../src/levels/index.ts';
 
 /**
- * Stage 01 outcome sweep (docs/checklist.md section 3). Re-run before and after each
+ * Outcome sweep (docs/checklist.md section 3). Re-run before and after each
  * damage/scoring change so tuning is measured, not guessed.
  *
  *   npx esbuild scratch/sweep-probe.ts --bundle --platform=node --format=cjs --outfile=scratch/sweep-probe.cjs
- *   node scratch/sweep-probe.cjs
+ *   node scratch/sweep-probe.cjs [levelIndex]
  */
-const loaded = loadLevel(levelAt(0));
+const levelIndex = Number(process.argv[2] ?? 0);
+const loaded = loadLevel(levelAt(levelIndex));
 const DT = 1 / 60;
 
 function oneShot(deg: number, pullLen: number) {
@@ -42,20 +43,32 @@ function oneShot(deg: number, pullLen: number) {
   };
 }
 
-let wins = 0, fires = 0, oneShotClears = 0, timeouts = 0, total = 0;
-for (const pullLen of [30, 45, 90]) {
-  for (let deg = -40; deg <= 40; deg += 5) {
-    const r = oneShot(deg, pullLen);
+let wins = 0, fires = 0, oneShotClears = 0, timeouts = 0, total = 0, kills = 0;
+let minBlocks = Infinity, maxBlocks = 0, roundsNoBlock = 0, damagedRounds = 0;
+for (let pull = 20; pull <= loaded.maxPull; pull += 5) {
+  for (let deg = -40; deg <= 40; deg += 2.5) {
+    const r = oneShot(deg, pull);
     total++;
     if (!r.fired) continue;
     fires++;
-    if (r.killed === 2) oneShotClears++;
+    kills += r.killed;
+    if (r.killed === loaded.targetIds.length) oneShotClears++;
     if (r.phase === 'won') wins++;
     if (r.byTimeout) timeouts++;
-    console.log(`pull ${pullLen} @ ${deg}deg -> killed ${r.killed}, blocks gone ${r.blocks}, damaged ${r.partial}, phase ${r.phase}, steps ${r.steps}${r.byTimeout ? ' (settle timeout)' : ''}`);
+    minBlocks = Math.min(minBlocks, r.blocks);
+    maxBlocks = Math.max(maxBlocks, r.blocks);
+    if (r.blocks === 0) roundsNoBlock++;
+    if (r.partial > 0) damagedRounds++;
+    if (process.argv[3] === '-v') {
+      console.log(`pull ${pull} @ ${deg}deg -> killed ${r.killed}, blocks gone ${r.blocks}, damaged ${r.partial}, phase ${r.phase}, steps ${r.steps}${r.byTimeout ? ' (settle timeout)' : ''}`);
+    }
   }
 }
-console.log(`\ncombos ${total}, fired ${fires}, won ${wins}, one-shot clears ${oneShotClears}, ended by settle timeout ${timeouts}`);
+console.log(
+  `${loaded.def.name}: ${total} combos (pull 20..${loaded.maxPull} step 5, angle -40..40 step 2.5); ` +
+    `won ${wins}, one-shot clears ${oneShotClears}, kills ${kills}/${loaded.targetIds.length * total}, ` +
+    `blocks gone min=${minBlocks} max=${maxBlocks} none=${roundsNoBlock}, rounds with partial damage ${damagedRounds}, timeouts ${timeouts}`,
+);
 
 // Preview cost, for the per-pointermove trajectory recomputation.
 const adapter = createPhysicsAdapter({ width: loaded.def.bounds.width, height: loaded.def.bounds.height, gravityY: 1, frictionAir: 0.001 });
@@ -64,3 +77,4 @@ const t0 = performance.now();
 for (let i = 0; i < 100; i++) adapter.simulateTrajectory(loaded.cannonOrigin, { x: 19.8, y: -2 }, 120, 18);
 const t1 = performance.now();
 console.log(`simulateTrajectory: ${((t1 - t0) / 100).toFixed(2)} ms per call (120 steps, ${loaded.bodies.length} bodies)`);
+console.log(`levels bundled: ${LEVELS.length}`);

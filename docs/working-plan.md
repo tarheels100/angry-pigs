@@ -20,9 +20,26 @@ Tuning is deferred ("working game first"), except the two physics asks below.
       + flash fade extras + healthMax/fade fields. ADRs D16, D17, D18, D19. Tests 65 pass.
       Measured: wins 4/51, one-shot clears 4/51, blocks gone 0–3 with partial damage,
       10 combos hit the settle timeout (now frozen).
-- [ ] B. §4 contract items: PointerSource.dispose(), entity id namespace assertion.
-- [ ] C. M9: levels l02/l03 + validation, camera follow + refit-on-load, retry/advance,
-      tests. ADR D20.
+- [x] B. §4 contract items: PointerSource.dispose() (detaches listeners, releases
+      capture), entity id namespace guard in EntityRegistry.setExtras (extra cannot
+      shadow a live physics id; duplicates rejected). Tests: pointer dispose, registry
+      collision + duplicate, game extras during flight. 69 pass.
+- [x] C. M9: levels l02/l03 authored + `validateLevel` export + `levelAt` wrap; camera
+      `setWorld`/`follow`/`zoomBy`; main.ts level flow (advance on win after 1.4s, R
+      restart, N/P level step, wheel zoom, theme cycle), HUD level label + stars,
+      `levelLoaded` now carries bounds so the camera re-frames. ADR D20.
+      Sweep numbers (pull 20..maxPull step 5, angle -40..40 step 2.5, 495 combos each):
+        stage-01: won 92, one-shot clears 92, kills 437/990, blocks gone 0..3, none 295,
+                  partial damage rounds 216, settle timeouts 117
+        stage-02: won 30, one-shot clears 30, kills 339/990, blocks gone 0..3, none 187,
+                  partial damage 481, timeouts 144
+        stage-03: won 52, one-shot clears 52, kills 238/990, blocks gone 0..4, none 309,
+                  partial damage 495, timeouts 48
+      Level design rule discovered: nothing critical may be sheltered under stone —
+      stone health (area/12) is far above any pig impact energy at DAMAGE_SCALE 0.35,
+      so sheltered birds are unkillable. Recorded in level-format.md + physics gotchas.
+      Greedy bot probe: scratch/greedy-probe.ts (clears every stage within authored ammo).
+      78 tests pass; levels.test.ts costs ~3.5s. 78 pass.
 - [ ] D. M10: tron theme (default) — neon outlines, glow, grid. Registry only.
 - [ ] E. M11: particles + WebAudio SFX + shake + debug overlay (F2).
 - [ ] F. M12: second theme (`pixel`) through contract only; verify diff touches themes/ only.
@@ -57,7 +74,9 @@ asserted as present in browser tests only; keep it out of the shipped API surfac
 - gh CLI not installed; GitHub API works unauthenticated (repo public) for runs/pages checks.
 
 ## Current state
-- Step A committed. HEAD: Pages live, deploy workflow green, 65 tests pass, `npm run check` gate.
-- Scratch probes: `scratch/sweep-probe.ts` (outcome sweep), `scratch/impact-probe.ts`
-  (peak impact energy census). Bundle both with esbuild to .cjs before running.
-- Next: step B (pointer dispose + id namespace), then M9 levels/camera.
+- Steps A, B, C committed (HEAD after C: 78 tests pass, `npm run check` gate, Pages live).
+- Scratch probes: `scratch/sweep-probe.ts` (outcome sweep, takes a level index arg),
+  `scratch/impact-probe.ts` (peak impact energy census), `scratch/greedy-probe.ts`
+  (multi-pig clear check), `scratch/main-probe.mjs` (main.ts wiring under DOM stubs).
+  Bundle .ts probes with esbuild to .cjs before running.
+- Next: step D (tron theme, default theme), then E (M11 effects/SFX/debug overlay).
