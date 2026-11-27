@@ -49,16 +49,19 @@ time (D6). Coordinates are world units; the stage is 1600x900 with +y downward.
 
 ## scenery (M15)
 
-Background props. `kind` is a presentation hint a theme draws ("tree", "ridge");
-a prop is validated and painted behind entities, but it never becomes a physics body, so
-props cannot change outcomes (docs/adr.md D29).
+Background props. `kind` is one of the kinds `SCENERY_KINDS` names ("tree", "ridge",
+"plinth"); a prop is validated and painted behind entities, but it never becomes a physics
+body, so props cannot change outcomes (docs/adr.md D29).
 
 ```json
 "scenery": [
+  { "kind": "plinth", "x": 120, "y": 798, "w": 150, "h": 84 },
   { "kind": "tree", "x": 560, "y": 770, "w": 36, "h": 140 },
   { "kind": "ridge", "x": 1300, "y": 820, "w": 260, "h": 40 }
 ]
 ```
+
+A prop needs `r`, or `w` and `h`. Positions must be inside `bounds`.
 
 A prop needs `r`, or `w` and `h`. Positions must be inside `bounds`.
 
@@ -110,6 +113,10 @@ to clear is under-designed — add a failure mode instead (rule 4).
    takes the near glass chain in one pig, and the wood tower still needs the heavy pig
    (docs/tuning.md). Falling debris is a second, less predictable reach — measure the sweep
    before assuming a chain stops where you drew it.
+10. **The launcher stands on something.** Every level places a `plinth` prop under the cannon
+    and sets `cannon.y` so the carriage (`pivot + 56`) lands on its cap. A launcher floating
+    in mid-air reads as broken (playtest item 4). The plinth is scenery, so it changes no
+    physics; move the cannon and the plinth together.
 
 ## Materials available (v0)
 

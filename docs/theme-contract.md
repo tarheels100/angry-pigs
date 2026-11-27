@@ -64,10 +64,13 @@ Add a field here only if a theme genuinely needs the *state*, not the style.
 
 ## Entity art
 
-Entities are drawn as characters, not primitives (M15): a pig gets ears, a snout, and
-type marks keyed on `variant`; a bird gets a wing, beak, and comb; the launcher gets a
-barrel that tilts with `aimAngle` and a spring that compresses with `pull`; scenery props
-are drawn from `variant` (`tree`, `ridge`). A destroyed flash keeps only the body outline,
+Entities are drawn as characters, not primitives (M15): a pig gets ears, a snout, eyes,
+legs, and type marks keyed on `variant`; a bird gets an egg body, wing, tail, beak, and
+comb; the launcher gets a barrel that tilts with `aimAngle`, a coil that compresses with
+`pull`, and a carriage that reaches the ground; scenery props are drawn from `variant`
+(`tree`, `ridge`, `plinth`). The carriage bottom is `pivot + 56` world units, which is where
+the level's `plinth` prop puts its cap — the launcher must look built on something, not
+float in the air (playtest item 4). A destroyed flash keeps only the body outline,
 so the flash never paints a face (D17). All of it is a recipe inside `paintEntity`.
 
 ## Material texture

@@ -9,10 +9,10 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 
 ## 0. Baseline gate
 
-- [x] `npm run check` — typecheck, 152 headless tests, build in one command.
+- [x] `npm run check` — typecheck, 155 headless tests, build in one command.
       **Expected:** all pass, `dist/index.html` written (~138 KB inline, one `<script>`).
 - [x] `npm run test:browser` — builds the artifact and drives it in headless Chromium.
-      **Expected:** 25 pass. CI runs this and `npm run check:determinism` as one browser
+      **Expected:** 27 pass. CI runs this and `npm run check:determinism` as one browser
       job, and `deploy` waits for it (`docs/adr.md` D22).
 
 ## 1. Browser-only checks
@@ -156,10 +156,31 @@ tuning change; `scratch/greedy-probe.ts` proves clearability within authored amm
       defaults rather than throwing (`tests/options.test.ts`). An unknown theme id is stored
       as-is and falls back to tron only where the theme is looked up, so a theme removed in
       a later build still boots (D35).
+- [x] **The game opens on the title screen, paused.** Playtest item 1: opening the game used
+      to show the menu with the simulation running behind it. The overlay is now opened after
+      the loop starts and `loop.stop()` is real; closing it resumes (`screens.onClose` /
+      `closeOverlay`). Browser test asserts the panel is open on load and `window.__steps()`
+      is 0 behind it, then that a stage pick resumes.
+- [x] **Music is off by default.** Playtest item 2: the generated soundtrack is a persisted
+      option defaulting to off (`src/ui/options.ts`), and the scheduler only runs while it is
+      on. Sound effects stay on. The HUD shows `music off`.
+- [x] **Rubble stops hovering.** Playtest item 7: Matter does not wake a body whose support
+      was removed. `wakeNear` now also wakes the bodies it was resting on
+      (`wakeSupportChain`, `wakeUnsupported` in `src/physics/matterAdapter.ts`), and the game
+      keeps stepping after a round ends (damage suppressed) until the world sleeps, so debris
+      lands instead of hanging. `scratch/hover-probe.ts` asserts a beam on two columns drops
+      by about its own height after one column is removed.
+- [x] **Pigs read as pigs, birds as birds.** Playtest item 3: pigs are drawn with ears, snout,
+      eyes, nostrils, legs, tail, and a per-type mark (diamond, cross, fuse ring, twin dots);
+      birds are egg-bodied with a wing, tail fan, beak, and comb. Tests assert the extra
+      geometry and that the pig palette differs from the bird palette.
+- [x] **The launcher stands on a plinth.** Playtest item 4: every level ships a `plinth`
+      scenery prop and `cannon.y = 700`, so the carriage lands on the masonry cap
+      (`docs/level-format.md` rule 10). A browser test asserts launcher pixels at the pivot.
 - [x] **Determinism (cross-runtime).** `npm run check:determinism` bundles
       `scratch/sweep-entry.ts` twice — ESM for node, IIFE for chromium — and runs the
       same 144 combos (3 pulls × 8 angles × all six stages) by stepping the game directly.
-      **Result:** 0 mismatches; 3 wins, 9 combos hit the settle timeout. The entry
+      **Result:** 0 mismatches; 6 wins, 6 combos hit the settle timeout. The entry
       records no timing, so there is nothing legitimate that can differ.
       Cross-machine drift would show up as a mismatch in CI, which runs this on Linux.
 - [x] **Score.** Targets pay 1000; a clear pays 500 per unused pig (D23), so a

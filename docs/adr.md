@@ -361,3 +361,31 @@ contract and make every theme implement a menu); leaving the loop running while 
 open (steps and music would advance during a pause, which is exactly the bug D32 avoided by
 scheduling on simulated time); a separate settings module with its own storage (two storage
 surfaces would drift).
+
+## D35 (extension) — the title screen is what you land on
+
+Playtest item 1: "opening the game always takes you into the menu but unpaused". Two fixes
+in `src/main.ts`:
+
+- The title overlay is opened **after** `loop.start()`, via a `openOverlay()` helper that
+  stops the loop. Opening it before the loop existed made the pause a no-op, and the panel
+  then looked like a menu that did not pause anything.
+- `screens.onClose` and `closeOverlay()` both call `loop.start()`. Resuming from the panel's
+  own resume button previously did nothing, so the round stayed frozen until a reload.
+
+The product decision: the game opens on the stage list, not straight into stage 01. That is
+what makes best scores and stage picking visible at once, and it is the moment a player
+expects to choose. `window.__steps()` (the `loop.stepsTaken()` seam) is asserted at 0 behind
+the panel, so "menu pauses simulation" is a tested claim rather than a hope.
+
+Browser tests that act on a live round dismiss the overlay inside `open()`; the title-screen
+tests navigate directly and assert the panel state.
+
+## D32 (extension) — music ships off
+
+Playtest items 1 and 2: the burst at level load and the track itself were both unwanted.
+`music` became a persisted option defaulting to **false** (`src/ui/options.ts`), and
+`src/main.ts` only ticks the scheduler while it is on. The generated track stays in the
+bundle — the module, its tests, and the options row remain, so revisiting the soundtrack is
+a toggle rather than a rebuild. Sound effects keep their default of on, because an impact
+blip is feedback, not ambience.

@@ -140,3 +140,53 @@ Conversion, measured rather than assumed:
 
 Sweep numbers above still hold because the sweep measures the *first* shot only. Greedy
 bot with typed ammo: 1 / 2 / 2 / 2 / 2 / 4 pigs (docs/tuning.md sweeps section).
+
+## Playtest pass: launcher on a plinth (item 4)
+
+The cannon floated in mid-air. The launcher is now built on masonry:
+
+| item | value |
+| --- | --- |
+| cannon origin | `y = 700` in every level (was 480) |
+| plinth prop | `{ kind: "plinth", x: 120, y: 798, w: 150, h: 84 }` — scenery, never a body |
+| carriage bottom | pivot + 56 world units, landing on the plinth cap |
+| `LOAD_DEPTH` | 0.2 — a 90-unit pull seats the pig 18 units inside the barrel (0.5 put the pig past the muzzle) |
+| `SPRING_FULL` | 90 units, coil drawn along the barrel axis |
+
+Measured aims after the move (pull 90, stage-01, fixed step at 60 Hz, `scratch/aim-search.ts`):
+
+| aim | outcome |
+| --- | --- |
+| `deg = -20` | reaches the tower legs, tips the storey, kills the beam bird; the open bird survives |
+| `deg = 0` | one-shot clear — lands at x≈705 and rolls into the tower |
+| `deg = 10` | kills the open bird only |
+| `deg = -25` | kills the beam bird only |
+| `deg = -70` | hits nothing; the round is lost |
+
+Test aims moved with the origin: `game.test.ts` two-shot sequence is now `-20` then `10`,
+the one-shot clear is `0`, the bird-death attribution shot is `0`, and the browser `WIN` is
+`{ pull: 90, deg: 0 }`. A bomb on a flat full pull detonates later than it did from mid-air
+(the pig lands short and rolls), so `pigs.test.ts` runs 240 steps instead of 160.
+
+Sweep after the move (144 combos, six stages): 6 won, 6 hit the settle timeout, and
+`npm run check:determinism` reports 144 node outcomes vs 144 chromium outcomes, 0 mismatches.
+The sweep grid aims from the cannon origin, so it re-measures itself at the new height.
+
+## Playtest pass: art, menu, audio defaults (items 1-3, 7, 8)
+
+| change | value | item |
+| --- | --- | --- |
+| pig silhouette | body + ears + snout + eyes + nostrils + legs + tail | 3 |
+| pig type hues | basic `#ff7a9c`, heavy `#e0627d`, bomb `#ff5f43`, cluster `#ffcf7a` | 3 |
+| bird silhouette | egg body (rx 1.3 × ry), wing, tail fan, beak, comb | 3 |
+| tree prop height | 120–140 units, about 4x a bird's 32-unit diameter | 8 |
+| music option default | `false`; sound stays on | 2 |
+| soundtrack scheduler | runs only while `options.music` is true | 1 |
+| title screen on load | opened after the loop exists, so pausing it is real | 1 |
+| step seam | `window.__steps()` reports `loop.stepsTaken()` | 8 check |
+| menu resume | `screens.onClose` and `closeOverlay()` both call `loop.start()` | 8 |
+| post-round settling | game keeps stepping with damage suppressed until bodies sleep | 7 |
+
+Browser tests dismiss the title screen inside `open()`; the title-screen tests navigate
+directly and assert `__steps() === 0` behind the panel. Gates at the end of the pass: 155
+headless tests, 27 browser tests, `npm run check` green, determinism 144/0 mismatch.

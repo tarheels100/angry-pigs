@@ -39,7 +39,8 @@ than a test-only rewrite. `src/main.ts` publishes read-only objects:
 `window.__game` (rules, cannon, entity registry, aim API), `window.__camera`
 (`worldToScreen` for pixel sampling), `window.__trail`, `window.__debris`,
 `window.__music` (the generated track's flavour and emitted notes),
-`window.__explosions` (blast count since load), and `window.__options()` (the persisted
+`window.__explosions` (blast count since load), `window.__steps()` (`loop.stepsTaken()`),
+and `window.__options()` (the persisted
 settings, so a reload can be asserted). Nothing in the game reads them.
 
 Cost: one dev dependency plus browser binaries, and `npm run test:browser` kept separate
