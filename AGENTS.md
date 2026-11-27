@@ -65,7 +65,7 @@ interrupted session and a resumed agent inherits it rather than re-deriving it f
 Example:
 
 ```
-autonomous: implement the detailed cannon + motion trail from docs/post-m20-notes.md.
+autonomous: implement the detailed cannon + motion trail from docs/post-m13-notes.md.
 Boundary: src/render/**, src/game/cannon.ts, docs/theme-contract.md. Finish line:
 browser tests green and deployed. Don't check in until done.
 ```
