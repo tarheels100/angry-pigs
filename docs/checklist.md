@@ -9,10 +9,10 @@ Status legend: `[ ]` not run, `[x]` run and passing, `[~]` run and found a probl
 
 ## 0. Baseline gate
 
-- [x] `npm run check` — typecheck, 155 headless tests, build in one command.
-      **Expected:** all pass, `dist/index.html` written (~138 KB inline, one `<script>`).
+- [x] `npm run check` — typecheck, 159 headless tests, build in one command.
+      **Expected:** all pass, `dist/index.html` written (~450 KB inline with Tone bundled, one `<script>`).
 - [x] `npm run test:browser` — builds the artifact and drives it in headless Chromium.
-      **Expected:** 27 pass. CI runs this and `npm run check:determinism` as one browser
+      **Expected:** 29 pass. CI runs this and `npm run check:determinism` as one browser
       job, and `deploy` waits for it (`docs/adr.md` D22).
 
 ## 1. Browser-only checks
@@ -21,8 +21,10 @@ Covered by `tests/browser/game.browser.mjs` unless marked manual. Serve with
 `npm run dev` (one process: esbuild watch + static server), reload manually after edits.
 
 - [x] **Offline artifact.** Browser test loads `dist/index.html` over `file://`.
-      **Result:** canvas renders, HUD shows the stage, exactly **one** network request
-      (the artifact itself), zero console errors. Levels are embedded (D6).
+      **Result:** canvas renders, HUD shows the stage, and the only loads are the artifact itself
+      plus Tone's blob audio worker — no http, zero console errors. A second test boots the
+      artifact over http with every request that is not the page aborted, and the stage still
+      plays (D6, D40). Levels are embedded.
 - [x] **Drag gesture.** Press → drag → release in a real browser.
       **Result:** a press alone fires nothing and spends no ammo; a drag past
       `MIN_DRAG` produces a pull and a trajectory preview; release launches the pig and
@@ -257,3 +259,27 @@ never repeats a shot that killed nothing. The single-shot sweep still measures t
 - Anything decided rather than measured: `docs/adr.md`
 - Theme contract and available themes: `docs/theme-contract.md`
 - How browser checks are run: `docs/browser-testing.md`
+
+## 6. Level protection (M21, D38)
+
+- [x] `scratch/shield-probe.ts` — loads every registered level and audits the rules.
+      **Result:** all six stages: birds shielded (roof + screen wall), props clear of gameplay,
+      no interpenetration.
+- [x] `scratch/roof-reach-report.ts` — measures every pull/angle pair and asks whether a pig
+      **descends** onto the roof above a bird.
+      **Result:** every bird UNREACHABLE by a descending shot from the launcher; birds die by
+      collapse or crush, not by a direct arc through the roof.
+- [x] `scratch/greedy-probe.ts` — greedy bot with reach-table aiming.
+      **Result:** stage-01 1 pig, stage-02 2, stage-03 2, stage-04 3, stage-05 3, stage-06 4, all
+      within authored ammo.
+- [x] `scratch/warmup-report.ts` — drift and damage after the load warmup.
+      **Result:** 0 bodies arrive damaged, drift under 3 units at 200 warmup steps.
+
+## 7. Soundtrack (M22, D40)
+
+- [x] Headless: the same stage composes the same track; six stages compose six tracks; every
+      note is a real pitch inside the loop; music stays silent with no context or a suspended one.
+- [x] Browser: turning music on starts a track named `key scale tempo` in the HUD, the track
+      changes when the stage changes, and turning it off stops the transport.
+- [/] Listening judgement. Headless Chromium has no audio output to hear, so the sound design
+      itself is a human check; it stays deferred to the real sound-design pass.

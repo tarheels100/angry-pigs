@@ -419,11 +419,16 @@ const BIRD_SHAPES: Record<string, BirdShape> = {
 };
 
 function birdShape(variant?: string): BirdShape {
-  return (variant ? BIRD_SHAPES[variant] : undefined) ?? BIRD_SHAPES.worker!;
+  const key = variant ? variant.replace('-flipped', '') : undefined;
+  return (key ? BIRD_SHAPES[key] : undefined) ?? BIRD_SHAPES.worker!;
 }
 
 function paintBird(ctx: CanvasRenderingContext2D, r: number, variant?: string): void {
   const shape = birdShape(variant);
+  // A `-flipped` variant mirrors the silhouette, so a nest does not face one way (D39).
+  const flipped = variant !== undefined && variant.endsWith('-flipped');
+  ctx.save();
+  if (flipped) ctx.scale(-1, 1);
   const outline = 'rgba(255, 214, 90, 0.95)';
 
   // Tail feathers behind the body: a runner's are longer and flatter.
@@ -498,6 +503,7 @@ function paintBird(ctx: CanvasRenderingContext2D, r: number, variant?: string): 
   ctx.beginPath();
   ctx.arc(shape.rx * r * 0.45, -shape.ry * r * 0.4, r * 0.1, 0, Math.PI * 2);
   ctx.fill();
+  ctx.restore();
 }
 
 /** Pull length that fully compresses the launcher spring (appearance, not gameplay). */

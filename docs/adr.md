@@ -410,3 +410,79 @@ the whole level outranks a minimum zoom; manual zoom-out stops at the fit.
 Consequences: the DPR browser test asserts the camera invariant (uniform zoom, level fits)
 instead of a CSS aspect ratio; and any future layout change is a CSS edit, not a renderer
 change.
+
+## D37 — stages scale up through reusable pieces, not hand-placed blocks
+
+**Date:** playtest after M20 · **Status:** accepted
+
+The stages read as too small and hand-authored coordinates had drifted into the structures.
+`src/levels/pieces.ts` added builders (`standing`, `stackUp`, `hut`, `platform`, `tower`,
+`barrierWall`, `bridge`, `pedestal`) that place everything relative to `GROUND_TOP`, so a
+level is written as "a hut here, a tower there" and geometry cannot overlap by accident. The
+world widened from 1600 to 2200 units so three zones fit with clear failure modes between
+them; `powerScale` went 0.22 → 0.3 to keep the pigs reachable across that distance.
+
+Scenery grew with the world: props are now roughly 5x larger and sit **under and behind** the
+playfield, where a projectile cannot pass through them. That is what makes them scenery rather
+than obstacles (docs/level-format.md rule 7). A `plinth` prop kind grounds the launcher, which
+otherwise read as a floating muzzle.
+
+Consequences: levels are short to write and safe to audit; `barrierWall` no longer staggers
+half-blocks, because a cantilevered narrow wall topples during the load warmup and arrives
+already damaged — masonry joints are theme art, not physics.
+
+## D38 — level rules are enforced by measurement, not by review
+
+**Date:** playtest after M20 · **Status:** accepted
+
+"Every bird is sheltered", "nothing critical under stone", "props clear of gameplay" and
+"no interpenetration" are now checked by `scratch/shield-probe.ts`, which loads every registered
+level and fails on any violation. Reachability is measured by `scratch/reachTable.ts`, which
+simulates every pull/angle pair and records whether a pig's path **descends** onto a roof, and
+`scratch/roof-reach-report.ts` pairs that with each bird's shelter.
+
+The point is a negative result: a shot that flies *over* a roof does not kill the bird under it.
+The earlier probes counted those as lethal because they sampled only the endpoint. The greedy
+bot now aims at shelter roofs and only fires when the measured path descends onto one, which
+makes the bot's plan a real difficulty measurement instead of an optimistic guess.
+
+Consequence: stage difficulty is quoted as "pigs the greedy bot needs" plus "shots that hit the
+shelter roof", both reproducible from the repo.
+
+## D39 — a bird names its silhouette; the theme draws it
+
+**Date:** playtest after M20 · **Status:** accepted
+
+Birds were three identical discs with an outline. `LevelObject.variant` (and `BodyInit.variant`)
+carry a presentation hint — `runner`, `worker`, `broody` — that the physics adapter rides along
+into `EntityState`, and each theme keeps a shape table keyed by it: a runner is long and low
+with one comb spike, a broody bird is round and tall with four. Themes fall back to `worker` for
+an unknown variant, so adding a bird kind is level data plus one shape entry, never a pipeline
+change.
+
+Consequences: the simulation never reads `variant` (it is not in any scoring or collision path),
+and the theme contract gains a documented vocabulary (docs/theme-contract.md). Pig art already
+used the same mechanism for pig type ids.
+
+## D40 — the soundtrack is composed with Tonal and played by Tone.js
+
+**Date:** M22 · **Status:** accepted, supersedes D32's scheduling
+
+The M17 track was two oscillator blips per eighth note: no harmony, no rhythm, and a note
+backlog when enabled mid-round. The soundtrack is now split in two:
+
+- `src/audio/composition.ts` (game layer, pure, no audio): the stage name seeds a tempo, a
+  scale, a four-chord progression, and a melody built from the chord tones of each bar. Tonal
+  supplies pitch grammar, so notes are real note names in a key rather than random Hz.
+- `src/audio/playback.ts` (presentation layer): Tone.js synths on Tone's transport, looping the
+  composed bar. Tone owns the clock, which is what kills the backlog — a track starts where the
+  transport is, so a paused menu cannot queue elapsed notes.
+
+Music still defaults to off (D32 stands as the shipping decision) and stays silent until the
+pointer gesture unlocks audio. The artifact gate no longer forbids the string `fetch(` in the
+bundle: Tone ships an unused notation loader, and dead code is not a dependency. The real
+guarantee is the browser test that boots the artifact with every network request aborted
+(`tests/browser/game.browser.mjs`), which is what D6 actually promises.
+
+Consequence: the bundle grew to ~450 KB minified, still one file, and headless tests cover the
+composition while the browser covers playback.

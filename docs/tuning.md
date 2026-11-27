@@ -193,3 +193,46 @@ The sweep grid aims from the cannon origin, so it re-measures itself at the new 
 Browser tests dismiss the title screen inside `open()`; the title-screen tests navigate
 directly and assert `__steps() === 0` behind the panel. Gates at the end of the pass: 155
 headless tests, 27 browser tests, `npm run check` green, determinism 144/0 mismatch.
+
+## M21 — scale, scenery, bird art, soundtrack
+
+| constant | value | where | reason / measurement |
+| --- | --- | --- | --- |
+| world bounds | 2200 x 900 | every level | three zones per stage with room for a barrier wall; height unchanged so vertical framing stays readable |
+| `powerScale` | 0.3 | level `cannon` | 0.22 could not reach the third zone at 2200 wide; measured landing distances below |
+| `SETTLE_WARMUP_STEPS` | 200 | `src/game/game.ts` | taller stages (up to 6 courses) needed more than 90 steps to arrive at rest (docs/physics.md gotcha 14) |
+| bird shapes | runner / worker / broody | themes | silhouette proportions, see `BIRD_SHAPES` in each theme; presentation only (D39) |
+| soundtrack | 92–125 bpm, 4 chords, 4 bars | `src/audio/composition.ts` | seeded from the stage name; melody uses the bar's chord tones (D40) |
+| voice volumes | lead −16 dB, bass −22 dB | `src/audio/playback.ts` | sits under the impact blips |
+| artifact size | ~450 KB minified | `dist/index.html` | Tone bundled; still one self-contained file |
+
+Measured landing distance at full pull (`scratch/landing-report.ts`, gravity 1, `frictionAir`
+0.001, `powerScale` 0.3, origin x=120, ground top 840):
+
+| aim | speed | lands at x |
+| --- | --- | --- |
+| 10° | 27 | 1467 |
+| 0° | 27 | 944 |
+| -20° | 27 | 448 |
+| -35° | 27 | 340 |
+| 30° / 45° | 27 | leaves the world before touching ground |
+
+So a flat-to-slightly-down arc is what lands in the middle zone, and a shallow upward arc is
+what reaches the far zone. Steep arcs exit the world and waste a pig, which is why the greedy
+bot's plans sit between -10° and -35° and why barrier walls in front of a shelter matter.
+
+Difficulty after the re-author (`scratch/greedy-probe.ts`, reach-table aiming, win = all birds
+dead and the world at rest):
+
+| stage | bodies | pigs the greedy bot needs | shots that descend onto a shelter roof |
+| --- | --- | --- | --- |
+| stage-01 | 27 | 1 | 191 |
+| stage-02 | 32 | 2 | 248 |
+| stage-03 | 29 | 2 | 154 |
+| stage-04 | 27 | 3 | 240 |
+| stage-05 | 22 | 3 | 219 |
+| stage-06 | 31 | 4 | 243 |
+
+The "descend onto roof" count is what a player can actually hit with a direct arc; the bot's pig
+count includes shots that kill by collapse or crush. `scratch/roof-reach-report.ts` shows every
+bird sheltered, none reachable by a descending shot from the launcher (D38).

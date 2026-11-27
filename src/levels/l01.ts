@@ -33,9 +33,9 @@ export const LEVEL_01: LevelDef = {
     ...barrierWall(2050, { courseW: 70, courseH: 80, courses: 5 }),
   ],
   targets: [
-    bird(700, 20, GROUND_TOP, 'runner'), // inside shelter 1, on the ground under the roof
-    bird(1150, 20, GROUND_TOP, 'worker'), // under the platform beam
-    bird(1600, 20, GROUND_TOP, 'broody'), // inside shelter 3
+    bird(700, 20, GROUND_TOP, 'runner', 'right'), // inside shelter 1, on the ground under the roof
+    bird(1150, 20, GROUND_TOP, 'worker', 'left'), // under the platform beam
+    bird(1600, 20, GROUND_TOP, 'broody', 'right'), // inside shelter 3
   ],
   scenery: [
     { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },

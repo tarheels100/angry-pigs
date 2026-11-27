@@ -32,10 +32,10 @@ export const LEVEL_02: LevelDef = {
     ...tower(2120, { width: 100, legs: 2, legHeight: 200, storeys: [{ material: 'glass', columns: 2, height: 140 }] }),
   ],
   targets: [
-    bird(820, 20, GROUND_TOP, 'worker'), // inside keep 1
-    bird(1230, 20, GROUND_TOP, 'runner'), // in the gap between legs of crush yard 1, under the beam
-    bird(1560, 20, GROUND_TOP, 'broody'), // inside keep 2
-    bird(1900, 20, GROUND_TOP, 'worker'), // under the beam of crush yard 2
+    bird(820, 20, GROUND_TOP, 'worker', 'right'), // inside keep 1
+    bird(1230, 20, GROUND_TOP, 'runner', 'left'), // in the gap between legs of crush yard 1, under the beam
+    bird(1560, 20, GROUND_TOP, 'broody', 'right'), // inside keep 2
+    bird(1900, 20, GROUND_TOP, 'worker', 'left'), // under the beam of crush yard 2
   ],
   scenery: [
     { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },

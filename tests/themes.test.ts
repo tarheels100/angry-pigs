@@ -332,3 +332,21 @@ test('birds get a different silhouette per variant (D39)', () => {
     assert.ok(paintsFor(theme, 'something-else').length > 0, 'an unknown variant still paints');
   }
 });
+
+test('a -flipped bird mirrors the silhouette', () => {
+  for (const theme of [createTronTheme(), createPixelTheme()]) {
+    const right = recordingContext();
+    theme.paintEntity(right.ctx, entity({ kind: 'bird', material: 'feather', shape: 'circle', halfWidth: 20, halfHeight: 20, variant: 'worker' }), viewport);
+    const left = recordingContext();
+    theme.paintEntity(left.ctx, entity({ kind: 'bird', material: 'feather', shape: 'circle', halfWidth: 20, halfHeight: 20, variant: 'worker-flipped' }), viewport);
+
+    assert.ok(left.ops.some((o) => o.op === 'scale' && o.args[0] === -1), `${theme.id}: flipped bird mirrors x`);
+    assert.ok(!right.ops.some((o) => o.op === 'scale' && o.args[0] === -1), `${theme.id}: unflipped bird does not mirror`);
+    assert.ok(left.ops.some((o) => o.op === 'restore'), `${theme.id}: the mirror transform is released`);
+
+    // Flipping mirrors the drawing; the shape table still resolves the kind, so the
+    // mirrored bird keeps the worker proportions rather than falling back to a default.
+    const geometry = (ops: Op[]) => ops.filter((o) => o.op === 'moveTo' || o.op === 'fillRect').map((o) => o.args.join(','));
+    assert.deepEqual(geometry(left.ops), geometry(right.ops), `${theme.id}: flipping mirrors, it does not reshape`);
+  }
+});

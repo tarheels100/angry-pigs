@@ -186,6 +186,14 @@ export function bridge(
 /** A bird standing on `surface`. `variant` picks the silhouette the theme draws
  * ("runner", "worker", "broody"); it is presentation only (docs/theme-contract.md).
  */
-export function bird(x: number, r = 20, surface = GROUND_TOP, variant?: string): LevelObject {
-  return { type: 'ball', material: 'feather', x, y: surface - r, r, target: true, ...(variant ? { variant } : {}) };
+export function bird(
+  x: number,
+  r = 20,
+  surface = GROUND_TOP,
+  variant?: string,
+  facing: 'right' | 'left' = 'right',
+): LevelObject {
+  // Facing is presentation only: a `-flipped` variant mirrors the silhouette (D39).
+  const name = variant ? (facing === 'left' ? `${variant}-flipped` : variant) : undefined;
+  return { type: 'ball', material: 'feather', x, y: surface - r, r, target: true, ...(name ? { variant: name } : {}) };
 }

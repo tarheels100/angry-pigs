@@ -129,3 +129,29 @@ to clear is under-designed — add a failure mode instead (rule 4).
 | `feather` | birds (targets) | fragile; dies from a fall or a direct hit |
 | `light` | pigs (projectiles) | rolls, never takes damage (D15) |
 | `ground` | statics | infinite health |
+
+11. **Author structures with `pieces.ts`, not hand-placed y values.** `standing`, `stackUp`,
+    `hut`, `platform`, `tower`, `barrierWall`, `bridge` and `pedestal` place everything
+    relative to `GROUND_TOP`, so a block cannot accidentally overlap its neighbour. Hand-typed
+    coordinates were how stage 02 ended up with pigs inside a wall (docs/adr.md D37).
+12. **The probes are the gate, not the eye.** Before shipping a level run
+    `scratch/shield-probe.ts` (every bird sheltered by roof + screen wall, no stone roof, props
+    clear of the playfield, no interpenetration) and `scratch/roof-reach-report.ts` (which
+    shelter roofs a measured trajectory actually descends onto). A shot that flies *over* a roof
+    does not kill the bird beneath it — endpoint sampling said it did, and the stages were
+    unwinnable (docs/adr.md D38).
+
+## Stage layout at 2200 wide
+
+World bounds are 2200 x 900 (`docs/tuning.md`). A stage reads as three zones: launcher and
+first shelter around x 600-760, the middle puzzle at 1100-1450, and the far zone at 1600-1950.
+Barrier walls belong in front of a shelter, not behind it — a flat shot lands short of the wall
+and dies there, so the wall is only worth building when the intended solution is an arc that
+clears it and descends (rule 2, and the landing table in `docs/tuning.md`).
+
+## bird variants
+
+A bird object may carry `variant`: `runner`, `worker`, or `broody`. It is presentation only
+(docs/theme-contract.md) — the physics adapter rides it into `EntityState` so the theme picks a
+silhouette. Mixing variants in a stage is what makes a nest read as a nest instead of a row of
+copies (docs/adr.md D39).

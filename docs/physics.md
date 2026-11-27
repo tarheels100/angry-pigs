@@ -117,8 +117,8 @@ Run `node scratch/physics-spike/spike.ts`. All checks pass:
     (docs/level-format.md rule 6).
 14. **Settling can damage a level before the player acts.** Authored bodies placed a pixel
     apart collide on the first steps, and that contact spends health, so a level used to
-    start partly damaged and visibly sinking. The game now simulates 90 steps with damage
-    suppressed before handing control over (D27); suppression is a game-layer flag, not a
+    start partly damaged and visibly sinking. The game now simulates `SETTLE_WARMUP_STEPS`
+    (200 today) steps with damage suppressed before handing control over (D27); suppression is a game-layer flag, not a
     physics-engine setting, so damage maths stays in one place.
 15. **A blast is not an impact.** `adapter.explode()` charges health points and velocity
     directly, with linear falloff from the centre, because a blast has no collision partner
@@ -145,3 +145,12 @@ machine reaches `won` / `lost` without hitting the timeout.
 - Categories/mask as the table above; `group` unused.
 - `simulateTrajectory` builds a throwaway world containing only the statics plus one
   pig body, steps it, and discards it — the live world is never touched.
+
+16. **A taller stage needs a longer warmup.** Stage 02's six-course masonry wall kept moving
+    for well over 90 warmup steps, so the level was still sinking when the player got control
+    (`scratch/warmup-report.ts`). The warmup is now 200 steps; the report is the check — it
+    measures drift and how many bodies arrive damaged, per stage.
+17. **A staggered narrow wall cantilevers.** Half-block staggering on a wall of two columns
+    leaves blocks with no support under one edge; during the warmup such a wall topples sideways
+    and arrives leaning. Masonry joints are theme art (`paintMaterialTexture`), not authored
+    geometry, so `barrierWall` builds full-width courses (`docs/level-format.md`).

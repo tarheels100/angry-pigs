@@ -6,8 +6,9 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
-**Status:** M1–M20 complete, with the post-M20 playtest fixes (menu unpause, hovering
-bodies, launcher and creature art, viewport framing, background scale) applied. The game runs
+**Status:** M1–M22 complete, with the post-M20 playtest fixes (menu unpause, hovering
+bodies, launcher and creature art, viewport framing, background scale) applied, and the
+follow-up pass that scaled the stages up (M21) and replaced the soundtrack (M22). The game runs
 in a browser from a single self-contained
 `dist/index.html`: six escalating stages, drag aim, trajectory preview, typed ammo (basic,
 heavy, bomb, cluster) with a bomb blast and a cluster spread, per-impact damage with partial
@@ -16,12 +17,13 @@ warm-up so nothing starts partly damaged, glass/wood/stone/metal structures that
 several hits, pigs and birds drawn as characters, a launcher whose barrel tilts and whose
 spring compresses, standing on a masonry plinth, a motion trail, scenery props, debris heaps
 that pile and fade, a title screen listing stages with best scores (the game opens on it, and
-the loop is paused behind it), an options screen whose settings survive a reload, a generated
-soundtrack with one flavour per stage (off by default), the Tron theme (default) plus a Pixel
+the loop is paused behind it), an options screen whose settings survive a reload, a soundtrack
+composed per stage with Tonal and played by Tone.js (off by default), the Tron theme (default) plus a Pixel
 theme proving the theme contract, and deployed to GitHub Pages
 (`https://tarheels100.github.io/angry-pigs/`).
-Gates: `npm run check` (typecheck + 155 headless tests + build), `npm run test:browser` (27
-Playwright tests against the built artifact), and `npm run check:determinism` (the same
+Gates: `npm run check` (typecheck + 159 headless tests + build), `npm run test:browser` (29
+Playwright tests against the built artifact, including a boot with every network request
+aborted), and `npm run check:determinism` (the same
 bundle run in node and chromium, 144 combos, 0 mismatches) — all three run in CI. Best
 results and options persist in `localStorage` (D24, D35).
 
@@ -468,6 +470,28 @@ materials and pig types.
 
 **Acceptance:** `scratch/greedy-probe.ts` and `tests/levels.test.ts` clear every stage
 within authored ammo; the difficulty order in `docs/tuning.md` still holds.
+
+### 21. Level scale, scenery, bird variety
+
+**Deliverables:** bigger stages (world 2200 wide, 22–32 bodies) built from reusable pieces
+(`src/levels/pieces.ts`); scenery props scaled to match the world and placed under and behind
+the playfield; a bird silhouette per bird (`runner`, `worker`, `broody`) carried through the
+contract (D39).
+
+**Acceptance:** `scratch/shield-probe.ts` reports every bird sheltered by roof + screen wall, no
+stone roofs, props clear of the playfield, no interpenetration; `scratch/roof-reach-report.ts`
+shows no bird reachable by a descending shot; `scratch/greedy-probe.ts` clears each stage within
+authored ammo (docs/adr.md D37, D38).
+
+### 22. Soundtrack on Tone.js + Tonal
+
+**Deliverables:** `src/audio/composition.ts` composes a stage's tempo, scale, four-chord
+progression and chord-tone melody from the level seed (pure, deterministic, no audio);
+`src/audio/playback.ts` plays it with Tone.js synths on Tone's transport (docs/adr.md D40).
+
+**Acceptance:** headless tests assert the same stage composes the same track, six stages compose
+six different tracks, and every note is a real pitch inside the loop; browser tests assert the
+HUD names the track, the track changes with the stage, and turning music off stops the transport.
 
 ## Later / optional
 

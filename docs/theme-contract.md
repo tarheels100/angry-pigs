@@ -85,3 +85,20 @@ double wall, glass sheen), derived from `material` plus the palette colour only.
 themes render the same material completely differently — Tron reads materials as
 construction, Pixel as masonry — and neither reads physics (docs/post-m13-notes.md,
 M14). This is a recipe inside `paintEntity`, not a new pipeline stage.
+
+## Variant vocabulary (D39)
+
+A level names a body's silhouette through `variant`, which the physics adapter carries into
+`EntityState`. Themes key their art tables on it and fall back to a default, so adding a kind is
+level data plus one table entry — never a pipeline change:
+
+| kind | variants | default |
+| --- | --- | --- |
+| pig | `basic`, `heavy`, `bomb`, `cluster` | `basic` |
+| bird | `runner` (long, low, one comb spike), `worker`, `broody` (round, tall, four spikes) | `worker` |
+| scenery | `tree`, `ridge`, `plinth` | any prop painted from `variant` |
+
+A bird variant may carry the suffix `-flipped`, which mirrors the silhouette horizontally. Facing
+is authored in the level data (`bird(x, r, surface, kind, 'left')` in `src/levels/pieces.ts`) so a
+nest does not read as a row of identical copies, and it stays deterministic because it is data,
+not a runtime random choice.
