@@ -183,6 +183,9 @@ export function bridge(
 }
 
 /** A bird resting on `surface` (the top of a structure or the ground). */
-export function bird(x: number, r = 20, surface = GROUND_TOP): LevelObject {
-  return { type: 'ball', material: 'feather', x, y: surface - r, r, target: true };
+/** A bird standing on `surface`. `variant` picks the silhouette the theme draws
+ * ("runner", "worker", "broody"); it is presentation only (docs/theme-contract.md).
+ */
+export function bird(x: number, r = 20, surface = GROUND_TOP, variant?: string): LevelObject {
+  return { type: 'ball', material: 'feather', x, y: surface - r, r, target: true, ...(variant ? { variant } : {}) };
 }

@@ -219,7 +219,7 @@ export function createTronTheme(overrides: Partial<ThemePalette> = {}, id = 'tro
       // tilting barrel and a compressing spring. Drawn in local space, so a rolling
       // pig rolls its face with it (docs/theme-contract.md).
       if (state.kind === 'pig') paintPig(ctx, state.radius ?? 16, state.variant ?? 'basic');
-      else if (state.kind === 'bird') paintBird(ctx, state.radius ?? 16);
+      else if (state.kind === 'bird') paintBird(ctx, state.radius ?? 16, state.variant);
       else if (state.kind === 'cannon') paintCannon(ctx, state, palette);
 
       paintMaterialTexture(ctx, state, palette);
@@ -398,16 +398,41 @@ function paintPig(ctx: CanvasRenderingContext2D, r: number, variant: string): vo
  * egg-shaped with a folded wing, tail feathers, an orange beak in a different hue, a
  * comb, and legs.
  */
-function paintBird(ctx: CanvasRenderingContext2D, r: number): void {
+/**
+ * Bird silhouettes by variant (docs/theme-contract.md). The level names the bird kind;
+ * the theme decides what each one looks like. `worker` is the fallback for an unknown
+ * variant, so a theme never has to know the whole list.
+ */
+interface BirdShape {
+  rx: number;
+  ry: number;
+  tail: number;
+  comb: number;
+  spikes: number;
+  wing: number;
+}
+
+const BIRD_SHAPES: Record<string, BirdShape> = {
+  runner: { rx: 1.3, ry: 0.7, tail: 1.75, comb: 0.9, spikes: 1, wing: 0.75 },
+  worker: { rx: 1.08, ry: 0.88, tail: 1.45, comb: 1.2, spikes: 3, wing: 0.62 },
+  broody: { rx: 1.02, ry: 1.05, tail: 1.15, comb: 1.55, spikes: 4, wing: 0.5 },
+};
+
+function birdShape(variant?: string): BirdShape {
+  return (variant ? BIRD_SHAPES[variant] : undefined) ?? BIRD_SHAPES.worker!;
+}
+
+function paintBird(ctx: CanvasRenderingContext2D, r: number, variant?: string): void {
+  const shape = birdShape(variant);
   const outline = 'rgba(255, 214, 90, 0.95)';
 
-  // Tail feathers behind the body.
+  // Tail feathers behind the body: a runner's are longer and flatter.
   ctx.strokeStyle = outline;
   ctx.lineWidth = 2;
   ctx.beginPath();
   for (const dy of [-0.35, 0, 0.35]) {
-    ctx.moveTo(-r * 0.8, dy * r);
-    ctx.lineTo(-r * 1.45, dy * r - r * 0.22);
+    ctx.moveTo(-shape.rx * r * 0.75, dy * shape.ry * r);
+    ctx.lineTo(-shape.tail * r, dy * shape.ry * r - r * 0.22);
   }
   ctx.stroke();
 
@@ -416,36 +441,39 @@ function paintBird(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   for (const dx of [-0.2, 0.25]) {
-    ctx.moveTo(dx * r, r * 0.7);
-    ctx.lineTo(dx * r + r * 0.12, r * 1.15);
+    ctx.moveTo(dx * r, shape.ry * r * 0.8);
+    ctx.lineTo(dx * r + r * 0.12, shape.ry * r * 1.25);
   }
   ctx.stroke();
 
-  // Body: egg-shaped rather than a circle, so it is not a sun disc.
+  // Body: an egg whose proportions come from the variant, so three birds in one
+  // stage are not three copies of the same outline.
   ctx.fillStyle = 'rgba(255, 210, 74, 0.55)';
   ctx.strokeStyle = outline;
   ctx.lineWidth = 2.5;
   ctx.beginPath();
-  ctx.ellipse(0, 0, r * 1.08, r * 0.88, 0, 0, Math.PI * 2);
+  ctx.ellipse(0, 0, shape.rx * r, shape.ry * r, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Wing: a darker oval across the body, its own path.
+  // Wing: darker oval across the body, swept back further on a runner.
   ctx.fillStyle = 'rgba(214, 150, 46, 0.5)';
   ctx.strokeStyle = outline;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.ellipse(-r * 0.25, -r * 0.12, r * 0.62, r * 0.42, -0.35, 0, Math.PI * 2);
+  ctx.ellipse(-shape.rx * r * 0.25, -shape.ry * r * 0.15, shape.wing * r, shape.wing * r * 0.66, -0.35, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
-  // Comb: three spikes in a warm hue.
+  // Comb: spike count and height are the variant's signature.
   ctx.fillStyle = 'rgba(255, 80, 60, 0.9)';
   ctx.beginPath();
-  for (const dx of [-0.25, 0, 0.25]) {
-    ctx.moveTo(dx * r, -r * 0.82);
-    ctx.lineTo(dx * r + r * 0.14, -r * 1.2);
-    ctx.lineTo(dx * r + r * 0.28, -r * 0.82);
+  const spread = shape.spikes === 1 ? 0 : 0.25;
+  for (let i = 0; i < shape.spikes; i++) {
+    const dx = (i - (shape.spikes - 1) / 2) * spread * r;
+    ctx.moveTo(dx, -shape.ry * r * 0.9);
+    ctx.lineTo(dx + r * 0.14, -shape.comb * r);
+    ctx.lineTo(dx + r * 0.28, -shape.ry * r * 0.9);
   }
   ctx.fill();
 
@@ -454,9 +482,9 @@ function paintBird(ctx: CanvasRenderingContext2D, r: number): void {
   ctx.strokeStyle = 'rgba(190, 110, 30, 0.95)';
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.moveTo(r * 0.85, -r * 0.25);
-  ctx.lineTo(r * 1.5, r * 0.05);
-    ctx.lineTo(r * 0.85, r * 0.32);
+  ctx.moveTo(shape.rx * r * 0.8, -shape.ry * r * 0.25);
+  ctx.lineTo(shape.rx * r * 1.5, r * 0.05);
+  ctx.lineTo(shape.rx * r * 0.8, shape.ry * r * 0.32);
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
@@ -464,11 +492,11 @@ function paintBird(ctx: CanvasRenderingContext2D, r: number): void {
   // Eye near the head.
   ctx.fillStyle = 'rgba(240, 250, 255, 0.92)';
   ctx.beginPath();
-  ctx.arc(r * 0.4, -r * 0.4, r * 0.22, 0, Math.PI * 2);
+  ctx.arc(shape.rx * r * 0.4, -shape.ry * r * 0.4, r * 0.22, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = 'rgba(12, 20, 26, 0.95)';
   ctx.beginPath();
-  ctx.arc(r * 0.46, -r * 0.4, r * 0.1, 0, Math.PI * 2);
+  ctx.arc(shape.rx * r * 0.45, -shape.ry * r * 0.4, r * 0.1, 0, Math.PI * 2);
   ctx.fill();
 }
 

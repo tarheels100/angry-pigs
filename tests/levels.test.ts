@@ -177,3 +177,14 @@ test('scenery is art: validated, loaded, and never a physics body', () => {
   assert.equal(game.entities.byKind('scenery').length, 2, 'props appear as display extras');
   assert.ok(game.entities.byKind('scenery').every((e) => (SCENERY_KINDS as readonly string[]).includes(e.variant ?? '')), 'props carry their kind hint');
 });
+
+test('birds carry a silhouette variant through the contract (D39)', () => {
+  // Levels name the bird kind; themes draw it. The hint must survive loading.
+  for (const def of LEVELS) {
+    const loaded = loadLevel(def);
+    const birds = loaded.bodies.filter((b) => b.kind === 'bird');
+    assert.ok(birds.length > 0, `${def.name} has birds`);
+    assert.ok(birds.every((b) => typeof b.variant === 'string'), `${def.name} birds all name a variant`);
+    assert.ok(new Set(birds.map((b) => b.variant)).size > 1, `${def.name} mixes bird kinds rather than repeating one`);
+  }
+});

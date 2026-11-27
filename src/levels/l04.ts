@@ -1,5 +1,5 @@
 import type { LevelDef } from './index.ts';
-import { barrierWall, bird, bridge, hut, tower } from './pieces.ts';
+import { GROUND_TOP, barrierWall, bird, bridge, hut, tower } from './pieces.ts';
 
 /**
  * Stage 04 — the long bridge yard.
@@ -26,10 +26,10 @@ export const LEVEL_04: LevelDef = {
     ...tower(2120, { width: 100, legs: 2, legHeight: 220, storeys: [{ material: 'glass', columns: 2, height: 150 }] }),
   ],
   targets: [
-    bird(950), // under the deck, between piers 1 and 2
-    bird(1250), // under the deck, between piers 2 and 3
-    bird(1500), // under the deck, between piers 3 and 4
-    bird(1900), // inside the hut
+    bird(950, 20, GROUND_TOP, 'worker'), // under the deck, between piers 1 and 2
+    bird(1250, 20, GROUND_TOP, 'runner'), // under the deck, between piers 2 and 3
+    bird(1500, 20, GROUND_TOP, 'broody'), // under the deck, between piers 3 and 4
+    bird(1900, 20, GROUND_TOP, 'worker'), // inside the hut
   ],
   scenery: [
     { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },

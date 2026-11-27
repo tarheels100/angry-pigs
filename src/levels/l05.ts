@@ -1,5 +1,5 @@
 import type { LevelDef } from './index.ts';
-import { bird, hut, platform, standing } from './pieces.ts';
+import { GROUND_TOP, bird, hut, platform, standing } from './pieces.ts';
 
 /**
  * Stage 05 — the terrace climb: five shelters stepping up in height, left to right.
@@ -30,11 +30,11 @@ export const LEVEL_05: LevelDef = {
     ...platform(2060, { span: 140, height: 160, supports: 2 }),
   ],
   targets: [
-    bird(760), // gap between the two legs of shelter 1
-    bird(1080), // inside shelter 2
-    bird(1470), // gap between legs of shelter 3
-    bird(1760), // inside shelter 4
-    bird(2060), // gap between legs of shelter 5
+    bird(760, 20, GROUND_TOP, 'runner'), // gap between the two legs of shelter 1
+    bird(1080, 20, GROUND_TOP, 'worker'), // inside shelter 2
+    bird(1470, 20, GROUND_TOP, 'broody'), // gap between legs of shelter 3
+    bird(1760, 20, GROUND_TOP, 'runner'), // inside shelter 4
+    bird(2060, 20, GROUND_TOP, 'worker'), // gap between legs of shelter 5
   ],
   scenery: [
     { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },

@@ -139,48 +139,67 @@ function paintPig(ctx: CanvasRenderingContext2D, palette: ThemePalette, half: nu
  * A bird as stacked squares. Playtest: it read as "a sun" — a disc with a ring — so the
  * body is now a wide chunky block with a wing, tail steps, an orange beak, and a comb.
  */
-function paintBird(ctx: CanvasRenderingContext2D, palette: ThemePalette, half: number): void {
+/** Chunky bird silhouettes by variant, mirroring the tron theme's shapes (D39). */
+interface BirdShape {
+  rx: number;
+  ry: number;
+  tail: number;
+  comb: number;
+  wing: number;
+}
+
+const BIRD_SHAPES: Record<string, BirdShape> = {
+  runner: { rx: 1.3, ry: 0.7, tail: 3, comb: 1, wing: 5 },
+  worker: { rx: 1.08, ry: 0.88, tail: 2, comb: 3, wing: 4 },
+  broody: { rx: 1.02, ry: 1.05, tail: 1, comb: 4, wing: 3 },
+};
+
+function birdShape(variant?: string): BirdShape {
+  return (variant ? BIRD_SHAPES[variant] : undefined) ?? BIRD_SHAPES.worker!;
+}
+
+function paintBird(ctx: CanvasRenderingContext2D, palette: ThemePalette, half: number, variant?: string): void {
+  const shape = birdShape(variant);
   const yellow = palette.bird;
   const dark = '#8a5a22';
   const orange = '#ff9a4a';
   const red = '#e04a3a';
+  const rx = snap(half * shape.rx);
+  const ry = snap(half * shape.ry);
 
-  // Tail steps behind the body.
+  // Tail steps behind the body: a runner carries more of them.
   ctx.fillStyle = yellow;
-  ctx.fillRect(snap(-half) - PIXEL * 2, snap(-half * 0.45) - PIXEL, PIXEL * 2, PIXEL);
-  ctx.fillRect(snap(-half) - PIXEL * 2, snap(-half * 0.1), PIXEL * 2, PIXEL);
-  ctx.fillRect(snap(-half) - PIXEL * 2, snap(half * 0.35) - PIXEL, PIXEL * 2, PIXEL);
+  for (let i = 0; i < shape.tail; i++) {
+    ctx.fillRect(-rx - PIXEL * 2, snap(-ry * 0.5) + i * PIXEL * 1.5 - PIXEL, PIXEL * 2, PIXEL);
+  }
 
   // Legs.
   ctx.fillStyle = orange;
-  ctx.fillRect(-PIXEL, snap(half), PIXEL, PIXEL * 2);
-  ctx.fillRect(PIXEL, snap(half), PIXEL, PIXEL * 2);
+  ctx.fillRect(-PIXEL, ry - PIXEL, PIXEL, PIXEL * 2);
+  ctx.fillRect(PIXEL, ry - PIXEL, PIXEL, PIXEL * 2);
 
-  // Body: wider than tall, so it is an egg rather than a disc.
+  // Body: the variant decides how wide and how tall the block is.
   ctx.fillStyle = yellow;
-  ctx.fillRect(snap(-half), snap(-half * 0.7), snap(half * 2), snap(half * 1.4));
+  ctx.fillRect(-rx, -ry, rx * 2, ry * 2);
 
-  // Wing: a darker band across the body.
+  // Wing: a darker band, longer on a runner.
   ctx.fillStyle = dark;
-  ctx.fillRect(snap(-half * 0.6), -PIXEL, PIXEL * 4, PIXEL * 2);
-  ctx.fillRect(snap(-half * 0.3), PIXEL * 2, PIXEL * 3, PIXEL);
+  ctx.fillRect(-rx + PIXEL, -PIXEL, PIXEL * shape.wing, PIXEL * 2);
 
-  // Comb: three red blocks on top.
+  // Comb: one spike for a runner, four for a broody bird.
   ctx.fillStyle = red;
-  ctx.fillRect(snap(-half * 0.35), snap(-half) - PIXEL * 2, PIXEL, PIXEL * 2);
-  ctx.fillRect(snap(-half * 0.05), snap(-half) - PIXEL * 3, PIXEL, PIXEL * 3);
-  ctx.fillRect(snap(half * 0.25), snap(-half) - PIXEL * 2, PIXEL, PIXEL * 2);
+  for (let i = 0; i < shape.comb; i++) {
+    const dx = snap(((i - (shape.comb - 1) / 2) * half * 0.35));
+    ctx.fillRect(dx, -ry - PIXEL * 2, PIXEL, PIXEL * 2);
+  }
 
-  // Beak: a stepped orange wedge past the body edge.
+  // Beak: an orange step past the body edge.
   ctx.fillStyle = orange;
-  ctx.fillRect(snap(half), -PIXEL, PIXEL * 2, PIXEL * 2);
-  ctx.fillRect(snap(half) + PIXEL * 2, -PIXEL, PIXEL, PIXEL);
+  ctx.fillRect(rx, -PIXEL, PIXEL * 2, PIXEL);
 
-  // Eye: light block with a dark pupil.
-  ctx.fillStyle = '#f4efe2';
-  ctx.fillRect(snap(half * 0.45) - PIXEL, snap(-half * 0.5) - PIXEL, PIXEL * 2, PIXEL * 2);
-  ctx.fillStyle = dark;
-  ctx.fillRect(snap(half * 0.45), snap(-half * 0.5), PIXEL, PIXEL);
+  // Eye: dark pixel near the head.
+  ctx.fillStyle = '#0d141a';
+  ctx.fillRect(rx - PIXEL * 2, -ry + PIXEL, PIXEL, PIXEL);
 }
 
 /** Pull length that fully compresses the launcher spring (appearance, not gameplay). */
@@ -385,7 +404,7 @@ export function createPixelTheme(overrides: Partial<ThemePalette> = {}, id = 'pi
       // Entity art, snapped to the pixel grid: ears and a snout for a pig, a wing
       // and beak for a bird, a stepped barrel and spring coils for the launcher.
       if (state.kind === 'pig') paintPig(ctx, palette, snap(state.radius ?? 16), state.variant ?? 'basic');
-      else if (state.kind === 'bird') paintBird(ctx, palette, snap(state.radius ?? 16));
+      else if (state.kind === 'bird') paintBird(ctx, palette, snap(state.radius ?? 16), state.variant);
       else if (state.kind === 'cannon') paintCannon(ctx, state, palette);
 
       ctx.restore();

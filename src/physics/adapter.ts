@@ -18,6 +18,10 @@ export interface BodyInit {
   isStatic?: boolean;
   /** Mass multiplier on the material density; a heavy pig knocks structures down (M18). */
   massScale?: number;
+  /** Presentation hint the theme paints (bird silhouette, pig type id). The simulation
+   * never reads it; it rides along so a body's art comes from the level (D39).
+   */
+  variant?: string;
 }
 
 // Impact and TrajectorySample are core types so the game layer can consume them

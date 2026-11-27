@@ -52,6 +52,10 @@ export interface LevelObject {
   angle?: number;
   /** Targets are birds; counted for win/lose. */
   target?: boolean;
+  /** Presentation hint, never gameplay: for a bird it picks the silhouette the theme
+   * draws ("runner", "worker", "broody"). Unknown values fall back to the theme default.
+   */
+  variant?: string;
 }
 
 export interface LevelDef {
@@ -126,6 +130,7 @@ function objectBody(obj: LevelObject, id: string, kind: EntityKind): BodyInit {
     x: requireNumber(`${field}.x`, obj.x),
     y: requireNumber(`${field}.y`, obj.y),
     angle: obj.angle ?? 0,
+    ...(obj.variant ? { variant: obj.variant } : {}),
   };
   if (obj.type === 'ball') {
     base.radius = requireNumber(`${field}.r`, obj.r);

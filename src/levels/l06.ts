@@ -1,5 +1,5 @@
 import type { LevelDef } from './index.ts';
-import { barrierWall, bird, hut, platform, tower } from './pieces.ts';
+import { GROUND_TOP, barrierWall, bird, hut, platform, tower } from './pieces.ts';
 
 /**
  * Stage 06 — the finale: metal shield, mixed materials, five birds.
@@ -29,11 +29,11 @@ export const LEVEL_06: LevelDef = {
     ...hut(2060, { width: 170, height: 300, columns: 'wood', screenHeight: 360 }),
   ],
   targets: [
-    bird(1000), // inside keep 1
-    bird(1300), // inside keep 2
-    bird(1705), // gap between the first two legs of the platform, under the beam
-    bird(1815), // gap on the far side of the same platform
-    bird(2060), // inside keep 3
+    bird(1000, 20, GROUND_TOP, 'broody'), // inside keep 1
+    bird(1300, 20, GROUND_TOP, 'runner'), // inside keep 2
+    bird(1705, 20, GROUND_TOP, 'worker'), // gap between the first two legs of the platform, under the beam
+    bird(1815, 20, GROUND_TOP, 'worker'), // gap on the far side of the same platform
+    bird(2060, 20, GROUND_TOP, 'runner'), // inside keep 3
   ],
   scenery: [
     { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },

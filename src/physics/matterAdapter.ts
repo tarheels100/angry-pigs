@@ -56,6 +56,8 @@ interface Tracked {
   healthMax: number;
   destroyed: boolean;
   impactEnergy: number;
+  /** Presentation hint from the level (bird silhouette, pig type id). */
+  variant?: string;
   radius?: number;
   halfWidth?: number;
   halfHeight?: number;
@@ -160,6 +162,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
       healthMax: b.isStatic ? Infinity : healthFor(b.material, area),
       destroyed: false,
       impactEnergy: 0,
+      ...(b.variant ? { variant: b.variant } : {}),
       ...dims,
     });
   }
@@ -298,6 +301,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
       health: t.health,
       healthMax: t.healthMax,
       impactEnergy: t.impactEnergy,
+      ...(t.variant ? { variant: t.variant } : {}),
     };
     // Dimensions come from the level descriptor, not body.bounds, which is
     // axis-aligned and therefore wrong for a rotated rectangle.

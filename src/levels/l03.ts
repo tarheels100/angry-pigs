@@ -1,5 +1,5 @@
 import type { LevelDef } from './index.ts';
-import { barrierWall, bird, hut, tower } from './pieces.ts';
+import { GROUND_TOP, barrierWall, bird, hut, tower } from './pieces.ts';
 
 /**
  * Stage 03 — the stone gate.
@@ -29,10 +29,10 @@ export const LEVEL_03: LevelDef = {
     ...tower(1900, { width: 100, legs: 2, legHeight: 220, storeys: [{ material: 'glass', columns: 2, height: 150 }] }),
   ],
   targets: [
-    bird(760), // on the first glass tower
-    bird(1000), // between the second tower's legs, under its roof
-    bird(1360), // inside the wood hut
-    bird(1440), // beside the hut, under the same roof span
+    bird(760, 20, GROUND_TOP, 'runner'), // on the first glass tower
+    bird(1000, 20, GROUND_TOP, 'broody'), // between the second tower's legs, under its roof
+    bird(1360, 20, GROUND_TOP, 'worker'), // inside the wood hut
+    bird(1440, 20, GROUND_TOP, 'runner'), // beside the hut, under the same roof span
   ],
   scenery: [
     { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },
