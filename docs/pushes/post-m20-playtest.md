@@ -161,3 +161,29 @@ Deferred, needing your call:
 - Item 3's target look is subjective. The plan asserts silhouettes are non-circular and
   recognizable by construction; a visual review (vision is available now) is the judgment
   layer. If the look is still wrong after the pass, that needs your description, not mine.
+
+### CI round: a blank canvas behind the menu
+
+The first CI run after the fixes failed two steps, both invisible locally because I read
+filtered output instead of exit codes:
+
+- `build` job, `npm run check` — two type errors in `tests/levels.test.ts`
+  (`SCENERY_KINDS.includes(string)`) and `tests/smoke.test.ts`, which drove frames while the
+  title screen was still open and so asserted a loop that is legitimately paused.
+- `browser` job, `npm run test:browser` — the launcher-pixel test was flaky (passed on one run,
+  failed on the next). Reproduced in a fresh clone: two of three runs failed.
+
+Root cause of the flake, and a real bug the playtest did not name: the title screen pauses the
+loop, and `refit()` resized the canvas without repainting, so a resize behind the panel left a
+**blank canvas** — a pixel sample taken then read zeros. Fix in `src/main.ts`: the drawing moved
+into `drawFrame()`, used by the loop's render callback; it is called once at load before the
+title screen pauses the loop, and `refit()` repaints through a `repaint` seam. The browser test
+also waits for the first painted frame before sampling.
+
+Re-ran three times: `npm run test:browser` exit 0 each time (27 tests). `npm run check` exit 0.
+`npm run check:determinism` exit 0 (144 combos, 0 mismatch). CI on `5c0b63d` completed success;
+the live page (`https://tarheels100.github.io/angry-pigs/`) returns 200 and is byte-identical to
+the local artifact (sha256 `f10f37cdc7ecf3e7…`).
+
+**Gate discipline for the next push:** run a gate as `npm run <gate> > log 2>&1; echo exit=$?`.
+A pipeline through `grep` reports grep's status, which hid two real failures here.
