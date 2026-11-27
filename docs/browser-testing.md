@@ -85,4 +85,4 @@ Implemented as Option A: `tests/browser/harness.mjs` + `tests/browser/game.brows
 - Tests drive **dist/index.html**, the same file Pages publishes and a player opens from disk.
 - The static server listens on **port 0** (OS-assigned ephemeral port) and is closed in an `after()` hook, so a run can neither collide with a leftover listener nor need anything killed.
 - `npm run dev` spawns no long-lived children (`spawnSync` only for the build step), so there is no process registry to clean up.
-- Assertions are numeric — pixel sampling, canvas backing-store dimensions, phase transitions, HUD text — so they do not depend on image review.
+- Assertions are numeric — pixel sampling, canvas backing-store dimensions, phase transitions, HUD text — so they do not depend on image review. The session model takes no images today; the attempt to configure a vision-capable one is recorded in `docs/pushes/vision-model-setup.md` (the provider accepts images, the harness's vision gate does not yet accept custom-provider models). Screenshots are therefore written for a human to read, and the tests assert numbers.
