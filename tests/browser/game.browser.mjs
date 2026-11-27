@@ -538,24 +538,42 @@ async function waitShootable(page) {
   );
 }
 
-/** The measured stage-01 winner (docs/tuning.md): the same arc twice, 90 pull at 20° up. */
-async function fireWinner(page) {
-  const rad = (WIN.deg * Math.PI) / 180;
+/** Fire one measured shot: `pull` units at `deg` degrees above horizontal. */
+async function fireShot(page, pull = WIN.pull, deg = WIN.deg) {
+  const rad = (deg * Math.PI) / 180;
   await page.evaluate(({ pull, rad }) => {
     const origin = window.__game.cannon.config().origin;
     window.__game.beginAim();
     window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
     window.__game.releaseAim();
-  }, { pull: WIN.pull, rad });
+  }, { pull, rad });
 }
 
-/** Fire the measured plan until the stage is won, then let the world settle (M21 stages take two pigs). */
-async function winStage(page) {
-  for (let shot = 0; shot < 6; shot++) {
-    const phase = (await snapshot(page)).phase;
-    if (phase === 'won') return;
-    await fireWinner(page);
-    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won' || window.__game.rules.snapshot().phase === 'aiming', null, { timeout: 8000 });
+/** The measured stage-01 opener (docs/tuning.md): 90 pull at 20 degrees up. */
+async function fireWinner(page) {
+  await fireShot(page);
+}
+
+/**
+ * The greedy bot's plans, mirrored from tests/levels.test.ts (scratch/greedy-probe.ts).
+ * Sheltered stages need more than one pig, so winning in the browser means replaying a plan.
+ */
+const PLANS = [
+  [[90, -20], [90, -5]],
+  [[75, -35], [75, -25]],
+  [[90, -10], [90, -20]],
+  [[90, -20], [75, -35], [90, -15]],
+  [[75, -40], [63, -30], [90, -5]],
+  [[90, -45], [90, -30], [75, -45]],
+];
+
+/** Fire the measured plan for a stage until it is won (docs/adr.md D26 allows shots while debris settles). */
+async function winStage(page, stageIndex = 0) {
+  for (const [pull, deg] of PLANS[stageIndex] ?? PLANS[0]) {
+    if ((await snapshot(page)).phase === 'won') return;
+    await fireShot(page, pull, deg);
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase !== 'in_flight', null, { timeout: 8000 });
+    await waitShootable(page);
   }
   await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won', null, { timeout: 8000 });
 }
@@ -568,24 +586,31 @@ async function waitAsleep(page) {
 test('the HUD names the pig waiting in the chamber (M18)', async () => {
   await withPage(async (page) => {
     await open(page, artifactPath());
-    // Stage 03 ships basic, cluster, bomb, then basics.
+    // Stage 04 ships bomb, heavy, cluster, then two basics (src/levels/l04.ts), and its
+    // measured plan takes three pigs, so the chamber is still advancing at the last shot.
     await page.keyboard.press('n');
     await page.keyboard.press('n');
-    await waitStat(page, 'level', 'stage 3/6', 'stage 03 loaded');
+    await page.keyboard.press('n');
+    await waitStat(page, 'level', 'stage 4/6', 'stage 04 loaded');
     // The chamber label is written by the render loop, so it is waited for, not read instantly.
-    await waitStat(page, 'next-pig', 'next basic', 'basic queued first');
+    await waitStat(page, 'next-pig', 'next bomb', 'bomb queued first');
 
-    await pullAndFire(page, 90, 0);
+    await fireShot(page, 90, -20);
+    await waitStat(page, 'next-pig', 'next heavy', 'heavy queued next');
+    await waitShootable(page);
+
+    await fireShot(page, 75, -35);
+    // A heavy pig is one bigger body, not a burst.
+    await page.waitForFunction(() => window.__game.entities.byKind('pig').length >= 1, null, { timeout: 1500 });
     await waitStat(page, 'next-pig', 'next cluster', 'cluster queued next');
     await waitShootable(page);
 
-    await pullAndFire(page, 90, 0);
+    await fireShot(page, 90, -15);
     // Counted after the first simulation step registers the bodies, but before the pigs
     // settle and are consumed, so the burst is visible.
     await page.waitForFunction(() => window.__game.entities.byKind('pig').length > 1, null, { timeout: 1500 });
     const pigs = await page.evaluate(() => window.__game.entities.byKind('pig').length);
     assert.ok(pigs > 1, `a cluster fires several pigs (saw ${pigs})`);
-    await waitStat(page, 'next-pig', 'next bomb', 'bomb queued next');
   });
 });
 
@@ -715,9 +740,8 @@ test('turning trail and debris off stops those effects (M19)', async () => {
 test('forgetting best scores clears the title screen records (M19)', async () => {
   await withPage(async (page) => {
     await open(page, await baseUrl());
-    // Clear stage 01 so a record exists.
-    await fireWinner(page);
-    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won', null, { timeout: 8000 });
+    // Clear stage 01 so a record exists: the sheltered stage takes the measured two-pig plan.
+    await winStage(page, 0);
     assert.ok(
       await page.evaluate(() => localStorage.getItem('angry-pigs:best:stage-01')),
       'a win writes a best record',
