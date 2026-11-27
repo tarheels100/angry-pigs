@@ -245,3 +245,18 @@ reachable without breaking anything, levels ~35 bodies.
 `npm run check:determinism` exit 0 (144 combos, 0 mismatch). The DPR browser test changed:
 the 16:9 CSS box is gone, so it now asserts the camera invariant instead — horizontal world
 lines stay horizontal, world lengths map uniformly, and the zoom equals the viewport fit.
+
+### Vision review of the current build
+
+Screenshots (`scratch/shots/`, gitignored — regenerate with a Playwright probe) were read back
+through the session model, which is the judgment layer `docs/browser-testing.md` describes;
+numeric assertions stayed the gate. What the images showed:
+
+- The launcher reads correctly now: carriage, wheels, plinth, barrel tilted by the aim, spring
+  inside the bore.
+- Trees and the ridge band are large enough to read as scenery.
+- **Stage 1 is visibly sparse**: four bodies, one pedestal, one wall, and a bird sitting on bare
+  ground mid-field. That is the difficulty complaint in picture form, and it is what the M21
+  plan targets.
+- **Portrait 420x800** shows the whole level but as a thin band with empty sky above and below.
+  Unavoidable while levels are 1600 units wide; recorded as an open question in the M21 plan.

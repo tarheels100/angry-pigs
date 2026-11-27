@@ -6,7 +6,9 @@ abstract light-powered cannon, and the targets are **birds**. Visual style is
 
 ## Overview
 
-**Status:** M1–M20 complete. The game runs in a browser from a single self-contained
+**Status:** M1–M20 complete, with the post-M20 playtest fixes (menu unpause, hovering
+bodies, launcher and creature art, viewport framing, background scale) applied. The game runs
+in a browser from a single self-contained
 `dist/index.html`: six escalating stages, drag aim, trajectory preview, typed ammo (basic,
 heavy, bomb, cluster) with a bomb blast and a cluster spread, per-impact damage with partial
 destruction, crush/fall attribution, star scoring, camera follow and re-framing, a level
@@ -30,7 +32,9 @@ mid-air, birds with no protection, rubble that hovered where its support used to
 HUD whose restart button sat below the screen.
 
 Remaining open work is tuning and feel rather than plumbing — see the open questions in
-`docs/tuning.md` and the manual touch check in `docs/checklist.md`.
+`docs/tuning.md` and the manual touch check in `docs/checklist.md`. The next push, M21, is the
+difficulty problem the second playtest report named: birds reachable without breaking anything,
+and stages of only 4-12 bodies. Its plan is `docs/pushes/M21-level-scale-and-protection.md`.
 
 On each level the player gets a fixed number of launches. Launch pigs from the
 cannon to destroy every bird target on the stage. Destroying all birds within the

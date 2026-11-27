@@ -10,3 +10,6 @@ scratch/sweep-browser.js
 
 # esbuild output for scratch probes
 scratch/*.out.js
+
+# regenerated screenshot probes (scratch/shots/*.png)
+scratch/shots/
