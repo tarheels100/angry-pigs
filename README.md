@@ -12,15 +12,22 @@ heavy, bomb, cluster) with a bomb blast and a cluster spread, per-impact damage 
 destruction, crush/fall attribution, star scoring, camera follow and re-framing, a level
 warm-up so nothing starts partly damaged, glass/wood/stone/metal structures that take
 several hits, pigs and birds drawn as characters, a launcher whose barrel tilts and whose
-spring compresses, a motion trail, scenery props, debris heaps that pile and fade, a
-generated soundtrack with one flavour per stage, a title screen listing stages with best
-scores and an options screen whose settings survive a reload, the Tron theme (default) plus
-a Pixel theme proving the theme contract, and deployed to GitHub Pages
+spring compresses, standing on a masonry plinth, a motion trail, scenery props, debris heaps
+that pile and fade, a title screen listing stages with best scores (the game opens on it, and
+the loop is paused behind it), an options screen whose settings survive a reload, a generated
+soundtrack with one flavour per stage (off by default), the Tron theme (default) plus a Pixel
+theme proving the theme contract, and deployed to GitHub Pages
 (`https://tarheels100.github.io/angry-pigs/`).
-Gates: `npm run check` (typecheck + 152 headless tests + build), `npm run test:browser` (25
+Gates: `npm run check` (typecheck + 155 headless tests + build), `npm run test:browser` (27
 Playwright tests against the built artifact), and `npm run check:determinism` (the same
 bundle run in node and chromium, 144 combos, 0 mismatches) — all three run in CI. Best
 results and options persist in `localStorage` (D24, D35).
+
+The playtest pass after M20 (`docs/pushes/post-m20-playtest.md`) fixed the eight things a
+real browser session showed: an artifact that needed a reload to work, a menu that never
+unpaused, a soundtrack that burst on load, circular pigs and birds, a launcher floating in
+mid-air, birds with no protection, rubble that hovered where its support used to be, and a
+HUD whose restart button sat below the screen.
 
 Remaining open work is tuning and feel rather than plumbing — see the open questions in
 `docs/tuning.md` and the manual touch check in `docs/checklist.md`.

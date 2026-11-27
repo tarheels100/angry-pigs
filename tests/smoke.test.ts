@@ -153,6 +153,18 @@ test('main.ts wires level + physics + renderer + input without throwing', async 
   try {
     await import('../src/main.ts');
 
+    // The game opens on the title screen, so the loop is paused at load (docs/adr.md D35).
+    // The frame queued before the pause is still in the fake queue; cancelAnimationFrame is
+    // a no-op stub, so it is drained and then nothing more arrives.
+    assert.equal(frameCallbacks.length, 1, 'a paused menu queues no further frame');
+    frameCallbacks.shift()!(0);
+    assert.equal(frameCallbacks.length, 0, 'a paused menu takes no frames');
+
+    const menuKey = canvas.listeners.get('keydown')?.[0];
+    assert.ok(menuKey, 'keyboard handler installed');
+    menuKey({ key: 'Escape' });
+    assert.ok(frameCallbacks.length > 0, 'closing the menu resumes the loop');
+
     // Drive frames: 60 steps of simulated time.
     let stamp = 0;
     for (let i = 0; i < 60; i++) {
@@ -161,6 +173,8 @@ test('main.ts wires level + physics + renderer + input without throwing', async 
       stamp += 16.7;
       cb(stamp);
     }
+    const steps = (window as unknown as { __steps?: () => number }).__steps?.() ?? 0;
+    assert.ok(steps >= 59, `resumed play advances simulated time (${steps} steps from 60 frames)`);
     assert.ok(hud.innerHTML.includes('hud-restart'), 'HUD markup is installed');
     assert.ok(hud.innerHTML.includes('hud-menu'), 'HUD menu button is installed (M19)');
     const messageEl = hud.querySelector('[data-stat="message"]');

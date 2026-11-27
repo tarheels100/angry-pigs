@@ -119,6 +119,15 @@ boundary below were adopted by the agent and are open to correction.
 - **Aims re-measured** after the height change; five test aims and browser `WIN` updated.
   `npm run check` → typecheck clean, 155 tests pass. `npm run test:browser` → 27 pass.
   `npm run check:determinism` → 144 combos, 0 mismatches, 6 wins, 6 settle timeouts.
+- **CI caught two gates my grep hid.** The deploy run on `335bea5` failed `npm run check`, and
+  the log I read locally had been piped through `grep`, so the pipeline's exit code — not the
+  gate's — decided whether the chain continued. Real failures: `tests/levels.test.ts` type
+  errors (`SCENERY_KINDS.includes(string)` needs a `readonly string[]` view) and
+  `tests/smoke.test.ts`, which drove frames while the title screen was still open and so
+  asserted a loop that is legitimately paused. Both fixed; the smoke test now asserts the
+  paused state (one queued frame, then none) and that `Escape` resumes and steps advance.
+  Re-ran with `npm run check > log 2>&1; echo exit=$?` → 0, browser 27 pass, determinism 0
+  mismatch. **Rule for this push: read a gate's exit code, never a filtered pipeline's.**
 
 ## Outcome
 

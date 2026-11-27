@@ -166,7 +166,7 @@ test('scenery is art: validated, loaded, and never a physics body', () => {
   // The shipped stages ship props, so the theme path is exercised in play.
   for (const def of LEVELS) {
     assert.ok((def.scenery ?? []).length > 0, `${def.name} ships scenery props`);
-    assert.ok((def.scenery ?? []).every((s) => SCENERY_KINDS.includes(s.kind)), `${def.name} props are known kinds`);
+    assert.ok((def.scenery ?? []).every((s) => (SCENERY_KINDS as readonly string[]).includes(s.kind)), `${def.name} props are known kinds`);
   }
 
   // Display extras carry the props, and props cannot collide with anything.
@@ -174,5 +174,5 @@ test('scenery is art: validated, loaded, and never a physics body', () => {
   const game = createGame({ level: loadLevel(withScenery), adapter, bus: createEventBus() });
   game.step(1 / 60);
   assert.equal(game.entities.byKind('scenery').length, 2, 'props appear as display extras');
-  assert.ok(game.entities.byKind('scenery').every((e) => SCENERY_KINDS.includes(e.variant ?? '')), 'props carry their kind hint');
+  assert.ok(game.entities.byKind('scenery').every((e) => (SCENERY_KINDS as readonly string[]).includes(e.variant ?? '')), 'props carry their kind hint');
 });
