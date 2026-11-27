@@ -27,13 +27,18 @@ request as **scoped**.
 | mode | priority | behaviour |
 | --- | --- | --- |
 | `scoped:` | timely change, quick feedback | Do exactly the named change, run the relevant gate, report. No extra work. |
-| `autonomous:` | continuous work, no check-ins | Keep working across commits until the stated finish line, then stop and report. |
+| `autonomous:` | continuous work, no check-ins | Work until **all requested work is complete, tests pass, and the work is committed and pushed** — or until a blocker needs the user. Then stop and report. |
 
-An `autonomous:` request **must** come with:
+`autonomous:` carries an **implicit finish line**, so it does not need one spelled out:
+complete the requested work, leave the gates green, commit and push. The one way it ends early
+is a real blocker — a decision only the user can make, or a scope boundary it cannot cross —
+which is reported rather than guessed through.
 
-1. **A finish line** — a milestone, an acceptance criterion, or a budget ("until gates
-   are green", "until deployed", "3 hours of work"). Autonomy without a finish line
-   turns into endless improvement; if the request has none, ask for one before starting.
+An `autonomous:` request may also add:
+
+1. **An explicit finish line** — a narrower milestone, acceptance criterion, or budget
+   ("until gates are green", "until deployed", "3 hours of work"). When one is given it
+   replaces the implicit one.
 2. **A scope boundary, when given** — allowed and forbidden paths, e.g. "touch only
    `src/render/**` and `docs/theme-contract.md`; do not change physics". Honor it
    strictly: if real progress requires crossing it, report the blocker instead of
@@ -60,10 +65,18 @@ interrupted session and a resumed agent inherits it rather than re-deriving it f
 Example:
 
 ```
-autonomous: implement the detailed cannon + motion trail from docs/post-m13-notes.md.
+autonomous: implement the detailed cannon + motion trail from docs/post-m20-notes.md.
 Boundary: src/render/**, src/game/cannon.ts, docs/theme-contract.md. Finish line:
 browser tests green and deployed. Don't check in until done.
 ```
+
+With no finish line or boundary, the implicit contract applies:
+
+```
+autonomous: add the four bird varieties and neon scenery borders.
+```
+
+means: build both, gates green, commit, push, report — or stop and report the blocker.
 
 ## Push work plans (required for large pushes)
 
