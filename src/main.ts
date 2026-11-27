@@ -149,11 +149,11 @@ if (!canvas || !hudEl || !appEl) {
   const music = createMusic({ createContext: () => sfx.unlock() });
   sfx.attach(bus);
 
-  /** Name the generated track for the stage and remind the player how to fire (M17). */
+  /** Name the stage, its track if music is on, and how to fire (M17, playtest item 2). */
   function announceTrack(levelId: string, ammo: number): void {
-    music.start(levelId);
+    const flavour = options.music ? music.flavour() : null;
     hud.message(
-      `${levelId} · ${music.flavour()?.name ?? 'no sound'} · ${ammo} pigs · drag to aim, release to fire · Esc menu`,
+      `${levelId} · ${flavour?.name ?? (options.music ? 'no sound' : 'music off')} · ${ammo} pigs · drag to aim, release to fire · Esc menu`,
     );
   }
   // Registered after the game is built, so the first stage is announced explicitly.
@@ -171,7 +171,14 @@ if (!canvas || !hudEl || !appEl) {
     __options?: () => Options;
   };
 
-  bus.on('levelLoaded', (e) => announceTrack(e.levelId, e.ammo));
+  bus.on('levelLoaded', (e) => {
+    // Soundtrack wiring lives here, not in the event handler chain: the option decides
+    // whether a track runs at all (playtest item 2).
+    if (options.music) music.start(e.levelId);
+    else music.stop();
+    announceTrack(e.levelId, e.ammo);
+  });
+  if (options.music) music.start(levelAt(levelIndex).name);
   announceTrack(levelAt(levelIndex).name, game.rules.snapshot().ammoLeft);
 
   bus.on('impact', (e) => {
@@ -244,6 +251,10 @@ if (!canvas || !hudEl || !appEl) {
     theme = getTheme(themeId);
     renderer.setTheme(theme);
     sfx.setMuted(!options.sound);
+    // The soundtrack is off unless the player turns it on (playtest item 2): the M17
+    // generator stays available, but it must not run by default.
+    if (options.music) music.start(levelAt(levelIndex).name);
+    else music.stop();
     // Turning an effect off also removes what is already on screen.
     if (!options.trail) trail.reset();
     if (!options.debris) debris.clear();
@@ -267,7 +278,13 @@ if (!canvas || !hudEl || !appEl) {
       hud.message('best scores forgotten');
       screens.showTitle();
     },
-    onClose: () => hud.message(null),
+    // Closing the overlay hands control back to the game: the loop has to resume or the
+    // round stays paused with the menu gone (playtest item 8). Overlay buttons route
+    // through this callback; the keyboard path calls closeOverlay() directly.
+    onClose: () => {
+      hud.message(null);
+      loop.start();
+    },
   });
 
   function openOverlay(kind: 'title' | 'options'): void {
@@ -360,7 +377,8 @@ if (!canvas || !hudEl || !appEl) {
       if (options.trail) trail.update(game.entities.all());
       if (options.debris) debris.update();
       // The soundtrack advances on simulated time, so a recorded run sounds the same.
-      music.tick(loop.stepsTaken() * (1000 / 60));
+      // Off by default (playtest item 2), so this normally does nothing.
+      if (options.music) music.tick(loop.stepsTaken() * (1000 / 60));
     },
     render: (dt) => {
       lastFps = dt > 0 ? 1 / dt : 0;

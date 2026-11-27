@@ -193,6 +193,8 @@ describe('options screen (M19)', () => {
     assert.deepEqual(rowLabels(child(panelOf(root), 1)), [
       'theme,tron',
       'sound,on',
+      // The soundtrack ships off (playtest item 2); the row makes the revisit reachable.
+      'music,off',
       'debris,on',
       'trail,on',
     ]);

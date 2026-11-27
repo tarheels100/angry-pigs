@@ -93,6 +93,8 @@ export function createGame(options: GameOptions): Game {
   const lastHit = new Map<string, { partnerKind: EntityState['kind'] }>();
   let flightSteps = 0;
   let settleSteps = 0;
+  /** Steps spent letting a resolved round come to rest; see step() and docs/adr.md D36. */
+  let restSteps = 0;
   let trajectory: TrajectorySample[] = [];
   let pigCounter = 0;
   /** True between pointer-down and pointer-up; a press alone is not a shot. */
@@ -293,7 +295,18 @@ export function createGame(options: GameOptions): Game {
 
   function step(dt: number): void {
     const phase = rules.snapshot().phase;
-    if (phase === 'won' || phase === 'lost') return;
+    if (phase === 'won' || phase === 'lost') {
+      // A resolved round still has to come to rest. A settle-timeout freeze stops
+      // bodies wherever they were, so debris caught in flight would hang in the air
+      // forever (playtest item 7). Damage stays paused: settling cannot change a score
+      // that has already been decided.
+      if (adapter.allSleeping() || restSteps >= SETTLE_TIMEOUT_STEPS) return;
+      restSteps++;
+      damagePaused = true;
+      adapter.step(dt);
+      damagePaused = false;
+      return;
+    }
 
     const impacts = adapter.step(dt);
     for (const impact of impacts) {
@@ -421,6 +434,7 @@ export function createGame(options: GameOptions): Game {
     recoil = 1;
     rules.launch();
     flightSteps = 0;
+    restSteps = 0;
     trajectory = [];
     bus.emit('launch', { id: ids[0]!, velocity });
     bus.emit('phaseChanged', { phase: rules.snapshot().phase });
@@ -437,6 +451,7 @@ export function createGame(options: GameOptions): Game {
     entities.clearVariants();
     recoil = 0;
     level = next;
+    restSteps = 0;
     cannon = createCannon({ origin: next.cannonOrigin, maxPull: next.maxPull, powerScale: next.powerScale, ammo: next.ammo });
     rules = createRules({ targetIds: next.targetIds, ammo: next.ammo });
     trajectory = [];

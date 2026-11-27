@@ -7,6 +7,8 @@ import { createGame } from '../src/game/game.ts';
 import { createCannon, MAX_LAUNCH_ANGLE } from '../src/game/cannon.ts';
 import { loadLevel, levelAt } from '../src/levels/index.ts';
 import type { LevelDef } from '../src/levels/index.ts';
+import type { PhysicsAdapter } from '../src/physics/adapter.ts';
+import type { EntityState } from '../src/core/types.ts';
 
 const DT = 1 / 60;
 const level = loadLevel(levelAt(0));
@@ -423,4 +425,72 @@ test('a pig can be fired while debris is still settling', () => {
   assert.equal(snap.launches, 2, 'the second shot is counted');
   assert.equal(snap.ammoLeft, 2, 'the second shot costs ammo');
   assert.equal(snap.phase, 'in_flight');
+});
+
+/** Bodies with no supporting surface under them, using the rotated AABB. */
+function floating(adapter: PhysicsAdapter, groundTop: number): string[] {
+  const bodies = adapter.snapshot();
+  const extent = (e: EntityState) => {
+    const hw = e.halfWidth ?? e.radius ?? 12;
+    const hh = e.halfHeight ?? e.radius ?? 12;
+    return {
+      w: Math.abs(Math.cos(e.angle)) * hw + Math.abs(Math.sin(e.angle)) * hh,
+      h: Math.abs(Math.sin(e.angle)) * hw + Math.abs(Math.cos(e.angle)) * hh,
+    };
+  };
+  const out: string[] = [];
+  for (const b of bodies) {
+    if (b.kind === 'ground' || b.kind === 'wall') continue;
+    const bottom = b.y + extent(b).h;
+    if (bottom >= groundTop - 14) continue;
+    const supported = bodies.some((o) => {
+      if (o.id === b.id) return false;
+      const top = o.y - extent(o).h;
+      const overlapX = extent(b).w + extent(o).w - Math.abs(o.x - b.x);
+      return overlapX >= 4 && top >= bottom - 14 && top <= bottom + 14;
+    });
+    if (!supported) out.push(`${b.id} at y=${Math.round(b.y)}`);
+  }
+  return out;
+}
+
+const towerDef: LevelDef = {
+  name: 'tower-test',
+  bounds: { width: 1200, height: 900 },
+  cannon: { x: 120, y: 480, maxPull: 90, powerScale: 0.22, ammo: ['heavy', 'heavy'] },
+  statics: [{ type: 'ground', x: 600, y: 860, w: 1200, h: 40 }],
+  objects: [
+    { type: 'block', material: 'wood', x: 700, y: 780, w: 34, h: 120 },
+    { type: 'block', material: 'wood', x: 780, y: 780, w: 34, h: 120 },
+    { type: 'block', material: 'glass', x: 740, y: 708, w: 140, h: 24 },
+    { type: 'block', material: 'glass', x: 712, y: 654, w: 26, h: 84 },
+    { type: 'block', material: 'glass', x: 768, y: 654, w: 26, h: 84 },
+    { type: 'block', material: 'wood', x: 740, y: 594, w: 140, h: 24 },
+  ],
+  targets: [{ type: 'ball', material: 'feather', x: 740, y: 570, r: 20, target: true }],
+};
+
+test('a resolved round comes to rest instead of freezing in the air', () => {
+  // Playtest item 7, docs/adr.md D36: the settle timeout freezes bodies where they
+  // were, and the game used to stop stepping once the round was decided, so debris
+  // caught in flight hung in the air permanently.
+  const { game, adapter, loaded } = makeGame(towerDef);
+  game.beginAim();
+  game.dragAim(pullFor(loaded, 12));
+  assert.equal(game.releaseAim(), true);
+
+  let steps = 0;
+  while (steps < 600) {
+    const phase = game.rules.snapshot().phase;
+    if (phase === 'won' || phase === 'lost' || phase === 'aiming') break;
+    game.step(DT);
+    steps++;
+  }
+  const decided = game.rules.snapshot().phase;
+  assert.ok(decided === 'won' || decided === 'lost' || decided === 'aiming', `round resolved as ${decided}`);
+
+  // Stepping a decided round must finish the settling rather than leave a frozen scene.
+  for (let i = 0; i < 300; i++) game.step(DT);
+  assert.deepEqual(floating(adapter, loaded.groundTop), [], 'nothing may float after a round ends');
+  assert.ok(adapter.allSleeping(), 'a round that ended must come to rest');
 });

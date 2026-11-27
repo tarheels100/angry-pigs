@@ -12,15 +12,21 @@ import type { KeyValueStore } from '../game/save.ts';
 export interface Options {
   /** Theme id from the registry; an unknown id falls back to the default. */
   themeId: string;
-  /** Impact sounds and the generated soundtrack. */
+  /** Impact sounds. */
   sound: boolean;
+  /**
+   * The generated soundtrack. Off by default: the M17 track is on theme but weak, and
+   * several eighth notes landed together at level load, which read as a burst of noise
+   * (playtest items 1-2). The generator stays in `src/audio/music.ts` for a revisit.
+   */
+  music: boolean;
   /** Debris heaps from destroyed blocks. */
   debris: boolean;
   /** Motion trail behind the flying pig. */
   trail: boolean;
 }
 
-export const DEFAULT_OPTIONS: Options = { themeId: 'tron', sound: true, debris: true, trail: true };
+export const DEFAULT_OPTIONS: Options = { themeId: 'tron', sound: true, music: false, debris: true, trail: true };
 
 const KEY = 'angry-pigs:options';
 
@@ -40,6 +46,7 @@ export function loadOptions(store: KeyValueStore): Options {
     return {
       themeId: typeof record.themeId === 'string' ? record.themeId : DEFAULT_OPTIONS.themeId,
       sound: typeof record.sound === 'boolean' ? record.sound : DEFAULT_OPTIONS.sound,
+      music: typeof record.music === 'boolean' ? record.music : DEFAULT_OPTIONS.music,
       debris: typeof record.debris === 'boolean' ? record.debris : DEFAULT_OPTIONS.debris,
       trail: typeof record.trail === 'boolean' ? record.trail : DEFAULT_OPTIONS.trail,
     };

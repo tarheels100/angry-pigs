@@ -167,7 +167,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
   function removeBody(id: string): void {
     const t = tracked.get(id);
     if (!t) return;
-    wakeNear(t.body);
+    wakeSupportChain(t.body);
     Composite.remove(engine.world, t.body);
     const si = staticInits.findIndex((s) => s.id === id);
     if (si >= 0) staticInits.splice(si, 1);
@@ -178,22 +178,73 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
   /**
    * Matter does not wake a sleeping body when its support disappears: removal
    * produces no collision, so a beam resting on a destroyed column floats in place
-   * (docs/physics.md gotcha 11). Wake dynamic bodies overlapping the departing body.
+   * (docs/physics.md gotcha 11). A *chain* floats too — a roof resting on columns
+   * that rest on the departing beam is more than one support away, so waking is
+   * transitive: whatever rides on top of a woken body wakes with it. Measured with
+   * scratch/hover-probe.ts, which flags any resting body with nothing under it.
    */
-  function wakeNear(body: BodyT): void {
+  function wakeSupportChain(body: BodyT): void {
     const margin = 40;
-    const minX = body.bounds.min.x - margin;
-    const maxX = body.bounds.max.x + margin;
-    const minY = body.bounds.min.y - margin;
-    const maxY = body.bounds.max.y + margin;
+    const overlapX = (a: BodyT, b: BodyT) =>
+      Math.min(a.bounds.max.x, b.bounds.max.x) - Math.max(a.bounds.min.x, b.bounds.min.x);
+
+    // Bodies touching the departing body, within the margin.
+    let frontier: BodyT[] = [];
     for (const other of engine.world.bodies) {
       if (other.isStatic || other === body) continue;
-      if (other.bounds.min.x > maxX || other.bounds.max.x < minX) continue;
-      if (other.bounds.min.y > maxY || other.bounds.max.y < minY) continue;
+      if (other.bounds.min.x > body.bounds.max.x + margin) continue;
+      if (other.bounds.max.x < body.bounds.min.x - margin) continue;
+      if (other.bounds.min.y > body.bounds.max.y + margin) continue;
+      if (other.bounds.max.y < body.bounds.min.y - margin) continue;
       // Wake even when the body is not asleep yet: a body resting on a support that
       // is about to vanish is idle, so its sleep counter is close to the threshold
       // and it would fall asleep before gravity can move it.
       Sleeping.set(other, false);
+      frontier.push(other);
+    }
+
+    // Up the stack. Four passes is enough for the tallest authored structure; the
+    // bound keeps removal work bounded no matter how a level is authored.
+    for (let pass = 0; pass < 4 && frontier.length > 0; pass++) {
+      const next: BodyT[] = [];
+      for (const w of frontier) {
+        const top = w.bounds.min.y;
+        for (const other of engine.world.bodies) {
+          // Only sleeping bodies need waking; an awake one is already under gravity.
+          if (other.isStatic || other === body || !other.isSleeping) continue;
+          if (overlapX(other, w) < 4) continue;
+          if (other.bounds.max.y < top - 12 || other.bounds.min.y > top + 12) continue;
+          Sleeping.set(other, false);
+          next.push(other);
+        }
+      }
+      frontier = next;
+    }
+  }
+
+  /**
+   * Wake a sleeping body that has no supporting surface under it. Horizontal overlap
+   * must be real (>= 4 units) and the support's top must be at the body's bottom, so a
+   * body leaning against a wall's side is not treated as resting on it.
+   */
+  function wakeUnsupported(): void {
+    const tolerance = 12;
+    for (const t of tracked.values()) {
+      if (t.destroyed || t.body.isStatic || !t.body.isSleeping) continue;
+      const b = t.body;
+      const bottom = b.bounds.max.y;
+      let supported = false;
+      for (const other of engine.world.bodies) {
+        if (other === b) continue;
+        const overlapX = Math.min(b.bounds.max.x, other.bounds.max.x) - Math.max(b.bounds.min.x, other.bounds.min.x);
+        if (overlapX < 4) continue;
+        const top = other.bounds.min.y;
+        if (top >= bottom - tolerance && top <= bottom + tolerance) {
+          supported = true;
+          break; // resting on something — leave it asleep
+        }
+      }
+      if (!supported) Sleeping.set(b, false);
     }
   }
 
@@ -205,6 +256,12 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
     destroyedThisStep = [];
 
     Engine.update(engine, STEP_MS);
+
+    // Anti-floating invariant (playtest item 7, docs/physics.md gotcha 12): a
+    // sleeping body must be resting on something. Matter keeps a sleeping body exactly
+    // where it was, so when a support is destroyed *or knocked away* nothing wakes the
+    // body that rode on it, and it hangs in the air forever. Wake anything unsupported.
+    wakeUnsupported();
 
     // Rolling resistance for bodies resting on the ground (docs/adr.md D15). Birds
     // need it too: a bird knocked onto the ground rolled for 240 steps (327 units)
@@ -276,7 +333,7 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
       t.health = 0;
       // Destroyed bodies leave the physics world; the registry keeps their state so
       // the renderer can flash them before they fade (M11).
-      wakeNear(t.body);
+      wakeSupportChain(t.body);
       Composite.remove(engine.world, t.body);
       destroyedThisStep.push(id);
     }

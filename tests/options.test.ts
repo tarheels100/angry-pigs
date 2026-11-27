@@ -10,8 +10,16 @@ describe('options persistence (M19)', () => {
 
   test('a saved value round-trips', () => {
     const store = memoryStore();
-    saveOptions(store, { themeId: 'pixel', sound: false, debris: true, trail: false });
-    assert.deepEqual(loadOptions(store), { themeId: 'pixel', sound: false, debris: true, trail: false });
+    saveOptions(store, { themeId: 'pixel', sound: false, music: true, debris: true, trail: false });
+    assert.deepEqual(loadOptions(store), { themeId: 'pixel', sound: false, music: true, debris: true, trail: false });
+  });
+
+  test('the soundtrack ships off; impact sound ships on', () => {
+    // Playtest items 1-2: the generated track is on theme but weak, and its load-time
+    // notes read as a burst of noise, so it is a choice rather than the default.
+    assert.equal(DEFAULT_OPTIONS.music, false);
+    assert.equal(DEFAULT_OPTIONS.sound, true);
+    assert.equal(loadOptions(memoryStore()).music, false);
   });
 
   test('corrupt storage falls back to defaults instead of throwing', () => {
@@ -22,7 +30,7 @@ describe('options persistence (M19)', () => {
     // Wrong types are dropped field by field; a valid theme id would still be kept.
     assert.deepEqual(loadOptions(store), DEFAULT_OPTIONS);
     store.set('angry-pigs:options', '{"themeId": "pixel", "sound": "yes"}');
-    assert.deepEqual(loadOptions(store), { themeId: 'pixel', sound: true, debris: true, trail: true });
+    assert.deepEqual(loadOptions(store), { themeId: 'pixel', sound: true, music: false, debris: true, trail: true });
   });
 
   test('a blocked store keeps the session settings usable', () => {
@@ -38,7 +46,7 @@ describe('options persistence (M19)', () => {
       },
     };
     assert.deepEqual(loadOptions(blocked), DEFAULT_OPTIONS);
-    saveOptions(blocked, { themeId: 'pixel', sound: false, debris: false, trail: false });
+    saveOptions(blocked, { themeId: 'pixel', sound: false, music: false, debris: false, trail: false });
     assert.deepEqual(loadOptions(blocked), DEFAULT_OPTIONS);
   });
 

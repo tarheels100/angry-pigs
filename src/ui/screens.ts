@@ -132,6 +132,7 @@ export function createScreens(root: HTMLElement, deps: ScreensDeps): Screens {
       'opt-theme',
     );
     row('sound', onOff(options.sound), () => ({ ...options, sound: !options.sound }), 'opt-sound');
+    row('music', onOff(options.music), () => ({ ...options, music: !options.music }), 'opt-music');
     row('debris', onOff(options.debris), () => ({ ...options, debris: !options.debris }), 'opt-debris');
     row('trail', onOff(options.trail), () => ({ ...options, trail: !options.trail }), 'opt-trail');
 

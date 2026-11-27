@@ -165,6 +165,48 @@ test('destroying a support makes what rested on it fall', () => {
   assert.equal(fallen.sleeping, false, 'a body whose support vanished must not stay asleep');
 });
 
+test('a destroyed support drops the whole stack above it, not just the first layer', () => {
+  // Playtest item 7: two storeys deep. Waking only the bodies touching the departing
+  // body left the roof — and the bird riding it — frozen in the air.
+  const adapter = stage();
+  adapter.addBody({ id: 'leg-a', kind: 'block', shape: 'box', material: 'wood', x: 400, y: 780, halfWidth: 17, halfHeight: 60 });
+  adapter.addBody({ id: 'leg-b', kind: 'block', shape: 'box', material: 'wood', x: 480, y: 780, halfWidth: 17, halfHeight: 60 });
+  adapter.addBody({ id: 'storey', kind: 'block', shape: 'box', material: 'glass', x: 440, y: 708, halfWidth: 70, halfHeight: 12 });
+  adapter.addBody({ id: 'col-a', kind: 'block', shape: 'box', material: 'glass', x: 420, y: 650, halfWidth: 13, halfHeight: 46 });
+  adapter.addBody({ id: 'col-b', kind: 'block', shape: 'box', material: 'glass', x: 460, y: 650, halfWidth: 13, halfHeight: 46 });
+  adapter.addBody({ id: 'roof', kind: 'block', shape: 'box', material: 'wood', x: 440, y: 592, halfWidth: 70, halfHeight: 12 });
+  adapter.addBody({ id: 'bird', kind: 'bird', shape: 'circle', material: 'feather', x: 440, y: 560, radius: 20 });
+
+  for (let i = 0; i < 120; i++) adapter.step(DT);
+  const roofBefore = adapter.state('roof')!.y;
+  const birdBefore = adapter.state('bird')!.y;
+
+  // Take the whole first storey out, the way a blast does: the roof and the bird
+  // riding it are two supports away from anything that was removed.
+  adapter.applyDamage('leg-a', 1000);
+  adapter.applyDamage('leg-b', 1000);
+  adapter.applyDamage('storey', 1000);
+
+  for (let i = 0; i < 180; i++) adapter.step(DT);
+  assert.ok(adapter.state('roof')!.y > roofBefore + 15, 'the second storey must fall with its support');
+  assert.ok(adapter.state('bird')!.y > birdBefore + 15, 'a bird riding the roof must fall too');
+  // A heap is a legitimate rest; hanging in the air is not. Every survivor must be
+  // resting on a surface, so this is the check that catches the reported bug.
+  for (const id of ['roof', 'bird']) {
+    const s = adapter.state(id)!;
+    const half = s.halfHeight ?? s.radius ?? 0;
+    const bottom = s.y + half;
+    const supported = adapter.snapshot().some((o) => {
+      if (o.id === id) return false;
+      const oHalf = o.halfHeight ?? o.radius ?? 0;
+      const overlapX = (o.halfWidth ?? o.radius ?? 0) + (s.halfWidth ?? s.radius ?? 0) - Math.abs(o.x - s.x);
+      return overlapX >= 4 && Math.abs(o.y - oHalf - bottom) <= 14;
+    });
+    assert.ok(supported, `${id} must rest on something (bottom ${Math.round(bottom)})`);
+  }
+  assert.ok(adapter.allSleeping(), 'the rubble must come to rest');
+});
+
 test('destroyed bodies leave snapshot() but state() keeps the final state', () => {
   const adapter = stage();
   adapter.addBody({ id: 'block', kind: 'block', shape: 'box', material: 'glass', x: 400, y: 700, halfWidth: 20, halfHeight: 20 });
