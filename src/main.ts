@@ -53,6 +53,10 @@ if (!canvas || !hudEl || !appEl) {
   const hud = createHud(hudEl);
   let camera: CameraApi = createCamera(renderer.viewport(), WORLD);
 
+  /** Paint one frame. Assigned once the systems exist; `refit` and the paused title screen
+   * both need it, because resizing clears the canvas and a paused loop repaints nothing. */
+  let repaint: (() => void) | null = null;
+
   function refit(): void {
     const cssWidth = Math.max(canvas!.clientWidth, 1);
     const cssHeight = Math.max(canvas!.clientHeight, 1);
@@ -61,6 +65,7 @@ if (!canvas || !hudEl || !appEl) {
     camera = createCamera(renderer.viewport(), camera.world());
     camera.setZoom(camera.fitZoom());
     camera.panTo(camera.world().width / 2, camera.world().height / 2);
+    repaint?.();
   }
 
   refit();
@@ -373,6 +378,30 @@ if (!canvas || !hudEl || !appEl) {
 
   let lastFps = 0;
 
+  function drawFrame(): void {
+    const frame = game.frame();
+    const pigColour = theme.palette.pig;
+    renderer.draw(
+      {
+        camera,
+        phase: game.rules.snapshot().phase,
+        aim: frame.aim ? { origin: frame.aim.origin, pull: frame.aim.pull, trajectory: frame.trajectory } : null,
+      },
+      frame.entities.all(),
+      {
+        // Trail and debris sit behind entities; particles and flashes sit above them.
+        behind: [
+          ...(options.trail ? [{ paint: (ctx: CanvasRenderingContext2D) => trail.paint(ctx, pigColour) }] : []),
+          ...(options.debris ? [{ paint: (ctx: CanvasRenderingContext2D) => debris.paint(ctx, theme.palette.materials) }] : []),
+        ],
+        front: [particles],
+      },
+    );
+    hud.update(game.rules.snapshot());
+    // The launcher's queue names the next pig, so a bomb or cluster is not a surprise.
+    hud.setNextPig(game.cannon.ammoLeft() > 0 ? pigType(game.cannon.nextAmmo() ?? 'basic').label : null);
+  }
+
   const loop = createLoop({
     step: (dt) => {
       game.step(dt);
@@ -389,30 +418,14 @@ if (!canvas || !hudEl || !appEl) {
     },
     render: (dt) => {
       lastFps = dt > 0 ? 1 / dt : 0;
-      const frame = game.frame();
-      const pigColour = theme.palette.pig;
-      renderer.draw(
-        {
-          camera,
-          phase: game.rules.snapshot().phase,
-          aim: frame.aim ? { origin: frame.aim.origin, pull: frame.aim.pull, trajectory: frame.trajectory } : null,
-        },
-        frame.entities.all(),
-        {
-          // Trail and debris sit behind entities; particles and flashes sit above them.
-          behind: [
-            ...(options.trail ? [{ paint: (ctx: CanvasRenderingContext2D) => trail.paint(ctx, pigColour) }] : []),
-            ...(options.debris ? [{ paint: (ctx: CanvasRenderingContext2D) => debris.paint(ctx, theme.palette.materials) }] : []),
-          ],
-          front: [particles],
-        },
-      );
-      hud.update(game.rules.snapshot());
-      // The launcher's queue names the next pig, so a bomb or cluster is not a surprise.
-      hud.setNextPig(game.cannon.ammoLeft() > 0 ? pigType(game.cannon.nextAmmo() ?? 'basic').label : null);
+      drawFrame();
     },
   });
   loop.start();
+  repaint = drawFrame;
+  // Paint immediately: the title screen opens right after this and pauses the loop, so the
+  // frozen frame has to be on the canvas already (playtest item 1).
+  drawFrame();
 
   // Playtest item 1: the game opens on the title screen. This runs after the loop exists,
   // so opening the overlay really pauses it; the player dismisses the menu to play.

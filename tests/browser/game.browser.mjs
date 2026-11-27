@@ -307,14 +307,17 @@ test('aiming tilts the barrel and compresses the spring', async () => {
         const ctx = canvas.getContext('2d');
         const p = window.__camera.worldToScreen(o);
         const scale = canvas.width / canvas.clientWidth;
-        const x = Math.max(0, Math.round((p.x - 45) * scale));
-        const y = Math.max(0, Math.round((p.y - 45) * scale));
-        const data = ctx.getImageData(x, y, Math.round(90 * scale), Math.round(90 * scale)).data;
+        const x = Math.max(0, Math.round((p.x - 60) * scale));
+        const y = Math.max(0, Math.round((p.y - 60) * scale));
+        const data = ctx.getImageData(x, y, Math.round(120 * scale), Math.round(120 * scale)).data;
         let lit = 0;
         for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] > 200) lit++;
         return lit;
       }, origin);
 
+    // The title screen pauses the loop at load, so wait for a real painted frame before
+    // sampling; a sample taken between load and the first resumed frame can read a blank canvas.
+    await page.waitForFunction(() => window.__steps() > 0, null, { timeout: 4000 });
     const rest = await litAroundCannon();
     assert.ok(rest > 0, 'the launcher is painted at rest');
 
