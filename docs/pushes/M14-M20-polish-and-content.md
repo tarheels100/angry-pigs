@@ -73,29 +73,35 @@ Mapping of each note to a milestone (note text abbreviated):
 
 ### M18 — pig types
 
-- [ ] Pig type registry (`src/game/pigs.ts`): basic, heavy, bomb, cluster — radius,
-      material, count, spread, damage multiplier, explosion radius/impulse.
-- [ ] Level ammo lists use type ids; loader validates them.
-- [ ] Bomb explodes on impact: radial impulse + area damage through adapter API.
-- [ ] Cluster fires a spread of small pigs from one launch.
-- [ ] Heavy pig tops glass/wood and topples stone; sweeps show it used somewhere.
-- [ ] Tests: pig spawn counts, explosion impulse/damage, cluster spread, ammo consumption.
+- [x] Pig type registry (`src/game/pigs.ts`): basic, heavy, bomb, cluster — radius,
+      mass scale, count, spread, damage multiplier, explosion radius/impulse.
+- [x] Level ammo lists use type ids; loader validates them.
+- [x] Bomb explodes on impact: radial impulse + area damage through adapter API.
+- [x] Cluster fires a spread of small pigs from one launch.
+- [x] Heavy pig tops glass/wood; sweeps show it used (stages 04 and 05 open with it).
+      Note: it does **not** topple stone — stone health at `area/3200` still exceeds any
+      pig impact energy, so stone stays an obstacle (docs/level-format.md rule 1).
+- [x] Tests: pig spawn counts, explosion impulse/damage, cluster spread, ammo consumption.
 
 ### M19 — title + options screens
 
-- [ ] Title screen overlay (DOM, like HUD) with stage list and best scores; start button.
-- [ ] Options screen: theme, sound, debris, trail; persisted via the existing
+- [x] Title screen overlay (DOM, like HUD) with stage list and best scores; start button.
+- [x] Options screen: theme, sound, debris, trail; persisted via the existing
       `KeyValueStore`; reset-best button.
-- [ ] Keyboard shortcuts kept (T/R/N/P/M/F2) and shown in the options list.
-- [ ] Browser test: options persist across reload; title screen start loads a stage.
+- [x] Keyboard shortcuts kept (T/R/N/P/M/F2) plus Esc, O and stage digits, listed in the
+      options screen and in README.
+- [x] Browser test: options persist across reload; title screen start loads a stage.
 
 ### M20 — content escalation
 
-- [ ] Stage 04: a large precarious structure (many blocks) that collapses into a heap.
-- [ ] Stage 05: bird on a static platform high up, tree scenery, structures shielding it.
-- [ ] Stage 06: mixed materials + pig-type payload (bomb/cluster/heavy).
-- [ ] Sweeps + greedy-probe clearability within authored ammo for all stages.
-- [ ] README roadmap rows + `docs/checklist.md` baselines updated.
+- [x] Stage 04: a large precarious structure (many blocks) that collapses into a heap.
+- [x] Stage 05: tree scenery and structures shielding a bird. Changed while authoring: the
+      planned *static platform* was dropped, because a bird on or under a static stone plinth
+      has no failure mode a pig can reach (docs/level-format.md rules 1, 4) — the bird now
+      rides a wood platform on two trunks, which is a two-shot puzzle by support count.
+- [x] Stage 06: mixed materials + pig-type payload (bomb/cluster/heavy).
+- [x] Sweeps + greedy-probe clearability within authored ammo for all stages.
+- [x] README roadmap rows + `docs/checklist.md` baselines updated.
 
 ## Gates (run per milestone and at close)
 
@@ -190,3 +196,23 @@ Mapping of each note to a milestone (note text abbreviated):
   difficulty control. Sweep wins now 75/19/10/12/8/4 and greedy pigs 1/2/2/2/2/4.
   New probe: `scratch/m20-probe.ts` (same bot, coarser angles, reports blasts and stars per
   stage). Browser suite grew to 25 tests, including the finale's materials and chamber.
+
+## Outcome
+
+The push finished at M20 on 2026-11-26, HEAD `219e157` (plus `07d0b8b`/`2bf5f94`, which only
+ignore generated probe bundles). Milestones 14–20 of the README roadmap are done, and the
+post-M13 backlog is fully covered: cannon art that tilts and compresses, stylized pigs and
+birds, motion trail, scenery, materials that survive hits, debris heaps, warmup, per-level
+soundtrack, pig types, title and options screens, and six escalating stages.
+
+Gates at close: 152 headless tests, 25 browser tests, 144 determinism combos with 0
+mismatches, artifact 138 KB inline with one `<script>`; CI passed on the M20 commit and the
+live GitHub Pages build serves stage-06.
+
+Not done, by constraint rather than by omission:
+- **Real finger drag on a touch device** (`docs/checklist.md` §1) still `[ ]`. Playwright
+  emulates taps; pointer capture is exercised only through synthetic pointers, so a physical
+  Android/iOS/tablet check needs a human and a device.
+- **Metal is unbreakable.** Stage 06 uses it purely as a shield. Whether it should ever be
+  breakable (a heavier pig, a bigger blast recipe) is an open tuning question in
+  `docs/tuning.md`.
