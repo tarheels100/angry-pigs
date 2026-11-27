@@ -169,6 +169,9 @@ if (!canvas || !hudEl || !appEl) {
     __explosions?: number;
     /** Current persisted options, read as a snapshot (M19). */
     __options?: () => Options;
+    /** Simulation steps taken since load; used by browser probes and tests.
+     * Tells "the loop is not stepping" apart from "stepping, nothing moving". */
+    __steps?: () => number;
   };
 
   bus.on('levelLoaded', (e) => {
@@ -253,8 +256,12 @@ if (!canvas || !hudEl || !appEl) {
     sfx.setMuted(!options.sound);
     // The soundtrack is off unless the player turns it on (playtest item 2): the M17
     // generator stays available, but it must not run by default.
-    if (options.music) music.start(levelAt(levelIndex).name);
-    else music.stop();
+    if (options.music) {
+      music.start(levelAt(levelIndex).name);
+      // The HUD names the track, so turning the option on says so in the same place a
+      // level load says it.
+      announceTrack(levelAt(levelIndex).name, game.rules.snapshot().ammoLeft);
+    } else music.stop();
     // Turning an effect off also removes what is already on screen.
     if (!options.trail) trail.reset();
     if (!options.debris) debris.clear();
@@ -407,6 +414,10 @@ if (!canvas || !hudEl || !appEl) {
   });
   loop.start();
 
+  // Playtest item 1: the game opens on the title screen. This runs after the loop exists,
+  // so opening the overlay really pauses it; the player dismisses the menu to play.
+  openOverlay('title');
+
   // Narrow read-only seam for browser tests (docs/browser-testing.md); nothing in the
   // game reads it, and it exposes no setters beyond the game's own API.
   debug.__game = game;
@@ -417,6 +428,8 @@ if (!canvas || !hudEl || !appEl) {
   debug.__debris = debris;
   // Same seam for the generated soundtrack (M17): the HUD and tests read the track name.
   debug.__music = music;
+  // Steps taken, so a browser probe can tell "not stepping" from "stepping, nothing moving".
+  debug.__steps = () => loop.stepsTaken();
   // Options are asserted across a reload by the browser test (M19).
   debug.__options = () => options;
 

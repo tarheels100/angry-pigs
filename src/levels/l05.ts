@@ -10,7 +10,7 @@ import type { LevelDef } from './index.ts';
 export const LEVEL_05: LevelDef = {
   name: 'stage-05',
   bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 420, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'heavy', 'basic', 'cluster'] },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'heavy', 'basic', 'cluster'] },
   statics: [
     { type: 'ground', x: 800, y: 860, w: 1600, h: 40 },
     // Flat shots die here; arcs pass over (docs/level-format.md rule 2).
@@ -33,6 +33,7 @@ export const LEVEL_05: LevelDef = {
     { type: 'ball', material: 'feather', x: 1300, y: 606, r: 20, target: true },
   ],
   scenery: [
+    { kind: "plinth", x: 120, y: 798, w: 150, h: 84 },
     // The grove: props only, never bodies (docs/adr.md D29).
     { kind: 'tree', x: 500, y: 762, w: 40, h: 156 },
     { kind: 'tree', x: 700, y: 780, w: 30, h: 120 },

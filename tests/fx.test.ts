@@ -16,7 +16,7 @@ function recordingContext(): { ops: Op[]; ctx: CanvasRenderingContext2D } {
   let fillStyle = '';
   const target: Record<string, unknown> = { lineWidth: 1, globalAlpha: 1, font: '', shadowBlur: 0 };
   Object.defineProperty(target, 'fillStyle', { get: () => fillStyle, set: (v: string) => { fillStyle = v; } });
-  for (const name of ['fillRect', 'strokeRect', 'beginPath', 'fill', 'stroke', 'arc', 'rect', 'moveTo', 'lineTo', 'save', 'restore', 'translate', 'scale', 'rotate', 'setTransform', 'setLineDash']) {
+  for (const name of ['fillRect', 'strokeRect', 'beginPath', 'fill', 'stroke', 'arc', 'rect', 'moveTo', 'lineTo', 'save', 'restore', 'translate', 'scale', 'rotate', 'setTransform', 'setLineDash', 'ellipse', 'closePath', 'quadraticCurveTo']) {
     target[name] = () => ops.push({ op: name, colour: name === 'fillRect' || name === 'fill' ? fillStyle : undefined, alpha: target.globalAlpha as number });
   }
   target.fillText = (text: string) => ops.push({ op: 'fillText', colour: fillStyle, alpha: target.globalAlpha as number, text } as unknown as Op);

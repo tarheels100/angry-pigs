@@ -5,11 +5,18 @@ after(() => closeServer());
 
 import { withPage, baseUrl, artifactPath, screenOf, snapshot, hudText, closeServer } from './harness.mjs';
 
-const WIN = { pull: 90, deg: 15 }; // measured winner for stage-01 (docs/tuning.md)
+const WIN = { pull: 90, deg: 0 }; // measured winner for stage-01 (docs/tuning.md)
 
+/**
+ * Load the artifact and dismiss the title screen, so a test acts on the live round.
+ * The game opens on the title screen (playtest item 1), and the overlay covers the HUD,
+ * so gestures and HUD clicks need it closed first. Title-screen tests navigate directly.
+ */
 async function open(page, url) {
   await page.goto(url);
   await page.waitForFunction(() => typeof window.__game !== 'undefined');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => (document.querySelector('.overlay')?.dataset.overlay ?? '') === '');
 }
 
 test('the artifact loads offline from file:// with no extra requests', async () => {
@@ -164,11 +171,19 @@ test('device pixel ratio maps the backing store', async () => {
     await open(page, await baseUrl());
     const dims = await page.evaluate(() => {
       const canvas = document.getElementById('stage');
-      return { width: canvas.width, height: canvas.height, cssWidth: canvas.clientWidth, dpr: window.devicePixelRatio };
+      return {
+        width: canvas.width,
+        height: canvas.height,
+        cssWidth: canvas.clientWidth,
+        cssHeight: canvas.clientHeight,
+        dpr: window.devicePixelRatio,
+      };
     });
     assert.equal(dims.dpr, 2);
     assert.equal(dims.width, Math.round(dims.cssWidth * 2), 'backing store is css width * dpr');
-    assert.equal(dims.height, Math.round(dims.cssWidth * (9 / 16) * 2), 'aspect ratio is preserved');
+    assert.equal(dims.height, Math.round(dims.cssHeight * 2), 'backing store is css height * dpr');
+    // The CSS box keeps the world's aspect, so the picture is never squashed.
+    assert.ok(Math.abs(dims.cssWidth / dims.cssHeight - 16 / 9) < 0.02, 'aspect ratio is preserved');
   }, { deviceScaleFactor: 2 });
 });
 
@@ -376,18 +391,27 @@ test('destroyed blocks leave a debris heap that clears on restart', async () => 
   });
 });
 
-test('each stage plays its own generated track', async () => {
-  // M17: the soundtrack is generated from the level id, not shipped as an asset, so the
-  // single-file artifact stays self-contained and every stage sounds different.
+test('the soundtrack ships off and turns on from options', async () => {
+  // Playtest items 1-2: the M17 track is on theme but weak, and its load-time notes
+  // read as a burst of noise, so it is off until the player asks for it.
   await withPage(async (page) => {
     await open(page, await baseUrl());
+    assert.equal(await page.evaluate(() => window.__options().music), false, 'music ships off');
+    assert.equal(await page.evaluate(() => window.__music.playing()), false, 'no track runs by default');
+
+    await page.keyboard.press('o');
+    await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'options');
+    await page.click('[data-test="opt-music"]');
+    await page.waitForFunction(() => window.__music.playing(), null, { timeout: 2000 });
+    await page.keyboard.press('Escape');
+
     const first = await page.evaluate(() => window.__music.flavour());
-    assert.ok(first, 'a track starts with the level');
+    assert.ok(first, 'a track starts once the option is on');
     assert.ok(first.bpm >= 92 && first.bpm <= 125, `tempo in range (${first.bpm})`);
     assert.match(first.name, /^(sine|triangle|square|sawtooth)-[0-9a-z]{3}$/);
     assert.ok(
       await page.evaluate((name) => document.body.innerText.includes(name), first.name),
-      'the HUD names the track',
+      'the HUD names the track once it is on',
     );
 
     // Notes are emitted as the simulation advances.
@@ -404,6 +428,73 @@ test('each stage plays its own generated track', async () => {
     await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 4, null, { timeout: 2000 });
     const again = await page.evaluate(() => window.__music.flavour());
     assert.deepEqual(again, second, 'restarting a stage replays the same flavour');
+  });
+});
+
+test('resume hands control back to the round', async () => {
+  // Playtest item 8: the overlay's resume button closed the menu but never restarted
+  // the loop, so the round stayed paused with no menu on screen and restart did nothing.
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    await fireWinner(page);
+    await page.waitForTimeout(250);
+    const during = await page.evaluate(() => window.__game.adapter.snapshot().filter((b) => b.kind === 'pig').map((p) => Math.round(p.x)));
+
+    await page.click('.hud-menu');
+    await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'title');
+    await page.click('[data-test="resume"]');
+    await page.waitForFunction(() => (document.querySelector('.overlay')?.dataset.overlay ?? '') === '');
+
+    await page.waitForTimeout(250);
+    const after = await page.evaluate(() => window.__game.adapter.snapshot().filter((b) => b.kind === 'pig').map((p) => Math.round(p.x)));
+    assert.notDeepEqual(after, during, 'the round must keep running once the menu is closed');
+
+    await page.keyboard.press('r');
+    await waitStat(page, 'ammo', 'pigs 4', 'restart works after resume');
+  });
+});
+
+test('nothing floats with no support under it', async () => {
+  // Playtest item 7: knocking a structure's supports out left blocks and birds hanging
+  // in the air. The check is the rotated-AABB support test from scratch/hover-probe.ts.
+  await withPage(async (page) => {
+    await open(page, await baseUrl());
+    await page.keyboard.press('2');
+    await waitStat(page, 'level', 'stage 2/6', 'stage 02 loaded');
+    await page.evaluate(({ pull, rad }) => {
+      const origin = window.__game.cannon.config().origin;
+      window.__game.beginAim();
+      window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
+      window.__game.releaseAim();
+    }, { pull: 63, rad: (18 * Math.PI) / 180 });
+
+    await page.waitForFunction(() => ['aiming', 'won', 'lost'].includes(window.__game.rules.snapshot().phase), null, { timeout: 8000 });
+    const floating = await page.evaluate(() => {
+      const bodies = window.__game.adapter.snapshot();
+      const groundTop = window.__game.groundTop();
+      const extent = (e) => {
+        const hw = e.halfWidth ?? e.radius ?? 12;
+        const hh = e.halfHeight ?? e.radius ?? 12;
+        return {
+          w: Math.abs(Math.cos(e.angle)) * hw + Math.abs(Math.sin(e.angle)) * hh,
+          h: Math.abs(Math.sin(e.angle)) * hw + Math.abs(Math.cos(e.angle)) * hh,
+        };
+      };
+      const out = [];
+      for (const b of bodies) {
+        if (b.kind === 'ground' || b.kind === 'wall') continue;
+        const bottom = b.y + extent(b).h;
+        if (bottom >= groundTop - 14) continue;
+        const supported = bodies.some((o) => {
+          if (o.id === b.id) return false;
+          const top = o.y - extent(o).h;
+          return extent(b).w + extent(o).w - Math.abs(o.x - b.x) >= 4 && top >= bottom - 14 && top <= bottom + 14;
+        });
+        if (!supported) out.push(`${b.id} at y=${Math.round(b.y)}`);
+      }
+      return out;
+    });
+    assert.deepEqual(floating, [], 'every resting body must be resting on something');
   });
 });
 
@@ -503,11 +594,12 @@ async function overlayLabels(page) {
 
 test('the title screen lists stages with best scores and starts the picked one (M19)', async () => {
   await withPage(async (page) => {
-    await open(page, await baseUrl());
-    assert.equal(await overlayKind(page), '', 'the game opens straight into a stage');
+    await page.goto(await baseUrl());
+    await page.waitForFunction(() => typeof window.__game !== 'undefined');
+    // Playtest item 1: the game opens on the title screen, not straight into a stage.
+    assert.equal(await overlayKind(page), 'title', 'the game opens on the title screen');
+    assert.equal(await page.evaluate(() => window.__steps()), 0, 'nothing simulates behind the title screen');
 
-    await page.click('.hud-menu');
-    await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'title');
     const labels = await overlayLabels(page);
     assert.match(labels[0] ?? '', /^play stage-01 · no record yet$/, 'a fresh browser has no records');
     assert.equal(labels.length, 8, 'six stages plus options and resume');
@@ -522,20 +614,23 @@ test('the title screen lists stages with best scores and starts the picked one (
 
 test('the title screen can be opened and closed with Escape, and digits pick stages (M19)', async () => {
   await withPage(async (page) => {
-    await open(page, await baseUrl());
-    await page.keyboard.press('Escape');
-    assert.equal(await overlayKind(page), 'title');
+    await page.goto(await baseUrl());
+    await page.waitForFunction(() => typeof window.__game !== 'undefined');
+    assert.equal(await overlayKind(page), 'title', 'the title screen opens on load');
     await page.keyboard.press('Escape');
     assert.equal(await overlayKind(page), '', 'Escape closes the menu');
+    await page.keyboard.press('Escape');
+    assert.equal(await overlayKind(page), 'title', 'Escape opens it again');
 
     await page.keyboard.press('2');
     await waitStat(page, 'level', 'stage 2/6', 'digit keys jump to a stage');
+    assert.equal(await overlayKind(page), '', 'a stage pick closes the menu');
 
     // The menu pauses simulation: steps must not advance while it is open.
     await page.keyboard.press('Escape');
-    const before = await page.evaluate(() => window.__game.rules.snapshot().launches);
+    const before = await page.evaluate(() => window.__steps());
     await page.waitForTimeout(300);
-    assert.equal(await page.evaluate(() => window.__game.rules.snapshot().launches), before, 'a paused menu changes no game state');
+    assert.equal(await page.evaluate(() => window.__steps()), before, 'a paused menu takes no simulation steps');
     await page.keyboard.press('Escape');
   });
 });
@@ -547,7 +642,8 @@ test('an option change survives a reload (M19)', async () => {
     await page.keyboard.press('o');
     await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'options');
     const rowsBefore = await overlayLabels(page);
-    assert.deepEqual(rowsBefore.slice(0, 4), ['tron', 'on', 'on', 'on'], 'the option values are current settings');
+    // theme, sound, music, debris, trail — the soundtrack is the one row that starts off.
+    assert.deepEqual(rowsBefore.slice(0, 5), ['tron', 'on', 'off', 'on', 'on'], 'the option values are current settings');
 
     const themeBefore = await page.evaluate(() => window.__options().themeId);
     await page.click('[data-test="opt-theme"]');
@@ -563,7 +659,9 @@ test('an option change survives a reload (M19)', async () => {
     await page.reload();
     await page.waitForFunction(() => typeof window.__options !== 'undefined');
     assert.equal(await page.evaluate(() => window.__options().themeId), themeAfter, 'the setting survived the reload');
-    assert.equal(await overlayKind(page), '', 'a reload goes back to play, not the menu');
+    // A reload goes back to the title screen (playtest item 1), not straight into play.
+    assert.equal(await overlayKind(page), 'title', 'a reload opens the title screen');
+    await page.click('[data-test="resume"]');
     assert.equal(await page.evaluate(() => document.querySelector('[data-stat="level"]')?.textContent), 'stage 1/6');
   });
 });
@@ -579,6 +677,7 @@ test('turning trail and debris off stops those effects (M19)', async () => {
     assert.deepEqual(await page.evaluate(() => window.__options()), {
       themeId: 'tron',
       sound: true,
+      music: false,
       debris: false,
       trail: false,
     }, 'both effects are recorded as off');

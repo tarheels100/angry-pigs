@@ -12,7 +12,7 @@ import type { LevelDef } from './index.ts';
 export const LEVEL_06: LevelDef = {
   name: 'stage-06',
   bounds: { width: 1600, height: 900 },
-  cannon: { x: 120,  y: 420, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'heavy', 'cluster', 'basic', 'basic'] },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'heavy', 'cluster', 'basic', 'basic'] },
   statics: [{ type: 'ground', x: 800, y: 860, w: 1600, h: 40 }],
   objects: [
     // Metal shield: unbreakable at the current scale, so it is an obstacle, not a target.
@@ -44,6 +44,7 @@ export const LEVEL_06: LevelDef = {
     { type: 'ball', material: 'feather', x: 1540, y: 680, r: 20, target: true },
   ],
   scenery: [
+    { kind: "plinth", x: 120, y: 798, w: 150, h: 84 },
     { kind: 'tree', x: 440, y: 776, w: 32, h: 128 },
     { kind: 'tree', x: 1160, y: 770, w: 36, h: 140 },
     { kind: 'ridge', x: 1460, y: 824, w: 260, h: 32 },

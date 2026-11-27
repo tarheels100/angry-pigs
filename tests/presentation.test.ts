@@ -37,6 +37,9 @@ function fakeCtx(): CanvasRenderingContext2D {
     moveTo: () => calls.push({ op: 'moveTo', color: null }),
     lineTo: () => calls.push({ op: 'lineTo', color: null }),
     arc: () => calls.push({ op: 'arc', color: ctx.fillStyle as string }),
+    ellipse: () => calls.push({ op: 'ellipse', color: ctx.fillStyle as string }),
+    closePath: () => calls.push({ op: 'closePath', color: null }),
+    quadraticCurveTo: () => calls.push({ op: 'quadraticCurveTo', color: null }),
     rect: () => calls.push({ op: 'rect', color: ctx.fillStyle as string }),
     stroke: () => calls.push({ op: 'stroke', color: ctx.strokeStyle as string }),
     fill: () => calls.push({ op: 'fill', color: ctx.fillStyle as string }),
@@ -80,8 +83,9 @@ function aimFrame(game: ReturnType<typeof createGame>) {
   return f.aim ? { origin: f.aim.origin, pull: f.aim.pull, trajectory: f.trajectory } : null;
 }
 
-const birdArcs = (ctx: CanvasRenderingContext2D) =>
-  callsOf(ctx).filter((c) => c.op === 'arc' && c.color === theme.palette.bird).length;
+/** The placeholder theme paints a live bird as one filled disc in the bird accent. */
+const birdPaints = (ctx: CanvasRenderingContext2D) =>
+  callsOf(ctx).filter((c) => c.op === 'fill' && c.color === theme.palette.bird).length;
 
 test('aiming frame paints background, level, cannon, and the aim guide', () => {
   const { game, renderer, camera, ctx } = makeSlice();
@@ -95,7 +99,7 @@ test('aiming frame paints background, level, cannon, and the aim guide', () => {
   assert.equal(calls[1]!.op, 'fillRect', 'background is painted first');
   assert.equal(calls[1]!.color, theme.palette.background);
   assert.ok(calls.some((c) => c.color === theme.palette.materials.glass), 'glass blocks are painted');
-  assert.equal(birdArcs(ctx), 2, 'both birds are painted while alive');
+  assert.equal(birdPaints(ctx), 2, 'both birds are painted while alive');
   assert.ok(calls.some((c) => c.color === theme.palette.cannon), 'cannon is painted');
   assert.ok(calls.some((c) => c.color === theme.palette.pig), 'the pig waiting on the cannon is painted');
   assert.ok(calls.some((c) => c.op === 'stroke' && c.color === theme.palette.aimGuide), 'aim guide / trajectory is stroked');
@@ -106,21 +110,25 @@ test('aiming frame paints background, level, cannon, and the aim guide', () => {
 
 test('flight frame paints the live pig; destroyed entities stop being painted', () => {
   const { game, renderer, camera, ctx } = makeSlice();
+  const rad = (-20 * Math.PI) / 180; // measured aim that takes the beam bird and leaves the open one
   game.beginAim();
-  game.dragAim({ x: loaded.cannonOrigin.x - loaded.maxPull, y: loaded.cannonOrigin.y });
+  game.dragAim({
+    x: loaded.cannonOrigin.x - loaded.maxPull * Math.cos(rad),
+    y: loaded.cannonOrigin.y - loaded.maxPull * Math.sin(rad),
+  });
   game.releaseAim();
   game.step(1 / 60);
 
   renderer.draw({ camera, phase: 'in_flight', aim: null }, game.entities.all());
   assert.ok(callsOf(ctx).some((c) => c.color === theme.palette.pig), 'the launched pig is painted');
-  assert.equal(birdArcs(ctx), 2);
+  assert.equal(birdPaints(ctx), 2);
 
   // Let the tower collapse kill the beam bird.
-  for (let i = 0; i < 120; i++) game.step(1 / 60);
+  for (let i = 0; i < 200; i++) game.step(1 / 60);
   const dead = game.entities.get('bird-2');
   assert.ok(dead && dead.destroyed, 'beam bird died in the collapse');
 
   callsOf(ctx).length = 0;
   renderer.draw({ camera, phase: game.rules.snapshot().phase, aim: null }, game.entities.all());
-  assert.equal(birdArcs(ctx), 1, 'a destroyed bird is no longer painted');
+  assert.equal(birdPaints(ctx), 1, 'a destroyed bird is no longer painted');
 });

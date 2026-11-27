@@ -19,8 +19,8 @@ export const pixelPalette: ThemePalette = {
     ground: '#3a2b1f',
     light: '#ffe08a',
   } satisfies Record<MaterialId, string>,
-  pig: '#7ad46b',
-  bird: '#e0603f',
+  pig: '#ef7f92',
+  bird: '#ffd24a',
   cannon: '#c9a226',
   aimGuide: '#ffe08a',
   flash: '#fff6df',
@@ -79,78 +79,169 @@ function paintMaterialTexture(ctx: CanvasRenderingContext2D, state: EntityState,
   }
 }
 
+/**
+ * A pig as stacked squares. Playtest: the old art was a disc with hairline marks, so
+ * the ears, snout, eyes, and legs are now blocks that clear the body outline. Type hue
+ * varies by ammo type (M18): a heavy is a darker rust, a bomb is dark with a lit fuse.
+ */
+function paintPig(ctx: CanvasRenderingContext2D, palette: ThemePalette, half: number, variant: string): void {
+  const hue =
+    variant === 'heavy' ? '#b8434a' : variant === 'bomb' ? '#4a4258' : variant === 'cluster' ? '#ffa8c0' : palette.pig;
+  const dark = '#2a1a14';
+  const light = variant === 'bomb' ? '#8f86a0' : '#f4a9b8';
+
+  // Ears: blocks that sit past the body, so they read at any zoom.
+  ctx.fillStyle = hue;
+  ctx.fillRect(snap(-half + PIXEL) - PIXEL, snap(-half) - PIXEL * 3, PIXEL * 2, PIXEL * 2);
+  ctx.fillRect(snap(half - PIXEL * 2), snap(-half) - PIXEL * 3, PIXEL * 2, PIXEL * 2);
+
+  // Legs.
+  ctx.fillRect(snap(-half * 0.5) - PIXEL, snap(half), PIXEL * 2, PIXEL * 2);
+  ctx.fillRect(snap(half * 0.5) - PIXEL, snap(half), PIXEL * 2, PIXEL * 2);
+
+  // Snout: a lighter block protruding from the leading edge, nostrils punched out.
+  ctx.fillStyle = light;
+  ctx.fillRect(snap(half) - PIXEL, -PIXEL * 2, PIXEL * 3, PIXEL * 4);
+  ctx.fillStyle = dark;
+  ctx.fillRect(snap(half) + PIXEL, -PIXEL * 2, PIXEL, PIXEL);
+  ctx.fillRect(snap(half) + PIXEL, PIXEL, PIXEL, PIXEL);
+
+  // Eyes: a light block with a dark pupil.
+  ctx.fillStyle = '#f4efe2';
+  ctx.fillRect(snap(half * 0.3) - PIXEL, snap(-half * 0.55) - PIXEL, PIXEL * 2, PIXEL * 3);
+  ctx.fillRect(snap(-half * 0.2) - PIXEL, snap(-half * 0.6) - PIXEL, PIXEL, PIXEL * 2);
+  ctx.fillStyle = dark;
+  ctx.fillRect(snap(half * 0.3), snap(-half * 0.55), PIXEL, PIXEL * 2);
+
+  // Type marks, chunky rather than hairline.
+  if (variant === 'heavy') {
+    ctx.fillStyle = dark;
+    ctx.fillRect(snap(-half * 0.7), snap(-half * 0.1), PIXEL * 4, PIXEL);
+    ctx.fillRect(snap(-half * 0.7), snap(half * 0.3), PIXEL * 4, PIXEL);
+  } else if (variant === 'bomb') {
+    ctx.fillStyle = '#ffe08a';
+    ctx.fillRect(-PIXEL, snap(-half) - PIXEL * 2, PIXEL, PIXEL * 2);
+    ctx.fillRect(PIXEL, snap(-half) - PIXEL * 3, PIXEL * 2, PIXEL * 2);
+  } else if (variant === 'cluster') {
+    ctx.fillStyle = dark;
+    ctx.fillRect(snap(-half * 0.6), -PIXEL, PIXEL * 2, PIXEL);
+    ctx.fillRect(snap(-half * 0.6), PIXEL, PIXEL * 2, PIXEL);
+  } else {
+    ctx.fillStyle = dark;
+    ctx.fillRect(snap(-half * 0.45), snap(half * 0.35) - PIXEL, PIXEL * 2, PIXEL * 2);
+  }
+}
+
+/**
+ * A bird as stacked squares. Playtest: it read as "a sun" — a disc with a ring — so the
+ * body is now a wide chunky block with a wing, tail steps, an orange beak, and a comb.
+ */
+function paintBird(ctx: CanvasRenderingContext2D, palette: ThemePalette, half: number): void {
+  const yellow = palette.bird;
+  const dark = '#8a5a22';
+  const orange = '#ff9a4a';
+  const red = '#e04a3a';
+
+  // Tail steps behind the body.
+  ctx.fillStyle = yellow;
+  ctx.fillRect(snap(-half) - PIXEL * 2, snap(-half * 0.45) - PIXEL, PIXEL * 2, PIXEL);
+  ctx.fillRect(snap(-half) - PIXEL * 2, snap(-half * 0.1), PIXEL * 2, PIXEL);
+  ctx.fillRect(snap(-half) - PIXEL * 2, snap(half * 0.35) - PIXEL, PIXEL * 2, PIXEL);
+
+  // Legs.
+  ctx.fillStyle = orange;
+  ctx.fillRect(-PIXEL, snap(half), PIXEL, PIXEL * 2);
+  ctx.fillRect(PIXEL, snap(half), PIXEL, PIXEL * 2);
+
+  // Body: wider than tall, so it is an egg rather than a disc.
+  ctx.fillStyle = yellow;
+  ctx.fillRect(snap(-half), snap(-half * 0.7), snap(half * 2), snap(half * 1.4));
+
+  // Wing: a darker band across the body.
+  ctx.fillStyle = dark;
+  ctx.fillRect(snap(-half * 0.6), -PIXEL, PIXEL * 4, PIXEL * 2);
+  ctx.fillRect(snap(-half * 0.3), PIXEL * 2, PIXEL * 3, PIXEL);
+
+  // Comb: three red blocks on top.
+  ctx.fillStyle = red;
+  ctx.fillRect(snap(-half * 0.35), snap(-half) - PIXEL * 2, PIXEL, PIXEL * 2);
+  ctx.fillRect(snap(-half * 0.05), snap(-half) - PIXEL * 3, PIXEL, PIXEL * 3);
+  ctx.fillRect(snap(half * 0.25), snap(-half) - PIXEL * 2, PIXEL, PIXEL * 2);
+
+  // Beak: a stepped orange wedge past the body edge.
+  ctx.fillStyle = orange;
+  ctx.fillRect(snap(half), -PIXEL, PIXEL * 2, PIXEL * 2);
+  ctx.fillRect(snap(half) + PIXEL * 2, -PIXEL, PIXEL, PIXEL);
+
+  // Eye: light block with a dark pupil.
+  ctx.fillStyle = '#f4efe2';
+  ctx.fillRect(snap(half * 0.45) - PIXEL, snap(-half * 0.5) - PIXEL, PIXEL * 2, PIXEL * 2);
+  ctx.fillStyle = dark;
+  ctx.fillRect(snap(half * 0.45), snap(-half * 0.5), PIXEL, PIXEL);
+}
+
 /** Pull length that fully compresses the launcher spring (appearance, not gameplay). */
 const SPRING_FULL = 90;
 
-/** A pig as stacked squares: ears, snout, nostrils, eyes. */
-function paintPig(ctx: CanvasRenderingContext2D, palette: ThemePalette, half: number, variant: string): void {
-  ctx.fillStyle = palette.pig;
-  // Ears.
-  ctx.fillRect(-half + PIXEL, -half - PIXEL, PIXEL, PIXEL);
-  ctx.fillRect(half - PIXEL * 2, -half - PIXEL, PIXEL, PIXEL);
-  // Snout on the leading edge, with two nostril pixels in the theme's background colour.
-  ctx.fillRect(half, -PIXEL, PIXEL * 2, PIXEL * 2);
-  ctx.fillStyle = palette.background;
-  ctx.fillRect(half + PIXEL, -PIXEL, PIXEL, PIXEL);
-  ctx.fillStyle = palette.pig;
-  // Eyes.
-  ctx.fillRect(-PIXEL, -half + PIXEL, PIXEL, PIXEL);
-  ctx.fillRect(-PIXEL, -half + PIXEL * 3, PIXEL, PIXEL);
-
-  // Type marks (M18): heavy gets a belt, bomb a fuse pixel, cluster a seam.
-  if (variant === 'heavy') ctx.fillRect(-half + PIXEL, half - PIXEL * 3, PIXEL * 3, PIXEL);
-  else if (variant === 'bomb') ctx.fillRect(0, -half - PIXEL * 2, PIXEL, PIXEL);
-  else if (variant === 'cluster') ctx.fillRect(-half + PIXEL, 0, PIXEL * 3, PIXEL);
-}
-
-/** A bird as stacked squares: wing steps, beak, comb, eye. */
-function paintBird(ctx: CanvasRenderingContext2D, palette: ThemePalette, half: number): void {
-  ctx.fillStyle = palette.bird;
-  // Wing: three stepped pixels.
-  ctx.fillRect(-half + PIXEL, -PIXEL, PIXEL, PIXEL);
-  ctx.fillRect(-PIXEL, PIXEL, PIXEL, PIXEL);
-  ctx.fillRect(PIXEL, -PIXEL, PIXEL, PIXEL);
-  // Beak.
-  ctx.fillRect(half, -PIXEL, PIXEL * 2, PIXEL);
-  ctx.fillRect(half, 0, PIXEL, PIXEL);
-  // Comb.
-  ctx.fillRect(-PIXEL, -half - PIXEL, PIXEL, PIXEL);
-  // Eye in the background colour, so it reads as a hole in the body.
-  ctx.fillStyle = palette.background;
-  ctx.fillRect(PIXEL, -half + PIXEL, PIXEL, PIXEL);
-}
-
-/** The launcher: a stepped barrel that tilts with the aim and spring coils that
- * shorten as the pull grows (D28). Aim state comes from the display extra. */
+/**
+ * The launcher as stacked blocks (docs/adr.md D28). Playtest: the launcher looked like
+ * junk and sat in mid-air, so the art is a carriage of blocks with wheels, a stepped
+ * barrel that tilts with the aim, a muzzle block, a coil that shortens with the pull,
+ * and a pull gauge. The carriage reaches 56 units below the pivot, where the levels put
+ * the ground.
+ */
 function paintCannon(ctx: CanvasRenderingContext2D, state: EntityState, palette: ThemePalette): void {
-  const hw = state.halfWidth ?? 30;
-  const hh = state.halfHeight ?? 14;
   const pull = state.pull ?? 0;
   const aimAngle = state.aimAngle ?? 0;
   const recoil = state.recoil ?? 0;
   const compress = Math.min(1, pull / SPRING_FULL);
-
-  // Barrel: pixels stepped along the aim direction, snapped to the grid.
   const dir = { x: Math.cos(aimAngle), y: Math.sin(aimAngle) };
+
+  // Carriage: three rows of blocks down to the ground, widening as it goes.
   ctx.fillStyle = palette.cannon;
-  for (let i = 0; i < 6; i++) {
-    const t = -hw * 0.4 + i * PIXEL * 2.5;
-    ctx.fillRect(snap(dir.x * t) - PIXEL / 2, snap(dir.y * t) - hh - PIXEL, PIXEL, PIXEL);
+  ctx.fillRect(-PIXEL * 5, 10, PIXEL * 10, PIXEL * 2);
+  ctx.fillRect(-PIXEL * 6, 10 + PIXEL * 2, PIXEL * 12, PIXEL * 2);
+  ctx.fillRect(-PIXEL * 7, 10 + PIXEL * 4, PIXEL * 14, PIXEL * 2);
+  ctx.fillStyle = palette.background;
+  ctx.fillRect(-PIXEL * 4, 10 + PIXEL * 2, PIXEL * 2, PIXEL * 2);
+  ctx.fillRect(PIXEL * 2, 10 + PIXEL * 2, PIXEL * 2, PIXEL * 2);
+
+  // Wheels: a block with a bright hub.
+  for (const dx of [-PIXEL * 4, PIXEL * 4]) {
+    ctx.fillStyle = palette.cannon;
+    ctx.fillRect(dx - PIXEL * 2, 34, PIXEL * 4, PIXEL * 4);
+    ctx.fillStyle = palette.flash;
+    ctx.fillRect(dx - PIXEL, 38, PIXEL * 2, PIXEL * 2);
   }
-  // Muzzle: a wider block at the barrel's end, brightened by recoil.
-  const muzzle = snap(dir.x * hw * 1.15);
-  const muzzleY = snap(dir.y * hw * 1.15) - hh;
-  ctx.fillRect(muzzle - PIXEL, muzzleY - PIXEL, PIXEL * 2, PIXEL * 2);
+
+  // Barrel: blocks stepped along the aim direction, thicker at the breech.
+  ctx.fillStyle = palette.cannon;
+  for (let i = 0; i < 9; i++) {
+    const t = -PIXEL * 3 + i * PIXEL * 4;
+    const size = i < 3 ? PIXEL * 2 : PIXEL;
+    ctx.fillRect(snap(dir.x * t) - size / 2, snap(dir.y * t) - size / 2, size, size);
+  }
+  // Muzzle block at the launch point ahead of the pivot.
+  const muzzleX = snap(dir.x * PIXEL * 10);
+  const muzzleY = snap(dir.y * PIXEL * 10);
+  ctx.fillRect(muzzleX - PIXEL, muzzleY - PIXEL, PIXEL * 2, PIXEL * 2);
   if (recoil > 0) {
     ctx.fillStyle = palette.flash;
-    ctx.fillRect(muzzle - PIXEL * 2, muzzleY - PIXEL * 2, PIXEL * 4, PIXEL * 4);
+    ctx.fillRect(muzzleX - PIXEL * 2, muzzleY - PIXEL * 2, PIXEL * 4, PIXEL * 4);
+    ctx.fillRect(snap(dir.x * PIXEL * 14) - PIXEL, muzzleY - PIXEL, PIXEL, PIXEL * 2);
   }
 
-  // Spring coils: alternating pixels behind the barrel, spacing shrinking with the pull.
+  // Coil: pixels behind the breech, spacing shrinking as the pull grows.
   ctx.fillStyle = palette.pig;
-  const spacing = PIXEL * (1.6 - compress * 0.9);
+  const spacing = PIXEL * (1.7 - compress * 0.9);
   for (let i = 0; i < 4; i++) {
-    ctx.fillRect(snap(-hw * 0.5 - i * spacing), -hh + (i % 2 === 0 ? -PIXEL : PIXEL), PIXEL, PIXEL);
+    ctx.fillRect(snap(-PIXEL * 4 - i * spacing), snap(dir.y * -PIXEL * 4) + (i % 2 === 0 ? -PIXEL : PIXEL), PIXEL, PIXEL);
+  }
+
+  // Pull gauge: blocks along an arc under the barrel, filled by the pull fraction.
+  const blocks = Math.round(compress * 6);
+  for (let i = 0; i < blocks; i++) {
+    ctx.fillRect(-PIXEL * 6 + i * PIXEL * 2, 52, PIXEL * 2, PIXEL);
   }
 }
 
@@ -166,6 +257,23 @@ function paintScenery(ctx: CanvasRenderingContext2D, state: EntityState, palette
       const h = hh * (0.4 + (i % 2) * 0.35);
       ctx.fillRect(-hw + i * (hw / 3), hh - h, hw / 3, h);
     }
+    return;
+  }
+
+  // Plinth: stacked blocks with a bright cap, the masonry the launcher stands on.
+  if (state.variant === 'plinth') {
+    const rows = Math.max(2, Math.round(hh / PIXEL / 2));
+    for (let i = 0; i < rows; i++) {
+      const y = hh - (i + 1) * (hh * 2 / rows);
+      ctx.fillRect(-hw, y, hw * 2, hh * 2 / rows - PIXEL / 2);
+      // Staggered joint, punched out in the background colour.
+      const joint = i % 2 === 0 ? -hw + hw * 0.4 : hw * 0.3;
+      ctx.fillStyle = palette.background;
+      ctx.fillRect(joint, y, PIXEL, hh * 2 / rows - PIXEL / 2);
+      ctx.fillStyle = palette.grid;
+    }
+    ctx.fillStyle = palette.outline;
+    ctx.fillRect(-hw, -hh, hw * 2, PIXEL);
     return;
   }
 

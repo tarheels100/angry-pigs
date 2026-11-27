@@ -24,6 +24,13 @@ export interface LevelStatic {
  * collides with nothing (docs/theme-contract.md). `kind` is a presentation hint the
  * theme draws ("tree", "ridge").
  */
+/**
+ * Prop kinds a theme knows how to paint. Art only, never bodies (docs/adr.md D29).
+ * `plinth` is the masonry the launcher stands on, so the cannon reads as built rather
+ * than floating (playtest item 4).
+ */
+export const SCENERY_KINDS = ['tree', 'ridge', 'plinth'] as const;
+
 export interface SceneryItem {
   kind: string;
   x: number;
@@ -138,7 +145,10 @@ export function validateLevel(def: LevelDef): void {
   requireNumber('cannon.powerScale', def.cannon.powerScale);
   if ((def.targets ?? []).length === 0) throw new LevelError('targets', 'a level must have at least one target');
   def.scenery?.forEach((item, i) => {
-    if (!item.kind) throw new LevelError(`scenery[${i}].kind`, 'required ("tree", "ridge")');
+    if (!item.kind) throw new LevelError(`scenery[${i}].kind`, `required (${SCENERY_KINDS.join(', ')})`);
+    if (!(SCENERY_KINDS as readonly string[]).includes(item.kind)) {
+      throw new LevelError(`scenery[${i}].kind`, `"${item.kind}" is not a known prop (${SCENERY_KINDS.join(', ')})`);
+    }
     requireNumber(`scenery[${i}].x`, item.x);
     requireNumber(`scenery[${i}].y`, item.y);
     if (item.r === undefined && (item.w === undefined || item.h === undefined)) {

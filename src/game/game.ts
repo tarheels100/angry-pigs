@@ -34,8 +34,11 @@ const RECOIL_DECAY = 0.05;
 
 /** Velocity multiplier for blast push, matching the impact impulse convention (D33). */
 const IMPULSE_SCALE = 0.02;
-/** How far the waiting pig sits down the barrel, as a fraction of the pull (D28). */
-const LOAD_DEPTH = 0.5;
+/** How far the waiting pig sits down the barrel, as a fraction of the pull (D28).
+ * 0.2 keeps a full 90-unit pull inside the barrel (18 units), so the pig in the
+ * chamber never sticks out past the breech.
+ */
+const LOAD_DEPTH = 0.2;
 
 export interface GameOptions {
   level: LoadedLevel;
@@ -143,9 +146,11 @@ export function createGame(options: GameOptions): Game {
     const list: EntityState[] = [
       {
         id: 'cannon', kind: 'cannon', shape: 'box', material: 'metal',
-        x: origin.x, y: origin.y + 16, angle: 0, vx: 0, vy: 0,
+        x: origin.x, y: origin.y, angle: 0, vx: 0, vy: 0,
         sleeping: true, destroyed: false, health: Infinity, impactEnergy: 0,
-        halfWidth: 30, halfHeight: 14,
+        // The state is the launch pivot; the theme draws the carriage below it and the
+        // barrel around it. A small box is just the breech block.
+        halfWidth: 12, halfHeight: 8,
         variant: 'cannon',
         // Aim state the theme turns into a tilting barrel and a compressed spring.
         pull,

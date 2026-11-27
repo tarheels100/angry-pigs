@@ -28,7 +28,7 @@ function recordingContext(): { ops: Op[]; ctx: CanvasRenderingContext2D } {
   Object.defineProperty(target, 'fillStyle', { get: () => fillStyle, set: (v: string) => { fillStyle = v; } });
   Object.defineProperty(target, 'strokeStyle', { get: () => strokeStyle, set: (v: string) => { strokeStyle = v; } });
   const PAINT_OPS = new Set(['fillRect', 'strokeRect', 'fill', 'stroke']);
-  for (const name of ['fillRect', 'strokeRect', 'beginPath', 'fill', 'stroke', 'arc', 'rect', 'moveTo', 'lineTo', 'save', 'restore', 'translate', 'scale', 'rotate', 'setTransform']) {
+  for (const name of ['fillRect', 'strokeRect', 'beginPath', 'fill', 'stroke', 'arc', 'rect', 'moveTo', 'lineTo', 'save', 'restore', 'translate', 'scale', 'rotate', 'setTransform', 'ellipse', 'closePath', 'quadraticCurveTo']) {
     target[name] = (...values: unknown[]) => {
       const t = target as Record<string, unknown>;
       ops.push({
@@ -226,7 +226,9 @@ test('a pig is painted as a character, and pig types read differently', () => {
     const ball = afterBackground(paint(theme, [roundState({ kind: 'block', material: 'feather' })]));
     const pig = afterBackground(paint(theme, [roundState({ variant: 'basic' })]));
     assert.ok(pig.length > ball.length, `${theme.id}: a pig draws more than a plain circle`);
-    assert.ok(pig.filter((o) => o.op === 'fillRect').length >= 4, `${theme.id}: eyes and nostrils are painted`);
+    // Face parts are painted as filled shapes — rects in pixel art, filled paths in
+    // neon. Either way, a pig is more than a disc.
+    assert.ok(pig.filter((o) => o.op === 'fillRect' || o.op === 'fill').length >= 4, `${theme.id}: eyes, snout and ears are painted`);
 
     // Type marks: heavy, bomb, and cluster add a mark over the basic pig (M18 hints).
     for (const variant of ['heavy', 'bomb', 'cluster']) {

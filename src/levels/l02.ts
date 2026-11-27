@@ -12,7 +12,7 @@ import type { LevelDef } from './index.ts';
 export const LEVEL_02: LevelDef = {
   name: 'stage-02',
   bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 420, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'basic', 'heavy', 'basic'] },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'basic', 'heavy', 'basic'] },
   statics: [{ type: 'ground', x: 800, y: 860, w: 1600, h: 40 }],
   objects: [
     // Near tower: column tops = 720, beam centre = 712 (beam top = 704).
@@ -31,5 +31,5 @@ export const LEVEL_02: LevelDef = {
     { type: 'ball', material: 'feather', x: 1220, y: 650, r: 20, target: true },
   ],
 
-  scenery: [{"kind":"tree","x":520,"y":770,"w":36,"h":140},{"kind":"tree","x":1180,"y":780,"w":30,"h":120},{"kind":"ridge","x":1360,"y":822,"w":200,"h":36}],
+  scenery: [{"kind":"plinth","x":120,"y":798,"w":150,"h":84},{"kind":"tree","x":520,"y":770,"w":36,"h":140},{"kind":"tree","x":1180,"y":780,"w":30,"h":120},{"kind":"ridge","x":1360,"y":822,"w":200,"h":36}],
 };

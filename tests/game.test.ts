@@ -101,7 +101,7 @@ test('a flat shot topples the tower and crushes the bird on it', () => {
   bus.on('destroyed', (d) => events.push(`destroyed:${d.id}`));
   bus.on('phaseChanged', (p) => events.push(`phase:${p.phase}`));
 
-  aim(game, 0);
+  aim(game, -20); // measured: reaches the tower legs and tips the storey (docs/tuning.md)
   assert.ok(game.frame().trajectory.length > 0, 'aiming produces a trajectory preview');
   assert.ok(game.releaseAim());
   assert.equal(game.rules.snapshot().phase, 'in_flight');
@@ -122,11 +122,11 @@ test('a downward shot kills the open bird and the level is won', () => {
   const won: Array<{ score: number }> = [];
   bus.on('levelWon', (e) => won.push({ score: e.score }));
 
-  aim(game, 0);
+  aim(game, -20); // takes the bird on the beam down
   game.releaseAim();
   settle(game);
 
-  aim(game, 16);
+  aim(game, 10); // takes the remaining open bird
   game.releaseAim();
   settle(game);
 
@@ -139,7 +139,7 @@ test('a downward shot kills the open bird and the level is won', () => {
 
 test('a clear pays a bonus for unused pigs', () => {
   const { game } = makeGame();
-  aim(game, 20); // one-shot clear: three of four pigs never fired
+  aim(game, 0); // one-shot clear: a flat full pull rolls into the tower (docs/tuning.md)
   game.releaseAim();
   settle(game);
   const snap = game.rules.snapshot();
@@ -289,7 +289,7 @@ test('stars are derived from shots used, not invented (D19)', () => {
   const { game } = makeGame();
   assert.equal(game.rules.snapshot().targetsTotal, 2);
 
-  aim(game, 20);
+  aim(game, 0);
   game.releaseAim();
   settle(game);
   assert.equal(game.rules.snapshot().phase, 'won');
@@ -297,10 +297,10 @@ test('stars are derived from shots used, not invented (D19)', () => {
   assert.equal(game.rules.snapshot().stars, 3, 'a one-shot clear earns three stars');
 
   const slow = makeGame();
-  aim(slow.game, 0);
+  aim(slow.game, -25);
   slow.game.releaseAim();
   settle(slow.game);
-  aim(slow.game, 16);
+  aim(slow.game, 10);
   slow.game.releaseAim();
   settle(slow.game);
   assert.equal(slow.game.rules.snapshot().stars, 2, 'two shots on two targets earns two stars');
@@ -376,7 +376,7 @@ test('bird deaths are attributed to the pig or to the collapse', () => {
   const deaths: Array<{ id: string; cause: string }> = [];
   bus.on('destroyed', (e) => deaths.push({ id: e.id, cause: e.cause }));
 
-  aim(game, 20); // clears both birds: one by direct hit, one by the collapse
+  aim(game, 0); // clears both birds: one by direct hit, one by the collapse
   game.releaseAim();
   settle(game);
   assert.equal(game.rules.snapshot().phase, 'won');

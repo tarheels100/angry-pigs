@@ -10,7 +10,7 @@ import type { LevelDef } from './index.ts';
 export const LEVEL_01: LevelDef = {
   name: 'stage-01',
   bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 480, maxPull: 90, powerScale: 0.22, ammo: ['basic', 'basic', 'basic', 'basic'] },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['basic', 'basic', 'basic', 'basic'] },
   statics: [{ type: 'ground', x: 800, y: 860, w: 1600, h: 40 }],
   objects: [
     // Glass columns: 30 x 120, tops at y = 720.
@@ -28,5 +28,5 @@ export const LEVEL_01: LevelDef = {
     { type: 'ball', material: 'feather', x: 1080, y: 676, r: 20, target: true },
   ],
 
-  scenery: [{"kind":"tree","x":560,"y":770,"w":36,"h":140},{"kind":"tree","x":1080,"y":770,"w":36,"h":140},{"kind":"ridge","x":1300,"y":820,"w":260,"h":40}],
+  scenery: [{"kind":"plinth","x":120,"y":798,"w":150,"h":84},{"kind":"tree","x":560,"y":770,"w":36,"h":140},{"kind":"tree","x":1080,"y":770,"w":36,"h":140},{"kind":"ridge","x":1300,"y":820,"w":260,"h":40}],
 };

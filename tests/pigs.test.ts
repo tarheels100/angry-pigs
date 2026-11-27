@@ -117,7 +117,9 @@ test('a bomb detonates on a solid hit and clears what it lands on', () => {
   const died = destroyedCount(bomb.bus);
 
   fireFlat(bomb.game);
-  run(bomb.game, 160);
+  // From the plinth height the flat pig lands short and rolls into the tower, so the
+  // detonation is later than the old mid-air launcher measured.
+  run(bomb.game, 240);
 
   assert.equal(explosions.length, 1, 'the blast fired once');
   assert.ok(explosions[0]!.radius > 0, 'the event carries the blast radius');
