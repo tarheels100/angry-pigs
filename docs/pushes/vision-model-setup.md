@@ -65,19 +65,34 @@ works as soon as the gate accepts custom providers.
   file you are reading is the record. Restart pi to load `settings.json`/`models.json`; they
   are read at startup, and `--vision` is a CLI override, not a file edit.
 
-## State right now
+## State right now — **vision works**
 
-- `~/.pi/agent/models.json`: `qwen3.8-plus-orbit-orbit` has `vision: true`.
-- `~/.pi/agent/settings.json`: `vision.enabled: true`, `vision.model:
-  qwen3.8-plus-orbit-orbit`, working model unchanged (`qwen3.8-flash-next-gyro-gyro-s`).
-- Effective behaviour in this session: **vision off**, because of the gate above. Browser
-  tests keep their numeric assertions and remain the source of truth for rendering checks.
+Resolved on 2026-11-26 after the provider switched to **strata** (`pi-strata-provider`,
+`PI_PROVIDER=strata`): images arrive as attachments and the session model reads them.
+Verified by generating a 300×150 Chromium screenshot (`scratch/vision-halfblue.png`, blue
+left half labelled `LEFT BLUE`, white right half) and reading it — the description matched.
+
+The config above is no longer in place: `settings.json` has no `vision` block and
+`models.json` holds only the lmstudio provider, because the strata setup replaced both
+files. Vision now comes from the strata provider itself, so pi's built-in-provider gate
+never applies — that is why the gate described above stopped being a blocker. No
+`PI_VISION`/`PI_VISION_MODEL` is set; the working model (`PI_MODEL`,
+`qwen3.8-flash-next-gyro-gyro-s`) receives image blocks directly.
+
+**Consequence for the repo:** screenshots can be looked at, not only sampled. Keep numeric
+assertions as the CI gate; visual review is the judgment layer, since "does this read as
+Tron" is not a pixel-sample question. A test that passes only when a model describes a
+screenshot would be non-deterministic and unrunnable in CI.
+
+**Working-rule note:** harness and strata configuration is the user's to change. Do not edit
+`~/.pi/agent/settings.json`, `~/.pi/agent/models.json`, or provider packages unless asked
+explicitly.
 
 ## Follow-ups
 
-1. When the upstream gate accepts custom providers, vision turns on with no further edits;
-   then screenshot-based theme checks (docs/browser-testing.md "Canvas pixels") can be
-   reviewed visually instead of sampled.
+1. Visual review in the browser harness: a test can now screenshot a frame and attach it for
+   review (`docs/browser-testing.md` "Canvas pixels"). Keep the assertion numeric and treat
+   the image as evidence for a human or agent to judge, not as a pass condition.
 2. Alternative without the gate: write a small script tool that calls
    `/api/v1/messages` with an image directly. That is a tool addition, not a config change,
    and it belongs in the repo's dev tooling — needs its own scope decision.

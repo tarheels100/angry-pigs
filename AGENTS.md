@@ -14,6 +14,10 @@
    scoped task and report; ask rather than assume.
 4. **Ambiguity → ask, don't expand.** If the request could be read narrowly or broadly,
    do the narrow reading and surface the broader option.
+5. **Harness and provider config is the user's.** Do not edit `~/.pi/agent/settings.json`,
+   `~/.pi/agent/models.json`, provider packages, or any strata configuration unless the
+   user asks for that specific change. Reading them to answer a question is fine; writing
+   them is not.
 
 ### Work modes: `scoped:` and `autonomous:`
 
