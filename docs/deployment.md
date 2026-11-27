@@ -13,6 +13,11 @@ Separate terminals, if you prefer:
 
 ```
 npm run watch     # esbuild watch → dist/main.js
+
+The page in the repo root loads `./dist/main.js`, which is what the dev server serves (it
+serves the repo root). The release artifact inlines the bundle instead, so the two paths are
+not the same file — a stale script path in `index.html` shows a blank dark page locally while
+GitHub Pages keeps working (playtest item 3).
 npm run serve     # static server only
 ```
 

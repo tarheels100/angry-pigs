@@ -150,9 +150,16 @@ if (!canvas || !hudEl || !appEl) {
   /** Fragments of destroyed blocks: they fall, pile on the ground, and fade (M16). */
   const debris = createDebris({ groundTop: game.groundTop() });
   const sfx = createSfx();
-  /** Generated per-stage soundtrack (M17). Shares the audio context sfx unlocked. */
-  const music = createMusic({ createContext: () => sfx.unlock() });
+  /** Generated per-stage soundtrack (M17). Shares the audio context sfx unlocked.
+   * Its base clock is *current* simulated time, so a track never replays the notes that
+   * already passed — that backlog is what made enabling music mid-round a barrage. */
+  const music = createMusic({ createContext: () => sfx.unlock(), clock: () => stepsClock() });
   sfx.attach(bus);
+
+  /** Simulated milliseconds elapsed since boot; the soundtrack schedules on this clock. */
+  function stepsClock(): number {
+    return loop.stepsTaken() * (1000 / 60);
+  }
 
   /** Name the stage, its track if music is on, and how to fire (M17, playtest item 2). */
   function announceTrack(levelId: string, ammo: number): void {
@@ -166,7 +173,15 @@ if (!canvas || !hudEl || !appEl) {
   // game reads it, and it exposes no setters beyond the game's own API.
   const debug = window as unknown as {
     __game?: unknown;
-    __camera?: unknown;
+    /** Live camera view, read through closures: `refit` re-creates the camera on resize. */
+    __camera?: {
+      zoom: () => number;
+      world: () => { width: number; height: number };
+      worldToScreen: (p: { x: number; y: number }) => { x: number; y: number };
+      screenToWorld: (p: { x: number; y: number }) => { x: number; y: number };
+    };
+    /** CSS size of the canvas box, so browser tests can assert the layout fills the window. */
+    __viewport?: () => { cssWidth: number; cssHeight: number };
     __trail?: unknown;
     __debris?: unknown;
     __music?: unknown;
@@ -186,8 +201,6 @@ if (!canvas || !hudEl || !appEl) {
     else music.stop();
     announceTrack(e.levelId, e.ammo);
   });
-  if (options.music) music.start(levelAt(levelIndex).name);
-  announceTrack(levelAt(levelIndex).name, game.rules.snapshot().ammoLeft);
 
   bus.on('impact', (e) => {
     const at = game.entities.get(e.aId) ?? game.entities.get(e.bId);
@@ -426,6 +439,10 @@ if (!canvas || !hudEl || !appEl) {
   // Paint immediately: the title screen opens right after this and pauses the loop, so the
   // frozen frame has to be on the canvas already (playtest item 1).
   drawFrame();
+  // Announce and start the first stage's track *after* the loop exists, because the track's
+  // base clock reads `loop.stepsTaken()`.
+  if (options.music) music.start(levelAt(levelIndex).name);
+  announceTrack(levelAt(levelIndex).name, game.rules.snapshot().ammoLeft);
 
   // Playtest item 1: the game opens on the title screen. This runs after the loop exists,
   // so opening the overlay really pauses it; the player dismisses the menu to play.
@@ -434,7 +451,15 @@ if (!canvas || !hudEl || !appEl) {
   // Narrow read-only seam for browser tests (docs/browser-testing.md); nothing in the
   // game reads it, and it exposes no setters beyond the game's own API.
   debug.__game = game;
-  debug.__camera = camera;
+  // The camera object is re-created on every resize (refit), so the seam reads the *live*
+  // camera through closures rather than handing out the instance captured at load.
+  debug.__camera = {
+    zoom: () => camera.zoom(),
+    world: () => camera.world(),
+    worldToScreen: (p: { x: number; y: number }) => camera.worldToScreen(p),
+    screenToWorld: (p: { x: number; y: number }) => camera.screenToWorld(p),
+  };
+  debug.__viewport = () => ({ cssWidth: canvas!.clientWidth, cssHeight: canvas!.clientHeight });
   // Read-only so browser tests can assert a flight leaves a trail (M15).
   debug.__trail = trail;
   // Same seam for debris heaps (M16).

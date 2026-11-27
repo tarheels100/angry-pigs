@@ -31,5 +31,5 @@ export const LEVEL_02: LevelDef = {
     { type: 'ball', material: 'feather', x: 1220, y: 650, r: 20, target: true },
   ],
 
-  scenery: [{"kind":"plinth","x":120,"y":798,"w":150,"h":84},{"kind":"tree","x":520,"y":770,"w":36,"h":140},{"kind":"tree","x":1180,"y":780,"w":30,"h":120},{"kind":"ridge","x":1360,"y":822,"w":200,"h":36}],
+  scenery: [{"kind":"plinth","x":120,"y":798,"w":150,"h":84},{"kind":"tree","x":520,"y":490,"w":190,"h":700},{"kind":"tree","x":1180,"y":500,"w":170,"h":680},{"kind":"ridge","x":1360,"y":710,"w":1300,"h":260}],
 };

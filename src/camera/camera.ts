@@ -43,7 +43,7 @@ export interface CameraApi {
   shakeOffset(): Vec2;
 }
 
-const MIN_ZOOM = 0.5;
+const MANUAL_MIN_ZOOM = 0.5;
 const MAX_ZOOM = 3;
 /** Exponential smoothing rate for follow(), in units per second of remaining gap. */
 const FOLLOW_RATE = 6;
@@ -78,7 +78,11 @@ export function createCamera(view: Viewport, world: WorldExtent): CameraApi {
   }
 
   function applyZoom(z: number): void {
-    zoom = Math.min(Math.max(z, MIN_ZOOM), MAX_ZOOM);
+    // Playtest item 7: the fit for a narrow/portrait window is below 0.5, and clamping it
+    // cropped the level and pushed the launcher off screen. The floor is the fit itself,
+    // so "see the whole level" always wins; manual zoom-out cannot go past it.
+    const floor = Math.min(MANUAL_MIN_ZOOM, fitZoom());
+    zoom = Math.min(Math.max(z, floor), MAX_ZOOM);
   }
 
   return {
@@ -96,7 +100,7 @@ export function createCamera(view: Viewport, world: WorldExtent): CameraApi {
     setWorld(next: WorldExtent) {
       extent = next;
       pos = { x: next.width / 2, y: next.height / 2 };
-      zoom = fitZoom();
+      applyZoom(fitZoom());
     },
     follow(target: Vec2 | null, dt: number) {
       const goal = target ?? { x: extent.width / 2, y: extent.height / 2 };

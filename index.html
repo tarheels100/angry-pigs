@@ -11,12 +11,15 @@
     /* The canvas keeps the world's 16:9 shape and shrinks so the HUD stays on screen —
      * a restart button below the fold is unreachable on a short window. */
     canvas {
-      width: min(100%, 1280px, calc((100vh - 56px) * 16 / 9));
-      height: auto;
+      /* Fill the space under the HUD and let the camera letterbox the level inside it.
+       * Constraining the canvas to a 16:9 box made the stage tiny on short or portrait
+       * windows; the camera fit already guarantees the whole level is visible. */
+      width: 100%;
+      height: calc(100vh - 56px);
       background: #04060d;
       touch-action: none;
     }
-    #hud { width: min(100%, 1280px); display: flex; justify-content: space-between; gap: 16px; font-size: 12px; }
+    #hud { width: 100%; display: flex; justify-content: space-between; gap: 16px; font-size: 12px; }
     #hud span { white-space: nowrap; }
     #hud button { color: inherit; background: none; border: 1px solid currentColor; font: inherit; padding: 4px 10px; cursor: pointer; }
     #hud button:hover { background: rgba(110, 243, 255, 0.12); }
@@ -70,6 +73,6 @@
   </div>
 
   <!-- Entry: dev loads the bundle file; `npm run build` inlines it into dist/index.html -->
-  <script src="./main.js"></script>
+  <script src="./dist/main.js"></script>
 </body>
 </html>

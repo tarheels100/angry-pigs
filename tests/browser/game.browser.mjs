@@ -182,8 +182,25 @@ test('device pixel ratio maps the backing store', async () => {
     assert.equal(dims.dpr, 2);
     assert.equal(dims.width, Math.round(dims.cssWidth * 2), 'backing store is css width * dpr');
     assert.equal(dims.height, Math.round(dims.cssHeight * 2), 'backing store is css height * dpr');
-    // The CSS box keeps the world's aspect, so the picture is never squashed.
-    assert.ok(Math.abs(dims.cssWidth / dims.cssHeight - 16 / 9) < 0.02, 'aspect ratio is preserved');
+    // The canvas box fills the window, so the picture is protected by the camera instead:
+    // a uniform zoom keeps world angles and lengths intact, however squished the window is.
+    const iso = await page.evaluate(() => {
+      const a = window.__camera.worldToScreen({ x: 0, y: 0 });
+      const b = window.__camera.worldToScreen({ x: 100, y: 0 });
+      const c = window.__camera.worldToScreen({ x: 0, y: 100 });
+      return { dx: b.x - a.x, dy: b.y - a.y, cx: c.x - a.x, cy: c.y - a.y, zoom: window.__camera.zoom() };
+    });
+    assert.equal(iso.dy, 0, 'a horizontal world line stays horizontal');
+    assert.equal(iso.cx, 0, 'a vertical world line stays vertical');
+    assert.ok(Math.abs(Math.abs(iso.dx) - Math.abs(iso.cy)) < 1e-6, 'zoom is uniform — the world is not squashed');
+    assert.ok(iso.zoom > 0, 'zoom is positive');
+    // The whole level fits: the zoom is the fit for this viewport, not a clamped default.
+    const fit = await page.evaluate(() => {
+      const v = window.__viewport();
+      const w = window.__camera.world();
+      return Math.min(v.cssWidth / w.width, v.cssHeight / w.height);
+    });
+    assert.ok(Math.abs(iso.zoom - fit) < 1e-6, 'the view fits the whole level');
   }, { deviceScaleFactor: 2 });
 });
 

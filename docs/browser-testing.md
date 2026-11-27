@@ -37,7 +37,9 @@ const pigMoving = await page.evaluate(() => window.__game?.rules.snapshot().phas
 That needs the game to expose a small hook for tests — a deliberate, narrow seam rather
 than a test-only rewrite. `src/main.ts` publishes read-only objects:
 `window.__game` (rules, cannon, entity registry, aim API), `window.__camera`
-(`worldToScreen` for pixel sampling), `window.__trail`, `window.__debris`,
+(`zoom`, `world`, `worldToScreen`/`screenToWorld` for pixel sampling — closures over the
+*live* camera, because `refit()` re-creates it on resize), `window.__viewport()` (the CSS box
+size, so layout is assertable), `window.__trail`, `window.__debris`,
 `window.__music` (the generated track's flavour and emitted notes),
 `window.__explosions` (blast count since load), `window.__steps()` (`loop.stepsTaken()`),
 and `window.__options()` (the persisted

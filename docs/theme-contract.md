@@ -13,6 +13,11 @@ and it never reads collision, health-math, or level logic.
    transform, so themes draw in world coordinates and cannot change framing.
 3. **Asset set** — optional sprites/fonts/audio keyed by manifest ids (v0 ships none).
 
+`paintBackground` is painted in screen space, before the camera transform, so its scale is
+in CSS pixels while everything else is in world units (~1600x900). A fine field reads as
+noise next to the stage — the playtest asked for >=5x, and both themes now use a 220 px grid
+or an 80 px checker cell. Scale it against the world, not against the window.
+
 Presentation effects are **not** themes. Particles, camera shake, and sound subscribe to
 `GameEvents` and draw through the renderer's layers (D21): `behind` paints under entities
 (motion trail, debris heaps), `front` paints above them (particles, flashes). Draw order —

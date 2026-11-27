@@ -31,8 +31,13 @@ Covered by `tests/browser/game.browser.mjs` unless marked manual. Serve with
       **Result:** the gesture survives the camera rebuild and still fires; the pull is
       re-derived in screen space, so it does not snap into a bogus shot.
 - [x] **High-DPR display.** Browser context with `deviceScaleFactor: 2`.
-      **Result:** `canvas.width === clientWidth * 2`, aspect ratio preserved; pointer
-      mapping is in CSS pixels via `getBoundingClientRect`, so guide and pig line up.
+      **Result:** `canvas.width === clientWidth * 2`, and the picture is protected by the
+      camera rather than by a 16:9 CSS box: horizontal world lines stay horizontal, world
+      lengths map uniformly, and the zoom equals the viewport fit (D36). Pointer mapping is
+      in CSS pixels via `getBoundingClientRect`, so guide and pig line up.
+- [x] **Whole level visible at every window size.** 1280x720 zoom 0.738; 420x800 portrait
+      zoom 0.2475 with the launcher on screen; 1920x1080 zoom 1.138. The zoom floor is the
+      fit, so nothing is cropped (playtest item 7).
 - [x] **Theme swap paints different pixels.** Pixel-sampled at `(0,0)` via
       `getImageData`: each `t` press changes the RGB, and the theme is Tron by default.
       Cycling mid-flight is safe — themes read entity state only.

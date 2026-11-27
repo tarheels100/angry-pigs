@@ -35,9 +35,9 @@ export const LEVEL_05: LevelDef = {
   scenery: [
     { kind: "plinth", x: 120, y: 798, w: 150, h: 84 },
     // The grove: props only, never bodies (docs/adr.md D29).
-    { kind: 'tree', x: 500, y: 762, w: 40, h: 156 },
-    { kind: 'tree', x: 700, y: 780, w: 30, h: 120 },
-    { kind: 'tree', x: 1180, y: 770, w: 36, h: 140 },
-    { kind: 'ridge', x: 1380, y: 826, w: 240, h: 28 },
+    { kind: 'tree', x: 500, y: 490, w: 190, h: 700 },
+    { kind: 'tree', x: 700, y: 500, w: 170, h: 680 },
+    { kind: 'tree', x: 1180, y: 480, w: 210, h: 720 },
+    { kind: 'ridge', x: 1380, y: 710, w: 1300, h: 260 },
   ],
 };

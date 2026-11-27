@@ -7,7 +7,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 
 /** The entry tag in index.html. In dev it points at ./dist/main.js through the dev
  * server's alias; in the artifact the bundle is inlined in its place. */
-const TAG = '<script src="./main.js"></script>';
+const TAG = '<script src="./dist/main.js"></script>';
 
 const html = await readFile('index.html', 'utf8');
 const js = await readFile('dist/main.js', 'utf8');

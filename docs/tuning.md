@@ -36,11 +36,14 @@ file together.
 | stone damageThreshold | 9 | `MATERIALS` | A full-speed pig removes ~5 health; stone survives roughly three solid hits. |
 | feather damageThreshold | 1.0 | `MATERIALS` | Birds are fragile: any real hit kills; a gentle nudge does not. Lowered from 1.4 so a bird dropped from a perch (~120 units) dies, which is what stage 02 and 03 kills depend on. |
 | health area scaling | `area/3200`, clamped 0.35–3 | `healthFor()` | Large blocks take more hits; clamp stops huge walls becoming immortal. Divisor lowered from 4000 in M14 (blocks ~1.25× tougher), so a tower takes several hits and topples rather than vanishing. Perches are kept thin (beams 16 units tall) so a beam is still breakable. |
-| camera fit padding | 120 world units | camera `fitZoom` | Zoom at load shows the whole level plus margin (D20). |
+| camera fit | `min(view/extent)` per axis, no padding | camera `fitZoom` | Zoom at load shows the whole level (D20, D36). The zoom floor is `min(0.5, fit)`, so a portrait window still shows the launcher (playtest item 7). |
+| canvas box | CSS-owned: `width: 100%`, `height: calc(100vh - 56px)` | `index.html`, `renderer.resize` | The renderer sets only the backing store; inline styles froze the stage at load size (D36). |
+| background field | Tron `GRID` 220 px; Pixel cell `BLOCK * 5` = 80 px | themes | Playtest item 8 asked for >=5x; a fine grid reads as noise against a 1600-unit world. |
+| scenery prop scale | trees 170-210 x 680-720; ridges 1200-1300 x 240-260 | levels (art only, D29) | ~5x the M15 props. Centres sit at `groundTop - h/2`, so bases stay on the ground. |
 | `FOLLOW_RATE` | 6 units/s toward the projectile | camera `follow` | Fast enough to keep a flying pig on screen, slow enough that the camera never jitters. |
 | `SHAKE_PIXELS` / `SHAKE_DECAY` | 9 px, 7/s | camera `shake` | Screen-space shake, capped at ±10 px and decayed to zero within a second; it never moves world coordinates, so physics is unaffected. |
 | `SPRING_FULL` | 90 world units | cannon spring look | Pull at which the barrel spring reads as fully compressed (D28). Matches `maxPull`, so a max drag looks maxed. |
-| `LOAD_DEPTH` / `RECOIL_DECAY` | 0.5 / 0.05 per step | cannon display extra | The waiting pig is drawn half-way down the barrel against the pull; the muzzle flash decays (D28). Presentation only. |
+| `LOAD_DEPTH` / `RECOIL_DECAY` | 0.2 / 0.05 per step | cannon display extra | The waiting pig is drawn half-way down the barrel against the pull; the muzzle flash decays (D28). Presentation only. |
 | trail `maxAge` / `maxPoints` / `minSpeed` | 24 steps / 40 points / speed 2 | motion trail (M15) | Ages out by step, so a trail never lingers after the pig lands; resting pigs leave no trail. |
 | debris `gravity` / `fadeSteps` / `maxFragments` | 0.35 / 90 steps / 120 | fragment fall, fade window, cap (M16) | A heap fades within ~1.5 s; the cap bounds a big collapse. |
 | music tempo range | 92–125 bpm, picked by level hash | generated soundtrack (M17) | Every stage gets its own pace; the range keeps it calm enough to sit under impact blips. |

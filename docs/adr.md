@@ -389,3 +389,24 @@ Playtest items 1 and 2: the burst at level load and the track itself were both u
 bundle — the module, its tests, and the options row remain, so revisiting the soundtrack is
 a toggle rather than a rebuild. Sound effects keep their default of on, because an impact
 blip is feedback, not ambience.
+
+## D36 — the canvas box is CSS-owned; the camera owns framing
+
+**Date:** playtest after M20 · **Status:** accepted
+
+`renderer.resize()` sets the backing store only (`canvas.width/height = css * dpr`). It used
+to write inline `style.width/height`, which froze the canvas at the size the page loaded with:
+resizing or a portrait window left the stage at its original box while the camera reframed,
+and the level looked wrong and cropped. CSS now decides the box (`width: 100%`,
+`height: calc(100vh - 56px)`); the camera fits `bounds` inside whatever box it gets, so there
+is no 16:9 constraint to preserve.
+
+The zoom floor became `min(0.5, fitZoom())`. A hard 0.5 floor exceeded the fit for a narrow
+window (fit ~0.25) and pushed the launcher off screen — the "too zoomed in" report. Fitting
+the whole level outranks a minimum zoom; manual zoom-out stops at the fit.
+
+`window.__camera` is closures over the live camera plus `window.__viewport()`, because
+`refit()` re-creates the camera on resize and the old seam handed out a frozen instance.
+Consequences: the DPR browser test asserts the camera invariant (uniform zoom, level fits)
+instead of a CSS aspect ratio; and any future layout change is a CSS edit, not a renderer
+change.

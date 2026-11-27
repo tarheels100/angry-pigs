@@ -28,9 +28,10 @@ export const tronPalette: ThemePalette = {
 /** Glow radius in CSS pixels; kept small because shadowBlur is the costly part. */
 const GLOW = 10;
 /** Grid spacing in screen pixels. The background is painted before the camera
- * transform, so the grid is a field texture, not a world object.
+ * transform, so the grid is a field texture, not a world object. Playtest: the field
+ * read as fine noise next to a 1600x900 world, so the cell is 5x the old spacing.
  */
-const GRID = 44;
+const GRID = 220;
 
 /**
  * Material texture inside a block, drawn from the palette colour only, so two themes
@@ -568,7 +569,9 @@ function paintCannon(ctx: CanvasRenderingContext2D, state: EntityState, palette:
   }
   ctx.restore();
 
-  // Coil under the barrel: shorter as the pull grows, which is the spring compression.
+  // The spring, drawn *in the bore* on the barrel axis: a zigzag between the breech and
+  // the muzzle that shortens as the pull grows. Playtest said the old coil sat under the
+  // barrel and read as an unrelated squiggle, so it now shares the barrel's own axis.
   ctx.save();
   ctx.translate(0, -2);
   ctx.rotate(aimAngle);
@@ -576,10 +579,10 @@ function paintCannon(ctx: CanvasRenderingContext2D, state: EntityState, palette:
   ctx.lineWidth = 2;
   ctx.beginPath();
   const coils = 4;
-  const length = 26 * (1 - compress * 0.65);
+  const length = 18 * (1 - compress * 0.6);
   for (let i = 0; i <= coils; i++) {
-    const x = -16 - (length * i) / coils;
-    const y = 12 + (i % 2 === 0 ? -4 : 4);
+    const x = -12 + (length * i) / coils;
+    const y = i % 2 === 0 ? -4 : 4;
     if (i === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   }

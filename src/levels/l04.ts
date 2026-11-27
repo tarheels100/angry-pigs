@@ -49,8 +49,8 @@ export const LEVEL_04: LevelDef = {
   ],
   scenery: [
     { kind: "plinth", x: 120, y: 798, w: 150, h: 84 },
-    { kind: 'tree', x: 480, y: 770, w: 36, h: 140 },
-    { kind: 'tree', x: 1200, y: 776, w: 32, h: 128 },
-    { kind: 'ridge', x: 1480, y: 824, w: 220, h: 32 },
+    { kind: 'tree', x: 480, y: 490, w: 190, h: 700 },
+    { kind: 'tree', x: 1200, y: 500, w: 170, h: 680 },
+    { kind: 'ridge', x: 1480, y: 710, w: 1300, h: 260 },
   ],
 };

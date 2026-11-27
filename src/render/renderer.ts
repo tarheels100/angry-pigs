@@ -108,10 +108,11 @@ export function createRenderer(canvas: HTMLCanvasElement, theme: Theme): Rendere
     resize(cssWidth, cssHeight) {
       const dpr = window.devicePixelRatio ?? 1;
       viewport = { width: cssWidth, height: cssHeight, dpr };
+      // Only the backing store is set here. The canvas box is CSS-owned (`width: 100%`,
+      // `height: calc(100vh - 56px)`); pinning inline styles froze the stage at the size the
+      // page loaded with, so a resized or portrait window never reframed the level.
       canvas.width = Math.round(cssWidth * dpr);
       canvas.height = Math.round(cssHeight * dpr);
-      canvas.style.width = `${cssWidth}px`;
-      canvas.style.height = `${cssHeight}px`;
     },
     setTheme(next) {
       currentTheme = next;

@@ -187,3 +187,61 @@ the local artifact (sha256 `f10f37cdc7ecf3e7…`).
 
 **Gate discipline for the next push:** run a gate as `npm run <gate> > log 2>&1; echo exit=$?`.
 A pipeline through `grep` reports grep's status, which hid two real failures here.
+
+---
+
+## Second playtest round (same slug, items renumbered by the report)
+
+The player's next report: local `npm run dev:open` showed a blank dark page; the viewport
+was "too zoomed in" with the launcher and most of the level off screen; the spring looked
+oddly placed and small; the background field was far too fine (asked for >=5x); music
+cacophony at level start (item 5 deferred); and the real difficulty problem — birds
+reachable without breaking anything, levels ~35 bodies.
+
+### Fixed in this round
+
+- **Dev page blank.** `index.html` asked for `./main.js`; the dev server serves the repo
+  root and the watch bundle lives at `/dist/main.js`, so the script 404'd and the page was
+  a dark empty box. GitHub Pages was fine because `build-html.js` inlines the bundle into
+  `dist/index.html`. `index.html` now points at `./dist/main.js` and `build-html.js`'s
+  inlining tag matches. This is the dev/release path asymmetry README D6 warned about —
+  it had not been checked for the *dev* page, only for the release artifact.
+- **Viewport.** Two real bugs, both invisible at 1280x720:
+  - `renderer.resize` wrote inline `style.width/height`, freezing the canvas at the size
+    the page loaded with; CSS (`width: 100%`, `height: calc(100vh - 56px)`) stopped
+    applying after a window change. It now sets only the backing store, and CSS owns the box.
+  - `MIN_ZOOM = 0.5` clamped the *fit*, so a portrait window (fit ~0.25) cropped the level
+    and pushed the launcher off screen. The floor is now `min(0.5, fitZoom())`, so "see the
+    whole level" wins and manual zoom-out cannot go past the fit.
+- **Camera seam was stale.** `window.__camera` handed out the camera instance captured at
+  load, while `refit()` re-creates the camera on resize — probes read a frozen zoom. The
+  seam is now closures over the live camera plus `__viewport()`. Verified: 1280x720 zoom
+  0.738, 420x800 zoom 0.2475 (whole 1600-wide level visible), 1920x1080 zoom 1.138.
+- **Spring.** Drawn *in the bore* on the barrel axis in both themes, compressing with the
+  pull. Previously it hung below/outside the barrel as an unrelated squiggle.
+- **Background scale >=5x.** Tron `GRID` 44 → 220 screen px; Pixel checker cell
+  `BLOCK * 5` = 80 px with a 160 px period. Scenery props scaled ~5x too: trees 32-40x120-156
+  → 170-210 x 680-720 (centres re-set to `groundTop - h/2` so bases stay on the ground),
+  ridges 200-260x28-36 → 1200-1300 x 240-260. Props are art-only (D29), so outcomes and the
+  determinism gate are untouched.
+- **Music burst.** `createMusic` now gets `clock: () => loop.stepsTaken() * (1000/60)`, so a
+  track starts at *current* simulated time instead of 0. With the old base clock, turning
+  music on (or loading a level) mid-round replayed every note already elapsed — one note per
+  frame until the scheduler caught up, which is the cacophony. The first stage's announcement
+  moved after the loop exists, since the clock reads `loop.stepsTaken()`.
+
+### Deferred, needs your call
+
+- **Difficulty redesign** (report items 4 and 5): every bird buried behind/atop a structure
+  that has to be broken first, and levels of 20-40 pieces. That changes level design rule 1
+  and re-asserts winning aims and sweep results for all six stages, so it is its own push with
+  a plan file. Tell me the finish line (e.g. "all six stages re-authored at 2400x1200, greedy
+  bot clears each in 3-5 pigs, gates green") and I will run it.
+- **Music quality** stays deferred to M23; only the burst bug is fixed.
+
+### Gates
+
+`npm run check` exit 0 (155 headless), `npm run test:browser` exit 0 (27),
+`npm run check:determinism` exit 0 (144 combos, 0 mismatch). The DPR browser test changed:
+the 16:9 CSS box is gone, so it now asserts the camera invariant instead — horizontal world
+lines stay horizontal, world lengths map uniformly, and the zoom equals the viewport fit.

@@ -30,6 +30,9 @@ export const pixelPalette: ThemePalette = {
 const PIXEL = 4;
 const BLOCK = 16;
 
+/** Background field cell — much larger than an entity block (playtest item 8). */
+const BG_CELL = BLOCK * 5;
+
 function snap(v: number): number {
   return Math.round(v / PIXEL) * PIXEL;
 }
@@ -231,11 +234,16 @@ function paintCannon(ctx: CanvasRenderingContext2D, state: EntityState, palette:
     ctx.fillRect(snap(dir.x * PIXEL * 14) - PIXEL, muzzleY - PIXEL, PIXEL, PIXEL * 2);
   }
 
-  // Coil: pixels behind the breech, spacing shrinking as the pull grows.
+  // The spring, on the barrel axis inside the bore: pixels that pack closer together as
+  // the pull grows. Playtest said the old coil hung behind the breech off-axis, so it now
+  // follows the barrel direction.
+  const perp = { x: -dir.y, y: dir.x };
   ctx.fillStyle = palette.pig;
-  const spacing = PIXEL * (1.7 - compress * 0.9);
+  const spacing = PIXEL * (1.4 - compress * 0.8);
   for (let i = 0; i < 4; i++) {
-    ctx.fillRect(snap(-PIXEL * 4 - i * spacing), snap(dir.y * -PIXEL * 4) + (i % 2 === 0 ? -PIXEL : PIXEL), PIXEL, PIXEL);
+    const t = -PIXEL * 2 + i * spacing;
+    const side = i % 2 === 0 ? -PIXEL : PIXEL;
+    ctx.fillRect(snap(dir.x * t + perp.x * side) - PIXEL / 2, snap(dir.y * t + perp.y * side) - PIXEL / 2, PIXEL, PIXEL);
   }
 
   // Pull gauge: blocks along an arc under the barrel, filled by the pull fraction.
@@ -318,11 +326,13 @@ export function createPixelTheme(overrides: Partial<ThemePalette> = {}, id = 'pi
       ctx.fillStyle = palette.background;
       ctx.fillRect(0, 0, viewport.width, viewport.height);
       // Checkerboard: cheap, and it reads as a pixel field rather than a vector grid.
+      // Playtest item 8: the field was far too fine for the world size, so the cell is
+      // several blocks wide instead of one.
       ctx.fillStyle = palette.grid;
-      for (let x = 0; x < viewport.width; x += BLOCK * 2) {
-        for (let y = 0; y < viewport.height; y += BLOCK * 2) {
-          ctx.fillRect(x, y, BLOCK, BLOCK);
-          ctx.fillRect(x + BLOCK, y + BLOCK, BLOCK, BLOCK);
+      for (let x = 0; x < viewport.width; x += BG_CELL * 2) {
+        for (let y = 0; y < viewport.height; y += BG_CELL * 2) {
+          ctx.fillRect(x, y, BG_CELL, BG_CELL);
+          ctx.fillRect(x + BG_CELL, y + BG_CELL, BG_CELL, BG_CELL);
         }
       }
     },
