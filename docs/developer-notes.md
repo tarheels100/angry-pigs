@@ -17,7 +17,16 @@ Todo list and other notes to map out work still needed to be done.
 
 | Developer | Agent | Description |
 | :---: | :---: | --- |
-| ☐ | ☐ | Current **music systems** looks to use only vanilla Web Audio without any helper library.  The result is very poor music composition.  The agent should try using Tone.js + Tonal libraries together to form a more competent music system. |
+| ☐ | ☑[^audio-1] | Current **music systems** looks to use only vanilla Web Audio without any helper library.  The result is very poor music composition.  The agent should try using Tone.js + Tonal libraries together to form a more competent music system. |
+
+[^audio-1]: Implemented in commit `426190b` (milestone M22, docs/adr.md D40). Pitch grammar is
+    `src/audio/composition.ts` (Tonal: scale, four-chord progression, chord-tone melody, seeded
+    from the stage name); playback is `src/audio/playback.ts` (Tone.js synths on Tone's
+    transport, lead + bass + hat, loop length from the composition). Wired in `src/main.ts`
+    (`announceTrack` on stage load/restart, HUD track label). Tests: `tests/audio.test.ts`
+    (deterministic composition, six distinct tracks, real pitches, silence before unlock) and
+    `tests/browser/game.browser.mjs` (track named in HUD, track changes per stage, music off
+    stops the transport). Music still defaults to off (docs/adr.md D32).
 
 ## Visuals
 
