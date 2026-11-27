@@ -91,7 +91,12 @@ class LevelError extends Error {
 
 /** Simulation world is fixed (D13); a level's bounds are the framed region and may
  * be smaller than the world, never larger. */
-export const WORLD = { width: 1600, height: 900 };
+/**
+ * The simulation world is fixed (D13). The width grew from 1600 to 2200 in M21 so a
+ * stage can hold several large structures instead of one pedestal; the height stays 900
+ * because vertical framing and `groundTop = 840` are tuned to it.
+ */
+export const WORLD = { width: 2200, height: 900 };
 
 export const LEVELS: LevelDef[] = [LEVEL_01, LEVEL_02, LEVEL_03, LEVEL_04, LEVEL_05, LEVEL_06];
 

@@ -1,35 +1,45 @@
 import type { LevelDef } from './index.ts';
+import { bird, hut, platform, standing, tower } from './pieces.ts';
 
-/** Stage 02 — two supports, both killing their bird by a fall rather than by a direct
- * hit. The near structure is a tower: two columns under a beam, bird riding the beam, so
- * breaking a leg drops the bird ~120 units onto the ground. The far structure is a
- * pedestal: a bird balanced on one column, so a hit on the column tips it and the bird
- * falls. A feather takes a fall of that height; a graze does not kill it
- * (docs/physics.md gotcha 5). Stone is scenery, never a roof over a bird
- * (docs/level-format.md design rules).
- * Ground top = 840; a resting body's centre is groundTop - halfSize.
+/**
+ * Stage 02 — two keeps and a crush yard.
+ *
+ * Every bird is inside a shelter (docs/level-format.md rule 1, checked by
+ * `scratch/shield-probe.ts`): a screen wall blocks the straight shot, and a roof or beam
+ * above the bird is what a lobbed arc has to break. Structures are separated by more than
+ * the blast radius (rule 9), so a bomb cannot clear the stage in one shot.
  */
 export const LEVEL_02: LevelDef = {
   name: 'stage-02',
-  bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'basic', 'heavy', 'basic'] },
-  statics: [{ type: 'ground', x: 800, y: 860, w: 1600, h: 40 }],
+  bounds: { width: 2200, height: 900 },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.3, ammo: ['bomb', 'basic', 'heavy', 'basic'] },
+  statics: [{ type: 'ground', x: 1100, y: 860, w: 2200, h: 40 }],
   objects: [
-    // Near tower: column tops = 720, beam centre = 712 (beam top = 704).
-    { type: 'block', material: 'glass', x: 860, y: 780, w: 28, h: 120 },
-    { type: 'block', material: 'glass', x: 940, y: 780, w: 28, h: 120 },
-    { type: 'block', material: 'glass', x: 900, y: 712, w: 140, h: 16 },
-    // Far pedestal: column top = 670, bird balanced on top.
-    { type: 'block', material: 'glass', x: 1220, y: 750, w: 30, h: 160 },
-    // Stone scenery on the far edge; a flat shot that overshoots the towers hits it.
-    { type: 'block', material: 'stone', x: 1440, y: 800, w: 60, h: 80 },
+    // Keep 1: hut with glass legs — glass fails fast, so the roof comes down early.
+    ...hut(820, { width: 160, height: 220, columns: 'glass', screenHeight: 280 }),
+    // Two glass columns between keep 1 and the yard, so a low arc is stopped early.
+    standing(1000, 'glass', 30, 120),
+    standing(1030, 'glass', 30, 120),
+    // Crush yard 1: three legs carry a beam. The bird sits in a gap between legs, never
+    // under one — a leg under the bird would be interpenetrating geometry at author time.
+    ...platform(1180, { span: 200, height: 170, supports: 3 }),
+    // Keep 2: taller hut, wood legs — needs a heavy pig or a bomb.
+    ...hut(1560, { width: 180, height: 260, screenHeight: 320 }),
+    // Crush yard 2: two legs, short beam.
+    ...platform(1900, { span: 160, height: 140, supports: 2 }),
+    // A decorative tower on the far edge for scale. It carries no bird: its roof sits high,
+    // and a bird under a beam that far up is not crushable (docs/level-format.md rule 4).
+    ...tower(2120, { width: 100, legs: 2, legHeight: 200, storeys: [{ material: 'glass', columns: 2, height: 140 }] }),
   ],
   targets: [
-    // Riding the near beam (beam top = 704).
-    { type: 'ball', material: 'feather', x: 900, y: 684, r: 20, target: true },
-    // Balanced on the pedestal column (column top = 670).
-    { type: 'ball', material: 'feather', x: 1220, y: 650, r: 20, target: true },
+    bird(820), // inside keep 1
+    bird(1230), // in the gap between legs of crush yard 1, under the beam
+    bird(1560), // inside keep 2
+    bird(1900), // under the beam of crush yard 2
   ],
-
-  scenery: [{"kind":"plinth","x":120,"y":798,"w":150,"h":84},{"kind":"tree","x":520,"y":490,"w":190,"h":700},{"kind":"tree","x":1180,"y":500,"w":170,"h":680},{"kind":"ridge","x":1360,"y":710,"w":1300,"h":260}],
+  scenery: [
+    { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },
+    { kind: 'tree', x: 300, y: 570, w: 120, h: 540 },
+    { kind: 'tree', x: 2060, y: 600, w: 100, h: 480 },
+  ],
 };

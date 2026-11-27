@@ -1,43 +1,44 @@
 import type { LevelDef } from './index.ts';
+import { bird, hut, platform, standing } from './pieces.ts';
 
-/** Stage 05 — the grove. A platform rests on two wood trunks, so its bird needs both
- * trunks gone: a two-shot puzzle by support count rather than by ammo
- * (docs/level-format.md rule 4). A second bird rides a narrow glass perch on a single
- * column, so one hit on the column drops it ~120 units (rule 6). A low stone wall makes
- * flat shots die before the structures; stone is never a roof over a bird (rule 1).
- * Ground top = 840; a resting body's centre is groundTop - halfSize.
+/**
+ * Stage 05 — the terrace climb: five shelters stepping up in height, left to right.
+ *
+ * The height ladder is the difficulty ladder. The first shelter is a low platform a flat shot
+ * can reach; the last is a tall hut whose roof sits at y 540 and needs a high arc. Birds sit in
+ * the gaps between legs, never under a leg (docs/level-format.md rule 4), and shelters are
+ * spaced past the blast radius so one bomb cannot take two down (rule 9).
  */
 export const LEVEL_05: LevelDef = {
   name: 'stage-05',
-  bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'heavy', 'basic', 'cluster'] },
-  statics: [
-    { type: 'ground', x: 800, y: 860, w: 1600, h: 40 },
-    // Flat shots die here; arcs pass over (docs/level-format.md rule 2).
-    { type: 'wall', x: 620, y: 800, w: 50, h: 80 },
-  ],
+  bounds: { width: 2200, height: 900 },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.3, ammo: ['bomb', 'heavy', 'basic', 'cluster', 'basic'] },
+  statics: [{ type: 'ground', x: 1100, y: 860, w: 2200, h: 40 }],
   objects: [
-    // Trunks: wood, tops = 690. Both must fail for the platform to drop.
-    { type: 'block', material: 'wood', x: 860, y: 765, w: 34, h: 150 },
-    { type: 'block', material: 'wood', x: 1020, y: 765, w: 34, h: 150 },
-    // Platform beam (centre 680, top 670).
-    { type: 'block', material: 'wood', x: 940, y: 680, w: 240, h: 20 },
-    // Perch: single glass column (top = 640) with a narrow beam (top 626).
-    { type: 'block', material: 'glass', x: 1300, y: 745, w: 26, h: 190 },
-    { type: 'block', material: 'glass', x: 1300, y: 633, w: 90, h: 14 },
+    // Shelter 1: low crush platform, two legs. Bird in the gap.
+    ...platform(760, { span: 160, height: 140, supports: 2 }),
+    standing(880, 'glass', 30, 110),
+    // Shelter 2: hut, wood legs and a glass roof.
+    ...hut(1080, { width: 160, height: 220, screenHeight: 280 }),
+    standing(1200, 'glass', 30, 110),
+    // Shelter 3: higher platform, three legs.
+    ...platform(1420, { span: 200, height: 200, supports: 3 }),
+    standing(1560, 'glass', 30, 110),
+    // Shelter 4: tall hut with glass legs — glass gives way, the roof drops.
+    ...hut(1760, { width: 180, height: 280, columns: 'glass', screenHeight: 340 }),
+    // Shelter 5: the highest platform on the far edge.
+    ...platform(2060, { span: 140, height: 160, supports: 2 }),
   ],
   targets: [
-    // Riding the platform (beam top = 670).
-    { type: 'ball', material: 'feather', x: 940, y: 650, r: 20, target: true },
-    // Balanced on the perch beam (top = 626).
-    { type: 'ball', material: 'feather', x: 1300, y: 606, r: 20, target: true },
+    bird(760), // gap between the two legs of shelter 1
+    bird(1080), // inside shelter 2
+    bird(1470), // gap between legs of shelter 3
+    bird(1760), // inside shelter 4
+    bird(2060), // gap between legs of shelter 5
   ],
   scenery: [
-    { kind: "plinth", x: 120, y: 798, w: 150, h: 84 },
-    // The grove: props only, never bodies (docs/adr.md D29).
-    { kind: 'tree', x: 500, y: 490, w: 190, h: 700 },
-    { kind: 'tree', x: 700, y: 500, w: 170, h: 680 },
-    { kind: 'tree', x: 1180, y: 480, w: 210, h: 720 },
-    { kind: 'ridge', x: 1380, y: 710, w: 1300, h: 260 },
+    { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },
+    { kind: 'tree', x: 420, y: 570, w: 120, h: 540 },
+    { kind: 'tree', x: 1640, y: 560, w: 110, h: 520 },
   ],
 };

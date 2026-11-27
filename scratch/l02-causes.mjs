@@ -1,0 +1,17 @@
+import { createGame } from '../src/game/game.ts';
+import { createPhysicsAdapter } from '../src/physics/adapter.ts';
+import { createEventBus } from '../src/core/eventBus.ts';
+import { loadLevel, LEVELS } from '../src/levels/index.ts';
+const DT = 1/60;
+const loaded = loadLevel(LEVELS[1]);
+const bus = createEventBus();
+const game = createGame({ level: loaded, adapter: createPhysicsAdapter({ width: 2200, height: 900, gravityY: 1, frictionAir: 0.001 }), bus });
+const deaths = [];
+bus.on('destroyed', (e) => { if (e.id.startsWith('bird-')) deaths.push(e.cause); });
+const origin = loaded.cannonOrigin;
+const rad = -35 * Math.PI / 180;
+game.beginAim();
+game.dragAim({ x: origin.x - 75 * Math.cos(rad), y: origin.y - 75 * Math.sin(rad) });
+game.releaseAim();
+for (let s = 0; s < 400; s++) game.step(DT);
+console.log('deaths:', deaths, 'phase', game.rules.snapshot().phase);

@@ -5,7 +5,8 @@ after(() => closeServer());
 
 import { withPage, baseUrl, artifactPath, screenOf, snapshot, hudText, closeServer } from './harness.mjs';
 
-const WIN = { pull: 90, deg: 0 }; // measured winner for stage-01 (docs/tuning.md)
+/** Measured winner for stage-01 after the M21 re-author (scratch/greedy-probe.ts, docs/tuning.md). */
+const WIN = { pull: 90, deg: -20 };
 
 /**
  * Load the artifact and dismiss the title screen, so a test acts on the live round.
@@ -22,8 +23,8 @@ async function open(page, url) {
 test('the artifact loads offline from file:// with no extra requests', async () => {
   const { errors, requests } = await withPage(async (page) => {
     await open(page, artifactPath());
-    assert.equal(await page.evaluate(() => window.__game.rules.snapshot().targetsTotal), 2);
-    assert.match(await hudText(page), /stage-01/);
+    assert.equal(await page.evaluate(() => window.__game.rules.snapshot().targetsTotal), 3);
+    assert.match(await hudText(page), /stage 1\/6/);
   });
   assert.deepEqual(errors, [], 'no page or console errors');
   assert.equal(requests.length, 1, `only the artifact itself loads: ${requests.join(', ')}`);
@@ -207,24 +208,15 @@ test('device pixel ratio maps the backing store', async () => {
 test('a winning shot reports stars and advances to the next stage', async () => {
   await withPage(async (page) => {
     await open(page, await baseUrl());
-    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
-    const rad = (WIN.deg * Math.PI) / 180;
-
-    await page.evaluate(({ origin, pull, rad }) => {
-      window.__game.beginAim();
-      window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
-      window.__game.releaseAim();
-    }, { origin, pull: WIN.pull, rad });
-
-    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won', null, { timeout: 8000 });
+    await winStage(page);
     const won = await snapshot(page);
     assert.ok(won.stars >= 1, `stars are derived from shots (${won.stars})`);
     assert.match(await hudText(page), /stage cleared/);
     assert.match(await hudText(page), /★/);
 
     // Auto-advance (docs/adr.md D20 level flow).
-    await page.waitForFunction(() => window.__game.rules.snapshot().targetsTotal === 2 && document.getElementById('hud').textContent.includes('stage 2/6'), null, { timeout: 4000 });
-    assert.match(await hudText(page), /stage-02/);
+    await page.waitForFunction(() => window.__game.rules.snapshot().targetsTotal === 4 && document.getElementById('hud').textContent.includes('stage 2/6'), null, { timeout: 4000 });
+    assert.match(await hudText(page), /stage 2\/6/);
   });
 });
 
@@ -289,22 +281,14 @@ test('best results persist across a reload', async () => {
   const url = await baseUrl();
   await withPage(async (page) => {
     await open(page, url);
-    const origin = await page.evaluate(() => window.__game.cannon.config().origin);
-    const rad = (WIN.deg * Math.PI) / 180;
-    await page.evaluate(({ origin, pull, rad }) => {
-      window.__game.beginAim();
-      window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
-      window.__game.releaseAim();
-    }, { origin, pull: WIN.pull, rad });
-    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won', null, { timeout: 8000 });
+    await winStage(page);
 
     const stored = await page.evaluate(() => localStorage.getItem('angry-pigs:best:stage-01'));
     assert.ok(stored, 'the clear is written to localStorage');
     const record = JSON.parse(stored);
-    assert.ok(record.score > 0 && record.stars >= 1 && record.launches === 1);
+    assert.ok(record.score > 0 && record.stars >= 1 && record.launches === 2, 'the stored record is the measured two-pig clear');
     assert.match(await hudText(page), /best/);
 
-    // A reload must show the stored best without replaying.
     await page.reload();
     await open(page, url);
     assert.match(await hudText(page), /best ★+ \d+/);
@@ -392,12 +376,12 @@ test('destroyed blocks leave a debris heap that clears on restart', async () => 
     const origin = await page.evaluate(() => window.__game.cannon.config().origin);
     await page.evaluate(({ origin }) => {
       window.__game.beginAim();
-      window.__game.dragAim({ x: origin.x - 90, y: origin.y }); // flat full pull: the measured column-shattering shot
+      window.__game.dragAim({ x: origin.x - 90, y: origin.y }); // flat full pull: hits the shelter screen and shatters it
       window.__game.releaseAim();
     }, { origin });
-    await page.waitForFunction(() => window.__game.rules.snapshot().phase !== 'in_flight', null, { timeout: 6000 });
-    await page.waitForTimeout(300);
-
+    // Fragments appear as blocks crumble, and fade after DEBRIS_FADE_STEPS at rest, so
+    // the heap is waited for rather than sampled after a long settle.
+    await page.waitForFunction(() => window.__debris.fragments().length > 0, null, { timeout: 6000 });
     const fragments = await page.evaluate(() => window.__debris.fragments());
     assert.ok(fragments.length > 0, 'a destroyed block crumbled into fragments');
     for (const f of fragments) {
@@ -489,6 +473,9 @@ test('nothing floats with no support under it', async () => {
     }, { pull: 63, rad: (18 * Math.PI) / 180 });
 
     await page.waitForFunction(() => ['aiming', 'won', 'lost'].includes(window.__game.rules.snapshot().phase), null, { timeout: 8000 });
+    // The game keeps stepping physics after the round ends until the world settles (D38),
+    // so the support check runs once everything is asleep.
+    await waitAsleep(page);
     const floating = await page.evaluate(() => {
       const bodies = window.__game.adapter.snapshot();
       const groundTop = window.__game.groundTop();
@@ -551,7 +538,7 @@ async function waitShootable(page) {
   );
 }
 
-/** The measured stage-01 winner (docs/tuning.md): pull 90 at 15° above horizontal. */
+/** The measured stage-01 winner (docs/tuning.md): the same arc twice, 90 pull at 20° up. */
 async function fireWinner(page) {
   const rad = (WIN.deg * Math.PI) / 180;
   await page.evaluate(({ pull, rad }) => {
@@ -560,6 +547,22 @@ async function fireWinner(page) {
     window.__game.dragAim({ x: origin.x - pull * Math.cos(rad), y: origin.y - pull * Math.sin(rad) });
     window.__game.releaseAim();
   }, { pull: WIN.pull, rad });
+}
+
+/** Fire the measured plan until the stage is won, then let the world settle (M21 stages take two pigs). */
+async function winStage(page) {
+  for (let shot = 0; shot < 6; shot++) {
+    const phase = (await snapshot(page)).phase;
+    if (phase === 'won') return;
+    await fireWinner(page);
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won' || window.__game.rules.snapshot().phase === 'aiming', null, { timeout: 8000 });
+  }
+  await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'won', null, { timeout: 8000 });
+}
+
+/** Wait until every body is asleep, i.e. the round's debris has come to rest. */
+async function waitAsleep(page) {
+  await page.waitForFunction(() => window.__game.adapter.allSleeping(), null, { timeout: 8000 });
 }
 
 test('the HUD names the pig waiting in the chamber (M18)', async () => {

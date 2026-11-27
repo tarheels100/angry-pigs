@@ -12,8 +12,21 @@ import { materialSpec } from '../physics/materials.ts';
 /** Composition root for gameplay: level + cannon + physics + rules. */
 
 /** Tuning knobs from docs/tuning.md / docs/adr.md D15. */
+/** A launched pig is spent once it moves no faster than this for `PIG_SLOW_STEPS` steps (D15).
+ * Deliberately not tied to `worldAtRest()`: a pig still knocking debris is alive even when
+ * everything else has stopped, and consuming it early cost kills (scratch/greedy-probe.ts).
+ */
 const PIG_SPEED_EPS = 1.2;
 const PIG_SLOW_STEPS = 45;
+/** World rest: no dynamic body moves faster than this (D16). The contract carries linear
+ * velocity only (`EntityState` has no angular speed), so spin is covered by the velocity a
+ * spinning body still reports at its centre.
+ */
+const REST_SPEED = 0.3;
+/** How long a round may take to come to rest before the game freezes it (D16). Kept at 240
+ * steps: a bigger structure needs the full window for a collapse to finish, and shortening
+ * it cost kills (scratch/greedy-probe.ts: stage 1 went from 2 pigs to 4 at 150 steps).
+ */
 const SETTLE_TIMEOUT_STEPS = 240;
 const TRAJECTORY_STEPS = 120;
 // Pig size comes from the type registry (src/game/pigs.ts), not a constant here.
@@ -23,9 +36,13 @@ const MIN_DRAG = 12;
  * Below 1 so a single hit rarely erases a block: partial health is what makes tilt and
  * partial shatter visible. */
 const DAMAGE_SCALE = 0.3;
-/** Steps a level is simulated before the player gets control, so authored stacks are
- * resting and nothing starts partly damaged (docs/post-m13-notes.md). */
-const SETTLE_WARMUP_STEPS = 90;
+/**
+ * Steps a level is simulated before the player gets control, so authored stacks are resting and
+ * nothing starts partly damaged (docs/post-m13-notes.md). M21 stages are bigger than the old
+ * three-building levels, and a tall wall course or tower roof was still drifting at the first
+ * visible frame with 90 steps, so the window is longer (measured: scratch/warmup-report.ts).
+ */
+const SETTLE_WARMUP_STEPS = 200;
 /** Steps a destroyed entity keeps a flashing silhouette after it leaves the world. */
 const FLASH_STEPS = 10;
 /** How fast the cannon recoil relaxes after a shot (presentation only, D28). A flash
@@ -61,6 +78,8 @@ export interface Game {
   /** Live views: restart()/loadLevel() replace these instances (see below). */
   rules: GameRules;
   cannon: Cannon;
+  /** Live level as loaded; the browser seam reads origin and pull limits from here. */
+  level: LoadedLevel;
   step(dt: number): void;
   frame(): Frame;
   /** Open a drag gesture. A press alone is not a shot; only drags set a pull. */
@@ -251,6 +270,21 @@ export function createGame(options: GameOptions): Game {
     bus.emit('pigConsumed', { id, reason });
   }
 
+  /**
+   * Whether every dynamic body is at rest. Matter's sleep flag is not the rest test:
+   * a block pressed by a neighbour keeps micro-motion and never sleeps, so a round
+   * could sit in `settling` until the timeout (measured in scratch/sleep-diag.ts).
+   * `freezeAll()` still sets the sleep flag, so `allSleeping()` stays true once a
+   * round has resolved (docs/adr.md D16).
+   */
+  function worldAtRest(): boolean {
+    for (const e of adapter.snapshot()) {
+      if (e.kind === 'ground' || e.kind === 'wall') continue;
+      if (Math.hypot(e.vx ?? 0, e.vy ?? 0) > REST_SPEED) return false;
+    }
+    return true;
+  }
+
   function updatePigs(): void {
     for (const id of [...pigs.keys()]) {
       const s = adapter.state(id);
@@ -284,7 +318,7 @@ export function createGame(options: GameOptions): Game {
     }
     if (phase === 'settling') {
       settleSteps++;
-      const settled = adapter.allSleeping() || settleSteps >= SETTLE_TIMEOUT_STEPS;
+      const settled = worldAtRest() || settleSteps >= SETTLE_TIMEOUT_STEPS;
       if (!settled) return;
       // A window that expired is not a rest: freeze so "settled" means visually
       // stopped before scoring reads it (docs/adr.md D16).
@@ -305,7 +339,14 @@ export function createGame(options: GameOptions): Game {
       // bodies wherever they were, so debris caught in flight would hang in the air
       // forever (playtest item 7). Damage stays paused: settling cannot change a score
       // that has already been decided.
-      if (adapter.allSleeping() || restSteps >= SETTLE_TIMEOUT_STEPS) return;
+      if (worldAtRest()) {
+        if (!adapter.allSleeping()) adapter.freezeAll();
+        return;
+      }
+      if (restSteps >= SETTLE_TIMEOUT_STEPS) {
+        adapter.freezeAll();
+        return;
+      }
       restSteps++;
       damagePaused = true;
       adapter.step(dt);
@@ -498,6 +539,10 @@ export function createGame(options: GameOptions): Game {
     },
     get cannon() {
       return cannon;
+    },
+    /** Live level: a getter, because loadLevel()/restart() swap it. */
+    get level() {
+      return level;
     },
     groundTop: () => level.groundTop,
     step,

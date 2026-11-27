@@ -1,32 +1,45 @@
 import type { LevelDef } from './index.ts';
+import { bird, barrierWall, hut, platform, standing } from './pieces.ts';
 
-/** Stage 01 — the M7 vertical slice stage: one bird in the open, one on a glass
- * tower. Reachability was checked with scratch/slice-probe.ts (docs/tuning.md).
+/**
+ * Stage 01 — the tutorial terrace: three shelters in a row, each hiding a bird.
  *
- * Placement rule from the physics spike (docs/physics.md gotcha 5): bodies must sit
- * ON the ground, not overlap it. Ground top = 840, so a body's centre is
- * groundTop - halfSize.
+ * Level rule 1 (docs/level-format.md): a bird sits inside a shelter, so a roof or a beam is
+ * above it and a screen wall is in front of it. Nothing here dies to a flat shot; the player
+ * has to break a roof or knock out a support. Verified by `scratch/shield-probe.ts`.
+ *
+ * Bodies rest on the ground: ground top = 840 (docs/physics.md gotcha 5).
  */
 export const LEVEL_01: LevelDef = {
   name: 'stage-01',
-  bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['basic', 'basic', 'basic', 'basic'] },
-  statics: [{ type: 'ground', x: 800, y: 860, w: 1600, h: 40 }],
+  bounds: { width: 2200, height: 900 },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.3, ammo: ['basic', 'heavy', 'basic', 'basic'] },
+  statics: [{ type: 'ground', x: 1100, y: 860, w: 2200, h: 40 }],
   objects: [
-    // Glass columns: 30 x 120, tops at y = 720.
-    { type: 'block', material: 'glass', x: 1040, y: 780, w: 30, h: 120 },
-    { type: 'block', material: 'glass', x: 1120, y: 780, w: 30, h: 120 },
-    // Beam resting on both columns: 140 x 24, bottom at 720.
-    { type: 'block', material: 'glass', x: 1080, y: 708, w: 140, h: 24 },
-    // Stone block on the far side, so a long shot still has something to hit.
-    { type: 'block', material: 'stone', x: 1340, y: 800, w: 60, h: 80 },
+    // Shelter 1: a hut with a screen wall. Bird inside, roof above it.
+    ...hut(700, { width: 150, height: 200, screenHeight: 260 }),
+    // A glass gate between shelters, so a flat shot is stopped before it reaches shelter 2.
+    standing(900, 'glass', 30, 130),
+    standing(960, 'glass', 30, 130),
+    { type: 'block', material: 'wood', x: 930, y: 840 - 130 - 12, w: 120, h: 24 },
+    // Shelter 2: a crush platform. Bird in the gap between legs, beam above it.
+    ...platform(1150, { span: 180, height: 150, supports: 2 }),
+    // A second glass gate between shelters 2 and 3.
+    standing(1290, 'glass', 30, 120),
+    standing(1320, 'glass', 30, 120),
+    // Shelter 3: a taller hut with glass legs — glass fails faster, so it is the easy kill.
+    ...hut(1600, { width: 170, height: 240, columns: 'glass', screenHeight: 300 }),
+    // Masonry on the far edge: nothing behind it, it only stops an overshoot.
+    ...barrierWall(2050, { courseW: 70, courseH: 80, courses: 5 }),
   ],
   targets: [
-    // Bird in the open, reachable with a downward shot.
-    { type: 'ball', material: 'feather', x: 760, y: 820, r: 20, target: true },
-    // Bird on the beam: beam top = 696, centre = 676. Dies when the tower comes down.
-    { type: 'ball', material: 'feather', x: 1080, y: 676, r: 20, target: true },
+    bird(700), // inside shelter 1, on the ground under the roof
+    bird(1150), // under the platform beam
+    bird(1600), // inside shelter 3
   ],
-
-  scenery: [{"kind":"plinth","x":120,"y":798,"w":150,"h":84},{"kind":"tree","x":560,"y":490,"w":190,"h":700},{"kind":"tree","x":1080,"y":500,"w":170,"h":680},{"kind":"ridge","x":1300,"y":720,"w":1200,"h":240}],
+  scenery: [
+    { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },
+    { kind: 'tree', x: 430, y: 560, w: 130, h: 560 },
+    { kind: 'tree', x: 2140, y: 590, w: 110, h: 500 },
+  ],
 };

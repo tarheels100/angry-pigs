@@ -99,7 +99,7 @@ test('aiming frame paints background, level, cannon, and the aim guide', () => {
   assert.equal(calls[1]!.op, 'fillRect', 'background is painted first');
   assert.equal(calls[1]!.color, theme.palette.background);
   assert.ok(calls.some((c) => c.color === theme.palette.materials.glass), 'glass blocks are painted');
-  assert.equal(birdPaints(ctx), 2, 'both birds are painted while alive');
+  assert.equal(birdPaints(ctx), 3, 'all three sheltered birds are painted while alive (M21 scale)');
   assert.ok(calls.some((c) => c.color === theme.palette.cannon), 'cannon is painted');
   assert.ok(calls.some((c) => c.color === theme.palette.pig), 'the pig waiting on the cannon is painted');
   assert.ok(calls.some((c) => c.op === 'stroke' && c.color === theme.palette.aimGuide), 'aim guide / trajectory is stroked');
@@ -110,7 +110,7 @@ test('aiming frame paints background, level, cannon, and the aim guide', () => {
 
 test('flight frame paints the live pig; destroyed entities stop being painted', () => {
   const { game, renderer, camera, ctx } = makeSlice();
-  const rad = (-20 * Math.PI) / 180; // measured aim that takes the beam bird and leaves the open one
+  const rad = (-20 * Math.PI) / 180; // measured winning opener: arcs onto shelter 1's roof (docs/tuning.md)
   game.beginAim();
   game.dragAim({
     x: loaded.cannonOrigin.x - loaded.maxPull * Math.cos(rad),
@@ -121,7 +121,7 @@ test('flight frame paints the live pig; destroyed entities stop being painted', 
 
   renderer.draw({ camera, phase: 'in_flight', aim: null }, game.entities.all());
   assert.ok(callsOf(ctx).some((c) => c.color === theme.palette.pig), 'the launched pig is painted');
-  assert.equal(birdPaints(ctx), 2);
+  assert.equal(birdPaints(ctx), 3, 'nothing has died yet, so every bird is still painted');
 
   // Let the tower collapse kill the beam bird.
   for (let i = 0; i < 200; i++) game.step(1 / 60);

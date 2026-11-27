@@ -30,13 +30,16 @@ function pullFor(loaded: ReturnType<typeof loadLevel>, deg: number) {
   };
 }
 
-/** Press then drag; the shot is only decided on release (src/input/pointer.ts). */
-function aim(game: ReturnType<typeof createGame>, deg: number): void {
+/** Press then drag on stage-01's cannon; the shot is only decided on release (src/input/pointer.ts). */
+function aim(game: ReturnType<typeof createGame>, deg: number, pull = 90): void {
   game.beginAim();
-  game.dragAim(pullFor(level, deg));
+  game.dragAim({
+    x: level.cannonOrigin.x - pull * Math.cos((deg * Math.PI) / 180),
+    y: level.cannonOrigin.y - pull * Math.sin((deg * Math.PI) / 180),
+  });
 }
 
-function settle(game: ReturnType<typeof createGame>, maxSteps = 600): number {
+function settle(game: ReturnType<typeof createGame>, maxSteps = 900): number {
   let steps = 0;
   while (steps < maxSteps) {
     const phase = game.rules.snapshot().phase;
@@ -81,74 +84,79 @@ test('loader validates named fields and merges targets', () => {
   const def = levelAt(0);
   assert.throws(() => loadLevel({ ...def, cannon: { ...def.cannon, ammo: [] } }), /cannon\.ammo/);
   assert.throws(() => loadLevel({ ...def, targets: [] }), /targets/);
-  assert.throws(() => loadLevel({ ...def, statics: [{ type: 'ground', x: 2000, y: 860, w: 1600, h: 40 }] }), /static-0.*outside bounds/);
+  assert.throws(() => loadLevel({ ...def, statics: [{ type: 'ground', x: 2600, y: 860, w: 2200, h: 40 }] }), /static-0.*outside bounds/);
   assert.throws(
     () => loadLevel({ ...def, objects: [{ type: 'block', material: 'glass', x: 400, y: 400, w: 40 }] }),
     /objects\[[^\]]+\]\.h/,
   );
 
   const loaded = loadLevel(def);
-  assert.equal(loaded.targetIds.length, 2);
-  assert.deepEqual(loaded.targetIds, ['bird-1', 'bird-2']);
+  assert.ok(loaded.targetIds.length >= 3, 'stage-01 hides at least three birds (M21 scale)');
+  assert.deepEqual(loaded.targetIds, ['bird-1', 'bird-2', 'bird-3']);
   assert.ok(loaded.bodies.some((b) => b.kind === 'ground' && b.isStatic));
   assert.ok(loaded.bodies.every((b) => b.kind !== 'bird' || b.material === 'feather'));
 });
 
-test('a flat shot topples the tower and crushes the bird on it', () => {
+test('the first shot brings down two shelters and leaves the third standing', () => {
   const { game, adapter, bus } = makeGame();
   const events: string[] = [];
   bus.on('pigConsumed', (p) => events.push(`pig:${p.reason}`));
   bus.on('destroyed', (d) => events.push(`destroyed:${d.id}`));
   bus.on('phaseChanged', (p) => events.push(`phase:${p.phase}`));
 
-  aim(game, -20); // measured: reaches the tower legs and tips the storey (docs/tuning.md)
+  aim(game, -20); // measured winning opener (docs/tuning.md): arcs over the glass gate onto shelter 1's roof
   assert.ok(game.frame().trajectory.length > 0, 'aiming produces a trajectory preview');
   assert.ok(game.releaseAim());
   assert.equal(game.rules.snapshot().phase, 'in_flight');
 
   const steps = settle(game);
-  assert.ok(steps < 320);
+  assert.ok(steps < 900, 'a wider world (M21) still settles inside the step budget');
   assert.equal(game.rules.snapshot().phase, 'aiming', 'targets remain, so the player aims again');
   assert.equal(game.rules.snapshot().ammoLeft, 3);
   assert.ok(events.includes('phase:in_flight') && events.includes('phase:settling'));
   assert.ok(events.some((e) => e.startsWith('pig:')), 'pig was consumed (D15)');
   assert.equal(adapter.snapshot().filter((e) => e.kind === 'pig').length, 0, 'no live pigs after settling');
-  assert.ok(adapter.state('bird-2')!.destroyed, 'beam bird died in the collapse');
-  assert.ok(events.some((e) => e.startsWith('destroyed:block-')), 'glass blocks shattered');
+  assert.ok(adapter.state('bird-1')!.destroyed, 'the shelter roof came down on the bird');
+  assert.ok(adapter.state('bird-2')!.destroyed, 'the platform beam came down on its bird');
+  assert.ok(!adapter.state('bird-3')!.destroyed, 'the far shelter survives');
+  assert.ok(events.some((e) => e.startsWith('destroyed:block-')), 'blocks shattered');
 });
 
-test('a downward shot kills the open bird and the level is won', () => {
+test('the measured two-shot plan wins the stage', () => {
   const { game, bus } = makeGame();
   const won: Array<{ score: number }> = [];
   bus.on('levelWon', (e) => won.push({ score: e.score }));
 
-  aim(game, -20); // takes the bird on the beam down
+  aim(game, -20); // two shelters down
   game.releaseAim();
   settle(game);
 
-  aim(game, 10); // takes the remaining open bird
+  aim(game, -20); // the same arc lands on the third shelter once the world is clear
   game.releaseAim();
   settle(game);
 
   assert.equal(game.rules.snapshot().phase, 'won');
   assert.equal(game.rules.snapshot().targetsAlive, 0);
-  // Two birds (2000) plus the two pigs left in the budget (2 × 500) — D23.
-  assert.equal(game.rules.snapshot().score, 3000);
+  // Three birds (3000) plus the two pigs left in the budget (2 × 500) — D23.
+  assert.equal(game.rules.snapshot().score, 4000);
   assert.equal(won.length, 1);
 });
 
 test('a clear pays a bonus for unused pigs', () => {
   const { game } = makeGame();
-  aim(game, 0); // one-shot clear: a flat full pull rolls into the tower (docs/tuning.md)
+  aim(game, -20);
+  game.releaseAim();
+  settle(game);
+  aim(game, -20);
   game.releaseAim();
   settle(game);
   const snap = game.rules.snapshot();
   assert.equal(snap.phase, 'won');
-  assert.equal(snap.launches, 1);
-  assert.equal(snap.targetsTotal, 2);
-  assert.equal(snap.stars, 3);
-  assert.equal(snap.score, 2 * 1000 + snap.ammoLeft * 500, 'score pays targets plus the ammo bonus');
-  assert.ok(snap.score > 2000, 'a one-shot clear scores above the target value alone');
+  assert.equal(snap.launches, 2);
+  assert.equal(snap.targetsTotal, 3);
+  assert.equal(snap.stars, 3, 'two pigs on three birds is the efficient line (D19)');
+  assert.equal(snap.score, 3 * 1000 + snap.ammoLeft * 500, 'score pays targets plus the ammo bonus');
+  assert.ok(snap.score > 3000, 'a clear scores above the target value alone');
 });
 
 test('running out of pigs with birds standing loses the level', () => {
@@ -174,7 +182,7 @@ test('restart rebuilds the level and re-arms the cannon', () => {
   game.restart();
   const snap = game.rules.snapshot();
   assert.equal(snap.ammoLeft, 4);
-  assert.equal(snap.targetsAlive, 2);
+  assert.equal(snap.targetsAlive, 3, 'the authored birds come back');
   assert.equal(snap.phase, 'aiming');
   assert.equal(snap.score, 0);
   assert.ok(adapter.snapshot().every((e) => !e.destroyed));
@@ -287,27 +295,38 @@ test('a drag re-opens the gesture when restart or loadLevel closed it', () => {
 
 test('stars are derived from shots used, not invented (D19)', () => {
   const { game } = makeGame();
-  assert.equal(game.rules.snapshot().targetsTotal, 2);
+  assert.equal(game.rules.snapshot().targetsTotal, 3);
 
-  aim(game, 0);
+  aim(game, -20); // the measured efficient plan: two pigs take three shelters down
+  game.releaseAim();
+  settle(game);
+  aim(game, -20);
   game.releaseAim();
   settle(game);
   assert.equal(game.rules.snapshot().phase, 'won');
-  assert.equal(game.rules.snapshot().launches, 1);
-  assert.equal(game.rules.snapshot().stars, 3, 'a one-shot clear earns three stars');
+  assert.equal(game.rules.snapshot().launches, 2);
+  assert.equal(game.rules.snapshot().stars, 3, 'clearing within the one-shot budget earns three stars');
 
   const slow = makeGame();
-  aim(slow.game, -25);
+  aim(slow.game, -70, 30); // short steep lobs that land near the launcher and break nothing (scratch/wasted-and-open.ts)
   slow.game.releaseAim();
   settle(slow.game);
-  aim(slow.game, 10);
+  aim(slow.game, -60, 24);
   slow.game.releaseAim();
   settle(slow.game);
-  assert.equal(slow.game.rules.snapshot().stars, 2, 'two shots on two targets earns two stars');
+  aim(slow.game, -20);
+  slow.game.releaseAim();
+  settle(slow.game);
+  aim(slow.game, -20);
+  slow.game.releaseAim();
+  settle(slow.game);
+  assert.equal(slow.game.rules.snapshot().phase, 'won');
+  assert.equal(slow.game.rules.snapshot().launches, 4, 'the two wasted shots cost two of the four pigs (scratch/wasted-and-open.ts)');
+  assert.equal(slow.game.rules.snapshot().stars, 1, 'four pigs on three birds earns one star');
 
   const many = makeGame();
   for (let i = 0; i < 4; i++) {
-    aim(many.game, -70);
+    aim(many.game, -70, 24); // four wasted shots burn the whole ammo budget
     many.game.releaseAim();
     settle(many.game);
   }
@@ -317,7 +336,7 @@ test('stars are derived from shots used, not invented (D19)', () => {
 
 test('a destroyed entity flashes briefly, then is gone', () => {
   const { game } = makeGame();
-  aim(game, 0);
+  aim(game, -20); // the winning opener breaks shelter 1, so something dies
   game.releaseAim();
 
   let flashed: string[] = [];
@@ -326,7 +345,7 @@ test('a destroyed entity flashes briefly, then is gone', () => {
     flashed = game.entities.all().filter((e) => e.destroyed).map((e) => e.id);
     if (flashed.length > 0) break;
   }
-  assert.ok(flashed.length > 0, 'something must die in a flat shot');
+  assert.ok(flashed.length > 0, 'something must die in the winning opener');
   const fade = game.entities.all().find((e) => e.destroyed)!.fade!;
   assert.ok(fade > 0 && fade <= 1, 'the flash is fading, not permanent');
 
@@ -337,8 +356,8 @@ test('a destroyed entity flashes briefly, then is gone', () => {
 
 test('a block survives a single hit with visible partial damage', () => {
   const { game, adapter } = makeGame();
-  // A shot that actually reaches the tower (stage-01 tower sits at x=1040..1150).
-  aim(game, 15);
+  // The winning opener lands on shelter 1's roof; the legs under it take hits but do not vanish.
+  aim(game, -20);
   game.releaseAim();
   settle(game);
 
@@ -349,7 +368,7 @@ test('a block survives a single hit with visible partial damage', () => {
 
 test('a settled round is asleep, whether it slept or hit the timeout', () => {
   const { game, adapter } = makeGame();
-  aim(game, 0);
+  aim(game, -20);
   game.releaseAim();
   settle(game);
   assert.equal(adapter.allSleeping(), true, 'settled must mean at rest (D16)');
@@ -366,27 +385,51 @@ test('switching levels reports the new bounds so the camera can re-frame (D20)',
   game.loadLevel(loadLevel(levelAt(2)));
   assert.equal(seen.length, 1, 'one load event per load');
   assert.equal(seen[0]!.levelId, 'stage-03');
-  assert.deepEqual(seen[0]!.bounds, { width: 1600, height: 900 });
-  assert.equal(game.rules.snapshot().targetsTotal, 2, 'the new level owns the target count');
-  assert.equal(game.rules.snapshot().ammoLeft, 5, 'the new level owns the ammo count');
+  assert.deepEqual(seen[0]!.bounds, { width: 2200, height: 900 }, 'M21 widened the world (docs/adr.md D37)');
+  assert.equal(game.rules.snapshot().targetsTotal, 4, 'the new level owns the target count');
+  assert.equal(game.rules.snapshot().ammoLeft, loadLevel(levelAt(2)).ammo.length, 'the new level owns the ammo count');
 });
 
-test('bird deaths are attributed to the pig or to the collapse', () => {
-  const { game, bus, loaded } = makeGame();
-  const deaths: Array<{ id: string; cause: string }> = [];
-  bus.on('destroyed', (e) => deaths.push({ id: e.id, cause: e.cause }));
+/** A bird standing in the open, so a pig can hit it directly. Not a shipped stage. */
+const OPEN_BIRD_LEVEL: LevelDef = {
+  name: 'open-bird',
+  bounds: { width: 2200, height: 900 },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.3, ammo: ['basic'] },
+  statics: [{ type: 'ground', x: 1100, y: 860, w: 2200, h: 40 }],
+  objects: [],
+  targets: [{ type: 'ball', material: 'feather', x: 520, y: 820, r: 20, target: true }],
+};
 
-  aim(game, 0); // clears both birds: one by direct hit, one by the collapse
+test('bird deaths name their cause: collapse in a sheltered stage, impact in the open', () => {
+  // Sheltered birds (level rule 1) die when structure comes down on them, so the shipped
+  // stages report crush/fall. A direct pig hit is still attributed, on an open bird.
+  const { game } = makeGame();
+  const deaths: Array<{ id: string; cause: string }> = [];
+  game.bus.on('destroyed', (e) => deaths.push({ id: e.id, cause: e.cause }));
+  aim(game, -20);
+  game.releaseAim();
+  settle(game);
+  aim(game, -20);
   game.releaseAim();
   settle(game);
   assert.equal(game.rules.snapshot().phase, 'won');
 
   const birdDeaths = deaths.filter((d) => d.id.startsWith('bird'));
-  assert.equal(birdDeaths.length, 2, 'both birds died');
-  assert.ok(birdDeaths.some((d) => d.cause === 'impact'), 'a direct pig hit is attributed to the pig');
-  assert.ok(birdDeaths.some((d) => d.cause !== 'impact'), 'the collapse kill is attributed to debris or the ground');
+  assert.equal(birdDeaths.length, 3, 'all three sheltered birds died');
   for (const d of birdDeaths) assert.ok(['impact', 'crush', 'fall'].includes(d.cause), `${d.cause} is a valid cause`);
-  void loaded;
+  assert.ok(birdDeaths.some((d) => d.cause === 'crush' || d.cause === 'fall'), 'a sheltered bird dies to the collapse at least once');
+
+  const open = makeGame(OPEN_BIRD_LEVEL);
+  const openDeaths: Array<{ id: string; cause: string }> = [];
+  open.game.bus.on('destroyed', (e) => openDeaths.push({ id: e.id, cause: e.cause }));
+  open.game.beginAim();
+  // A downward flat shot meets the bird on the ground (scratch/wasted-and-open.ts).
+  open.game.dragAim({ x: open.loaded.cannonOrigin.x - 90 * Math.cos(Math.PI / 18), y: open.loaded.cannonOrigin.y - 90 * Math.sin(Math.PI / 18) });
+  open.game.releaseAim();
+  settle(open.game);
+  assert.equal(open.game.rules.snapshot().phase, 'won');
+  assert.equal(openDeaths.filter((d) => d.id.startsWith('bird')).length, 1);
+  assert.equal(openDeaths[0]!.cause, 'impact', 'a direct pig hit is attributed to the pig');
 });
 
 test('a level is settled and undamaged before the player gets control', () => {

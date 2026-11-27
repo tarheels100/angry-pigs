@@ -1,37 +1,41 @@
 import type { LevelDef } from './index.ts';
+import { barrierWall, bird, hut, tower } from './pieces.ts';
 
-/** Stage 03 — a stone wall blocks flat shots, so the glass structures must be cleared
- * with arcs. The near structure is a tower with wood legs and a glass beam: wood takes
- * several hits, so the bird on the beam dies either by a direct hit or by breaking the
- * beam it rides. The far structure is a pedestal whose bird dies when the column is hit
- * and the bird falls. Nothing sits under stone, because stone cannot be broken by a pig
- * at the current damage scale (docs/level-format.md design rules).
- * Ground top = 840; a resting body's centre is groundTop - halfSize.
+/**
+ * Stage 03 — the stone gate.
+ *
+ * A stone wall blocks every flat shot: pigs must arc over it (its top sits at y 440, above the
+ * apex of any low shot) and land on the structures behind. Two glass towers carry three birds,
+ * a wood hut carries the fourth, and nothing is sheltered by stone (docs/level-format.md rules
+ * 1, 2). The far tower is scenery-grade backstop for scale, with no bird on it: x 1900 is past
+ * the measured reach of the launcher once the wall is in front (scratch/reachTable.ts), so a
+ * bird there would be unwinnable.
  */
 export const LEVEL_03: LevelDef = {
   name: 'stage-03',
-  bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['basic', 'cluster', 'bomb', 'basic', 'basic'] },
-  statics: [
-    { type: 'ground', x: 800, y: 860, w: 1600, h: 40 },
-    // Low stone wall: flat shots die here, arcs pass over it.
-    { type: 'wall', x: 640, y: 800, w: 50, h: 80 },
-  ],
+  bounds: { width: 2200, height: 900 },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.3, ammo: ['bomb', 'heavy', 'basic', 'cluster'] },
+  statics: [{ type: 'ground', x: 1100, y: 860, w: 2200, h: 40 }],
   objects: [
-    // Near tower: wood legs (top = 720) under a glass beam (centre = 712, top = 704).
-    { type: 'block', material: 'wood', x: 900, y: 780, w: 30, h: 120 },
-    { type: 'block', material: 'wood', x: 980, y: 780, w: 30, h: 120 },
-    { type: 'block', material: 'glass', x: 940, y: 712, w: 140, h: 16 },
-    // Far pedestal: column top = 640, narrow beam on top (beam top = 624).
-    { type: 'block', material: 'glass', x: 1280, y: 760, w: 30, h: 160 },
-    { type: 'block', material: 'glass', x: 1280, y: 632, w: 110, h: 16 },
+    // Stone gate: five courses, top at y 440. A flat shot dies on it (rule 2).
+    ...barrierWall(520, { courseW: 40, courseH: 80, courses: 5 }),
+    // Glass tower behind the gate: one storey, roof low enough for a descending shot.
+    ...tower(760, { width: 100, legs: 2, legHeight: 180, storeys: [{ material: 'glass', columns: 2, height: 130 }] }),
+    // Taller glass tower: a blast on its legs drops the roof onto the bird (rule 4).
+    ...tower(1000, { width: 110, legs: 2, legHeight: 150, storeys: [{ material: 'glass', columns: 2, height: 130 }] }),
+    // Wood hut for the fourth bird: knock a column and the roof crushes it.
+    ...hut(1400, { width: 170, height: 260, columns: 'wood', screenHeight: 300 }),
+    // Decorative tower on the far edge, for scale; no bird, nothing to solve.
+    ...tower(1900, { width: 100, legs: 2, legHeight: 220, storeys: [{ material: 'glass', columns: 2, height: 150 }] }),
   ],
   targets: [
-    // Riding the glass beam (beam top = 704).
-    { type: 'ball', material: 'feather', x: 940, y: 684, r: 20, target: true },
-    // Balanced on the pedestal beam (beam top = 624).
-    { type: 'ball', material: 'feather', x: 1280, y: 604, r: 20, target: true },
+    bird(760), // on the first glass tower
+    bird(1000), // between the second tower's legs, under its roof
+    bird(1360), // inside the wood hut
+    bird(1440), // beside the hut, under the same roof span
   ],
-
-  scenery: [{"kind":"plinth","x":120,"y":798,"w":150,"h":84},{"kind":"tree","x":420,"y":490,"w":190,"h":700},{"kind":"tree","x":1240,"y":500,"w":170,"h":680},{"kind":"ridge","x":1300,"y":720,"w":1200,"h":240}],
+  scenery: [
+    { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },
+    { kind: 'tree', x: 1700, y: 560, w: 110, h: 540 },
+  ],
 };

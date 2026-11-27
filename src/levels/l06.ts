@@ -1,52 +1,43 @@
 import type { LevelDef } from './index.ts';
+import { barrierWall, bird, hut, platform, tower } from './pieces.ts';
 
-/** Stage 06 — mixed materials, mixed pigs, and a chain that only reaches the near
- * structure. A metal wall cannot be broken by any pig at the current scale (health 24
- * scaled to 72), so flat shots die there and arcs must carry the pig over it. Landing a
- * bomb on the glass perch detonates it and the debris takes the adjacent glass tower —
- * one pig, two birds. The wood tower is far enough that the blast and the debris stop
- * short of it, so it needs a heavy pig; the two pedestals are far apart, which is what a
- * cluster's fan is for (docs/adr.md D34, docs/level-format.md rules 3, 4, 8).
- * Ground top = 840; a resting body's centre is groundTop - halfSize.
+/**
+ * Stage 06 — the finale: metal shield, mixed materials, five birds.
+ *
+ * Metal is unbreakable by damage (docs/physics.md), so the shield at x 640 is a pure
+ * obstacle: the first two pigs have to arc over it, and the bomb arrives third. Keeps alternate
+ * glass and wood legs, and the structures are spaced past the 130-unit blast radius so the
+ * bomb takes one shelter at a time (docs/level-format.md rules 1, 3, 9).
  */
 export const LEVEL_06: LevelDef = {
   name: 'stage-06',
-  bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['bomb', 'heavy', 'cluster', 'basic', 'basic'] },
-  statics: [{ type: 'ground', x: 800, y: 860, w: 1600, h: 40 }],
+  bounds: { width: 2200, height: 900 },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.3, ammo: ['bomb', 'heavy', 'cluster', 'basic', 'basic'] },
+  statics: [{ type: 'ground', x: 1100, y: 860, w: 2200, h: 40 }],
   objects: [
-    // Metal shield: unbreakable at the current scale, so it is an obstacle, not a target.
-    { type: 'block', material: 'metal', x: 620, y: 760, w: 60, h: 160 },
-    // Glass perch: the bomb's landing point. Its blast and fall take the tower beside it.
-    { type: 'block', material: 'glass', x: 860, y: 770, w: 26, h: 140 },
-    // Glass tower: columns (tops = 720) under a beam (top 704).
-    { type: 'block', material: 'glass', x: 940, y: 780, w: 26, h: 120 },
-    { type: 'block', material: 'glass', x: 1020, y: 780, w: 26, h: 120 },
-    { type: 'block', material: 'glass', x: 980, y: 712, w: 140, h: 16 },
-    // Wood tower, deliberately out of reach of the blast: friction holds it, so it needs
-    // a heavy pig to fell it.
-    { type: 'block', material: 'wood', x: 1260, y: 780, w: 34, h: 120 },
-    { type: 'block', material: 'wood', x: 1340, y: 780, w: 34, h: 120 },
-    { type: 'block', material: 'wood', x: 1300, y: 712, w: 150, h: 16 },
-    // Two glass pedestals, far apart: a cluster's spread is the right tool.
-    { type: 'block', material: 'glass', x: 1440, y: 770, w: 26, h: 140 },
-    { type: 'block', material: 'glass', x: 1540, y: 770, w: 26, h: 140 },
+    // The metal shield: four courses, top at y 440. Damage cannot touch it.
+    ...barrierWall(640, { courseW: 80, courseH: 100, courses: 4, material: 'metal' }),
+    // Keep 1: glass legs, wood roof — the bomb's target.
+    ...hut(1000, { width: 170, height: 240, columns: 'wood', screenHeight: 300 }),
+    // Keep 2: wood legs, taller.
+    ...hut(1300, { width: 180, height: 260, screenHeight: 320 }),
+    // A tall decorative tower behind keep 2, for scale; it carries no bird.
+    ...tower(1520, { width: 120, legs: 2, legHeight: 220, storeys: [{ material: 'glass', columns: 3, height: 140 }, { material: 'wood', columns: 3, height: 100 }] }),
+    // A wide crush platform: three legs, birds in the gaps.
+    ...platform(1760, { span: 220, height: 200, supports: 3 }),
+    // Keep 3: tall hut with glass legs on the far edge.
+    ...hut(2060, { width: 170, height: 300, columns: 'wood', screenHeight: 360 }),
   ],
   targets: [
-    // Balanced on the perch (column top = 700).
-    { type: 'ball', material: 'feather', x: 860, y: 680, r: 20, target: true },
-    // Riding the glass beam (top = 704); dies when the chain drops it.
-    { type: 'ball', material: 'feather', x: 980, y: 684, r: 20, target: true },
-    // Riding the wood beam (top = 704).
-    { type: 'ball', material: 'feather', x: 1300, y: 684, r: 20, target: true },
-    // Balanced on the pedestals (tops = 700).
-    { type: 'ball', material: 'feather', x: 1440, y: 680, r: 20, target: true },
-    { type: 'ball', material: 'feather', x: 1540, y: 680, r: 20, target: true },
+    bird(1000), // inside keep 1
+    bird(1300), // inside keep 2
+    bird(1705), // gap between the first two legs of the platform, under the beam
+    bird(1815), // gap on the far side of the same platform
+    bird(2060), // inside keep 3
   ],
   scenery: [
-    { kind: "plinth", x: 120, y: 798, w: 150, h: 84 },
-    { kind: 'tree', x: 440, y: 500, w: 170, h: 680 },
-    { kind: 'tree', x: 1160, y: 480, w: 210, h: 720 },
-    { kind: 'ridge', x: 1460, y: 720, w: 1200, h: 240 },
+    { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },
+    { kind: 'tree', x: 880, y: 560, w: 120, h: 560 },
+    { kind: 'tree', x: 1960, y: 580, w: 110, h: 520 },
   ],
 };

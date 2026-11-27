@@ -1,56 +1,39 @@
 import type { LevelDef } from './index.ts';
+import { barrierWall, bird, bridge, hut, tower } from './pieces.ts';
 
-/** Stage 04 — one big collapse. A two-storey tower: wood legs hold a glass beam, and a
- * second glass storey rides that beam. Hitting the wood legs takes the whole structure
- * down, so both elevated birds die by a fall rather than by a direct hit
- * (docs/level-format.md rules 4 and 6). The third bird sits on a pedestal with two
- * columns, so it needs both gone: the stage is a three-shot escalation rather than a
- * lucky single shot. Wood needs several hits, so the stage is a heavy-pig stage: a basic
- * pig chips the legs, a heavy pig takes them out. A low stone wall makes flat shots die
- * before the structures; stone is never a roof over a bird (rules 1, 2).
- * Ground top = 840; a resting body's centre is groundTop - halfSize.
+/**
+ * Stage 04 — the long bridge yard.
+ *
+ * One long deck carried by four piers is the scale piece: birds sit underneath it, so the span
+ * is a single structure with several failure modes (knock a pier, hit the deck from above, blast
+ * a pier with a bomb). A stone wall in front stops flat shots, and a fourth bird hides in a hut
+ * behind the bridge, which needs its own pig (docs/level-format.md rules 1, 3, 4).
  */
 export const LEVEL_04: LevelDef = {
   name: 'stage-04',
-  bounds: { width: 1600, height: 900 },
-  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.22, ammo: ['heavy', 'heavy', 'bomb', 'basic', 'cluster'] },
-  statics: [
-    { type: 'ground', x: 800, y: 860, w: 1600, h: 40 },
-    // Flat shots die here, so the tower must be reached by an arc.
-    { type: 'wall', x: 620, y: 800, w: 50, h: 80 },
-  ],
+  bounds: { width: 2200, height: 900 },
+  cannon: { x: 120, y: 700, maxPull: 90, powerScale: 0.3, ammo: ['bomb', 'heavy', 'cluster', 'basic', 'basic'] },
+  statics: [{ type: 'ground', x: 1100, y: 860, w: 2200, h: 40 }],
   objects: [
-    // Tower legs: wood, tops = 720. Wood friction holds the stack (docs/tuning.md).
-    { type: 'block', material: 'wood', x: 880, y: 780, w: 34, h: 120 },
-    { type: 'block', material: 'wood', x: 980, y: 780, w: 34, h: 120 },
-    // First floor: glass beam (centre 712, top 704) riding the legs.
-    { type: 'block', material: 'glass', x: 930, y: 712, w: 170, h: 16 },
-    // Second storey: glass columns (tops = 602) on that beam.
-    { type: 'block', material: 'glass', x: 890, y: 652, w: 26, h: 100 },
-    { type: 'block', material: 'glass', x: 970, y: 652, w: 26, h: 100 },
-    // Roof beam (centre 594, top 586). Not stone: a bird must be reachable by collapse.
-    { type: 'block', material: 'glass', x: 930, y: 594, w: 150, h: 16 },
-    // Far pedestal: two wood columns (tops = 670) under a wood beam (top 654). Both
-    // columns must fail for the bird to fall — the two-shot puzzle from rule 4, and wood
-    // friction means one broken column still holds the beam.
-    { type: 'block', material: 'wood', x: 1340, y: 750, w: 30, h: 160 },
-    { type: 'block', material: 'wood', x: 1420, y: 750, w: 30, h: 160 },
-    { type: 'block', material: 'wood', x: 1380, y: 662, w: 120, h: 16 },
-    // Stone only as an obstacle a flat shot dies on, never over a bird.
-    { type: 'block', material: 'stone', x: 1560, y: 800, w: 60, h: 80 },
+    // Stone wall in front: top at y 480, so nothing is reachable with a flat shot.
+    ...barrierWall(600, { courseW: 80, courseH: 90, courses: 3 }),
+    // The bridge: four piers, one glass deck. The underside sits at y 620, close enough to
+    // crush a bird underneath when a pier fails (rule 4).
+    ...bridge(800, 1700, { height: 200, piers: 4, deck: 'glass' }),
+    // A hut behind the bridge for the fourth bird.
+    ...hut(1900, { width: 170, height: 240, columns: 'glass', screenHeight: 300 }),
+    // A decorative tower on the far edge, for scale and as a backstop.
+    ...tower(2120, { width: 100, legs: 2, legHeight: 220, storeys: [{ material: 'glass', columns: 2, height: 150 }] }),
   ],
   targets: [
-    // Riding the first floor (beam top = 704).
-    { type: 'ball', material: 'feather', x: 930, y: 684, r: 20, target: true },
-    // Riding the roof (beam top = 586) — falls ~150 units when the tower goes.
-    { type: 'ball', material: 'feather', x: 930, y: 566, r: 20, target: true },
-    // Balanced on the pedestal beam (top = 654).
-    { type: 'ball', material: 'feather', x: 1380, y: 634, r: 20, target: true },
+    bird(950), // under the deck, between piers 1 and 2
+    bird(1250), // under the deck, between piers 2 and 3
+    bird(1500), // under the deck, between piers 3 and 4
+    bird(1900), // inside the hut
   ],
   scenery: [
-    { kind: "plinth", x: 120, y: 798, w: 150, h: 84 },
-    { kind: 'tree', x: 480, y: 490, w: 190, h: 700 },
-    { kind: 'tree', x: 1200, y: 500, w: 170, h: 680 },
-    { kind: 'ridge', x: 1480, y: 710, w: 1300, h: 260 },
+    { kind: 'plinth', x: 120, y: 798, w: 150, h: 84 },
+    { kind: 'tree', x: 1760, y: 560, w: 110, h: 540 },
+    { kind: 'tree', x: 320, y: 590, w: 100, h: 500 },
   ],
 };

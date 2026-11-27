@@ -1,64 +1,81 @@
-/** Scratch probe: does the greedy bot clear each stage within its ammo?
- * Run: npx esbuild scratch/greedy-probe.ts --bundle --platform=node --format=cjs --outfile=scratch/greedy-probe.cjs && node scratch/greedy-probe.cjs
- *
- * The bot aims at birds *and at the structure supporting a bird*, because that is what
- * a player does: hitting a pedestal column or a tower leg kills the bird above it
- * (docs/level-format.md design rules).
- */
-import { LEVELS, loadLevel, levelAt } from '../src/levels/index.ts';
 import { createPhysicsAdapter } from '../src/physics/adapter.ts';
 import { createEventBus } from '../src/core/eventBus.ts';
 import { createGame } from '../src/game/game.ts';
+import { loadLevel, LEVELS, type LoadedLevel } from '../src/levels/index.ts';
 
-function greedy(index: number) {
-  const loaded = loadLevel(levelAt(index));
-  const adapter = createPhysicsAdapter({ width: loaded.def.bounds.width, height: loaded.def.bounds.height, gravityY: 1, frictionAir: 0.001 });
-  const game = createGame({ level: loaded, adapter, bus: createEventBus() });
-  let shots = 0;
-  const log: string[] = [];
-  /** Shots already fired; repeating one that killed nothing wastes ammo. */
-  const tried = new Set<string>();
-  while (adapter.snapshot().some((s) => s.kind === 'bird') && shots < loaded.ammo.length) {
-    const birds = adapter.snapshot().filter((s) => s.kind === 'bird');
-    // Aim candidates: a bird, or any block sitting under/next to a living bird.
-    const supports = adapter.snapshot().filter(
-      (s) => s.kind === 'block' && birds.some((b) => s.y > b.y - 20 && s.y - b.y < 160 && Math.abs(s.x - b.x) < 80),
-    );
-    const candidates = [...birds, ...supports];
-    const origin = loaded.cannonOrigin;
-    let best: { pull: number; rad: number; dist: number } | null = null;
-    for (const pull of [loaded.maxPull, loaded.maxPull * 0.7, loaded.maxPull * 0.45]) {
-      const speed = pull * loaded.powerScale;
-      for (let deg = -45; deg <= 45; deg += 1) {
-        const rad = (deg * Math.PI) / 180;
-        if (tried.has(`${pull}|${deg}`)) continue;
-        const traj = adapter.simulateTrajectory(origin, { x: speed * Math.cos(rad), y: speed * Math.sin(rad) }, 120, 24);
-        for (const p of traj) {
-          for (const target of candidates) {
-            const dist = Math.hypot(p.x - target.x, p.y - target.y);
-            if (!best || dist < best.dist) best = { pull, rad, dist };
-          }
+const DT = 1 / 60;
+
+/**
+ * Greedy bot with replay search (docs/tuning.md). This is the solvability gate for the
+ * sheltered M21 stages: a bird cannot be hit directly (level rule 1), so the bot has to find
+ * shots that break structure.
+ *
+ * Strategy: at each shot, replay the shots already taken in a fresh game (the simulation is
+ * deterministic, so a replay reproduces the current world), try every (pull, angle) the player
+ * can drag, and commit the candidate that kills the most birds. Cost is a few hundred thousand
+ * steps per stage, which is fine for a probe but too slow for the shipped game.
+ */
+interface Plan {
+  pull: number;
+  deg: number;
+}
+
+/** Fire one gesture and settle, returning birds and blocks destroyed by that shot. */
+function play(loaded: LoadedLevel, shots: Plan[]): { birdsLeft: number; blocksLeft: number } {
+  const game = createGame({
+    level: loaded,
+    adapter: createPhysicsAdapter({ width: loaded.def.bounds.width, height: loaded.def.bounds.height, gravityY: 1, frictionAir: 0.001 }),
+    bus: createEventBus(),
+  });
+  const origin = loaded.cannonOrigin;
+  for (const shot of shots) {
+    if (game.rules.snapshot().phase !== 'aiming' && game.rules.snapshot().phase !== 'settling') break;
+    const rad = (shot.deg * Math.PI) / 180;
+    game.beginAim();
+    game.dragAim({ x: origin.x - shot.pull * Math.cos(rad), y: origin.y - shot.pull * Math.sin(rad) });
+    game.releaseAim();
+    for (let step = 0; step < 300 && game.rules.snapshot().phase === 'in_flight'; step++) game.step(DT);
+    for (let step = 0; step < 150 && game.rules.snapshot().phase === 'settling'; step++) game.step(DT);
+  }
+  return { birdsLeft: game.entities.byKind('bird').length, blocksLeft: game.entities.byKind('block').length };
+}
+
+const PULLS = [90, 75, 63, 45, 32];
+const DEGS = [-45, -40, -35, -30, -25, -20, -15, -10, -5, 0, 5];
+
+function solve(levelIndex: number): { shots: Plan[]; cleared: boolean; birdsLeft: number } {
+  const loaded = loadLevel(LEVELS[levelIndex]!);
+  const budget = loaded.def.cannon.ammo.length;
+  const plan: Plan[] = [];
+  for (let i = 0; i < budget; i++) {
+    let best: Plan | null = null;
+    let bestScore = { birdsLeft: Infinity, blocksLeft: Infinity };
+    for (const pull of PULLS) {
+      for (const deg of DEGS) {
+        const candidate = [...plan, { pull, deg }];
+        const result = play(loaded, candidate);
+        if (result.birdsLeft < bestScore.birdsLeft || (result.birdsLeft === bestScore.birdsLeft && result.blocksLeft < bestScore.blocksLeft)) {
+          bestScore = result;
+          best = { pull, deg };
         }
       }
     }
-    if (!best) {
-      log.push(`  no untried reachable bird with ${birds.map((b) => `${b.id}@(${Math.round(b.x)},${Math.round(b.y)})`).join(' ')}`);
-      break;
-    }
-    tried.add(`${best.pull}|${Math.round((best.rad * 180) / Math.PI)}`);
-    game.beginAim();
-    game.dragAim({ x: origin.x - best.pull * Math.cos(best.rad), y: origin.y - best.pull * Math.sin(best.rad) });
-    game.releaseAim();
-    for (let i = 0; i < 720; i++) {
-      game.step(1 / 60);
-      if (game.rules.snapshot().phase !== 'in_flight') break;
-    }
-    shots++;
-    log.push(`  shot ${shots}: pull=${best.pull.toFixed(0)} deg=${((best.rad * 180) / Math.PI).toFixed(0)} closest=${best.dist.toFixed(0)} birds left=${adapter.snapshot().filter((s) => s.kind === 'bird').length} blocks left=${adapter.snapshot().filter((s) => s.kind === 'block').length} phase=${game.rules.snapshot().phase}`);
+    if (!best) break;
+    plan.push(best);
+    if (bestScore.birdsLeft === 0) return { shots: plan, cleared: true, birdsLeft: 0 };
   }
-  const left = adapter.snapshot().filter((s) => s.kind === 'bird').map((b) => `${b.id}@(${Math.round(b.x)},${Math.round(b.y)})`);
-  console.log(`${loaded.def.name}: ${shots}/${loaded.ammo.length} pigs, birds left=${left.join(' ') || 'none'}`);
-  for (const line of log) console.log(line);
+  return { shots: plan, cleared: false, birdsLeft: bestRemaining(loaded, plan) };
 }
 
-for (let i = 0; i < LEVELS.length; i++) greedy(i);
+function bestRemaining(loaded: LoadedLevel, plan: Plan[]): number {
+  return play(loaded, plan).birdsLeft;
+}
+
+for (let i = 0; i < LEVELS.length; i++) {
+  const result = solve(i);
+  const ammo = LEVELS[i]!.cannon.ammo.length;
+  console.log(
+    `stage-${String(i + 1).padStart(2, '0')}: ${result.shots.length}/${ammo} pigs, cleared=${result.cleared}${result.cleared ? '' : `, birds left=${result.birdsLeft}`}`,
+  );
+  console.log(`  plan: ${result.shots.map((s) => `${s.pull}@${s.deg}`).join(' ')}`);
+}
