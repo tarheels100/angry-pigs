@@ -108,6 +108,7 @@ test('debug overlay is off by default', () => {
 function fakeAudio(): { ctx: AudioContextLike; started: Array<{ type: string; from: number; to: number }> } {
   const started: Array<{ type: string; from: number; to: number }> = [];
   const ctx: AudioContextLike = {
+    state: 'running' as const,
     currentTime: 0,
     destination: {},
     createOscillator() {

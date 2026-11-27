@@ -28,6 +28,8 @@ export interface AudioContextLike {
   createGain(): GainNodeLike;
   destination: unknown;
   currentTime: number;
+  /** Real contexts report this; music playback refuses to start before it is running. */
+  readonly state: 'running' | 'suspended' | 'closed';
 }
 
 export type AudioContextFactory = () => AudioContextLike | null;

@@ -1,146 +1,156 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createMusic, flavourFor, hashLevel, type AudioContextLike } from '../src/audio/music.ts';
 
-/** Fake audio context: records what would have been played. */
-function fakeCtx(): { ctx: AudioContextLike; played: Array<{ freq: number; gain: number; type: string }> } {
-  const played: Array<{ freq: number; gain: number; type: string }> = [];
-  const ctx: AudioContextLike = {
-    currentTime: 0,
-    createOscillator() {
-      let freq = 0;
-      let gain = 0;
-      let type = 'sine';
-      return {
-        get type() {
-          return type;
-        },
-        set type(v: string) {
-          type = v;
-        },
-        frequency: { setValueAtTime: (v: number) => { freq = v; } },
-        connect(dest: { gain: { value: number } }) {
-          gain = dest.gain.value;
-        },
-        start() {
-          played.push({ freq, gain, type });
-        },
-        stop() {},
-      };
-    },
-    createGain() {
-      return { gain: { value: 0, setValueAtTime: () => {} }, connect: () => {} };
-    },
-    destination: {},
-  };
-  return { ctx, played };
+import { composeTrack, hashLevel, loopLengthMs, notesFor } from '../src/audio/composition.ts';
+import { createMusicPlayer } from '../src/audio/playback.ts';
+import { createSfx, type AudioContextLike, type GainNodeLike, type OscillatorNodeLike } from '../src/audio/sfx.ts';
+import { createEventBus } from '../src/core/eventBus.ts';
+import { Midi } from 'tonal';
+
+/** Minimal WebAudio stand-in, so the presentation wiring is testable in plain node. */
+interface FakeOsc extends OscillatorNodeLike {
+  startedAt: number | null;
+  /** The last frequency the sfx blip set, recorded because ParamLike has no readable value. */
+  setFrequency: number;
 }
 
-test('each level gets its own stable track flavour', async () => {
-  const a = flavourFor('stage-01');
-  const again = flavourFor('stage-01');
-  assert.deepEqual(a, again, 'a stage always gets the same flavour');
-  assert.ok(a.bpm >= 92 && a.bpm <= 125, `tempo in range (${a.bpm})`);
-  assert.ok(a.scale.length > 0 && a.root > 0, 'flavour carries a scale and root');
-
-  const b = flavourFor('stage-02');
-  assert.ok(a.name !== b.name, 'different stages get different tracks');
-  assert.ok(hashLevel('stage-01') !== hashLevel('stage-02'), 'level ids hash distinctly');
-});
-
-test('the note sequence is deterministic for a level and seed', async () => {
-  const clock = () => 0;
-  const run = () => {
-    const music = createMusic({ clock, seed: 1234 });
-    music.start('stage-01');
-    // Simulated time advances one fixed step at a time; the scheduler emits on beat crossings.
-    for (let step = 0; step < 60; step++) music.tick(step * (1000 / 60));
-    return music.notes();
-  };
-  const first = run();
-  const second = run();
-  assert.deepEqual(first, second, 'same seed replays the same notes');
-  assert.ok(first.length > 4, `a track actually plays (\`${first.length}\` notes)`);
-  assert.ok(first.every((n) => n.semitone >= 0 && n.gain > 0 && n.durationMs > 0), 'notes are playable');
-  assert.notEqual(first[0]!.gain, undefined, 'notes carry gain');
-
-  const otherSeed = createMusic({ clock, seed: 99 });
-  otherSeed.start('stage-01');
-  for (let step = 0; step < 60; step++) otherSeed.tick(step * (1000 / 60));
-  assert.notDeepEqual(otherSeed.notes(), first, 'a different seed generates a different track');
-
-  // The track does not loop a fixed bar: successive notes keep changing.
-  assert.ok(new Set(first.map((n) => n.semitone)).size > 3, 'the sequence varies');
-});
-
-test('music only emits one note per beat, and stops on demand', async () => {
-  let now = 0;
-  const music = createMusic({ clock: () => now, seed: 7 });
-  music.start('stage-03');
-  const bpm = music.flavour()!.bpm;
-  const beatMs = 60_000 / bpm / 2;
-
-  // One tick per eighth note emits exactly one note; a tick between beats emits none.
-  music.tick(now);
-  assert.equal(music.notes().length, 1);
-  music.tick(now + beatMs / 2);
-  assert.equal(music.notes().length, 1, 'no note between beats');
-  music.tick(now + beatMs);
-  assert.equal(music.notes().length, 2);
-
-  // A stalled tab does not spam: many ticks at one time still emit one note.
-  const before = music.notes().length;
-  for (let i = 0; i < 20; i++) music.tick(now + beatMs);
-  assert.equal(music.notes().length, before, 'catching up emits at most one note per tick');
-
-  music.stop();
-  music.tick(now + beatMs * 5);
-  assert.equal(music.notes().length, before, 'a stopped track plays nothing');
-  assert.equal(music.playing(), false);
-});
-
-test('playing notes uses the shared audio context, and mute silences output', async () => {
-  const fake = fakeCtx();
-  let created = 0;
-  const music = createMusic({
-    clock: () => 0,
-    seed: 42,
-    createContext: () => {
-      created++;
-      return fake.ctx;
+function fakeWebAudio(state: AudioContextLike['state'] = 'running'): {
+  context: AudioContextLike;
+  oscillators: FakeOsc[];
+  /** Gain values, in creation order: one gain node per blip, so index i pairs with osc i. */
+  gains: number[];
+} {
+  const oscillators: FakeOsc[] = [];
+  const gains: number[] = [];
+  const context: AudioContextLike = {
+    state,
+    currentTime: 0,
+    destination: {},
+    createGain(): GainNodeLike {
+      const gain = {
+        value: 1,
+        setValueAtTime: (v: number) => {
+          gains.push(v);
+        },
+        exponentialRampToValueAtTime: () => {},
+      };
+      return { gain, connect: () => {} };
     },
-  });
-  music.start('stage-01');
-  assert.equal(created, 1, 'a track acquires one context');
+    createOscillator(): OscillatorNodeLike {
+      const osc: FakeOsc = {
+        type: 'sine',
+        startedAt: null,
+        setFrequency: 0,
+        frequency: {
+          setValueAtTime: (v: number) => {
+            osc.setFrequency = v;
+          },
+        },
+        connect: () => {},
+        start: (at: number) => {
+          osc.startedAt = at;
+        },
+        stop: () => {},
+      };
+      oscillators.push(osc);
+      return osc;
+    },
+  };
+  return { context, oscillators, gains };
+}
 
-  let now = 0;
-  const bpm = music.flavour()!.bpm;
-  const beatMs = 60_000 / bpm / 2;
-  for (let i = 0; i < 6; i++) {
-    music.tick(now);
-    now += beatMs;
-  }
-  assert.ok(fake.played.length >= 5, `notes reached the oscillator (${fake.played.length})`);
-  assert.ok(fake.played.every((p) => p.freq > 0 && p.gain > 0 && p.gain < 0.2), 'notes are quiet and in tune');
-  assert.equal(fake.played[0]!.type, music.flavour()!.waveform, 'the flavour sets the waveform');
-
-  music.setMuted(true);
-  const count = fake.played.length;
-  for (let i = 0; i < 6; i++) {
-    music.tick(now);
-    now += beatMs;
-  }
-  assert.equal(fake.played.length, count, 'mute silences the soundtrack without forgetting the track');
-  assert.equal(music.playing(), true, 'mute is not stop');
-
-  music.dispose();
-  assert.equal(music.playing(), false);
+test('a stage composes the same track every time it is asked for', () => {
+  const spec = composeTrack('stage-01');
+  assert.deepEqual(spec, composeTrack('stage-01'));
+  assert.deepEqual(notesFor(spec), notesFor(spec));
+  assert.ok(spec.bpm >= 92 && spec.bpm <= 126, 'tempo stays in the configured band');
+  assert.ok(spec.chords.length === 4, 'the progression is four chords');
+  assert.ok(spec.melody.length > 0, 'the melody has notes');
+  assert.ok(spec.bass.length === spec.bars, 'one bass note per bar');
 });
 
-test('a level without an audio context still tracks time and name', async () => {
-  const music = createMusic({ clock: () => 0, createContext: () => null });
-  music.start('stage-02');
-  assert.ok(music.flavour(), 'the track is named even with no audio');
-  for (let step = 0; step < 40; step++) music.tick(step * (1000 / 60));
-  assert.ok(music.notes().length > 0, 'notes are recorded for the HUD and tests');
+test('different stages compose different tracks', () => {
+  const names = ['stage-01', 'stage-02', 'stage-03', 'stage-04', 'stage-05', 'stage-06'].map((id) => composeTrack(id).name);
+  assert.equal(new Set(names).size, names.length, `six stages should sound different: ${names.join(' | ')}`);
+  // The seed comes from the stage name, so it is stable and cheap.
+  assert.equal(hashLevel('stage-01'), hashLevel('stage-01'));
+  assert.notEqual(hashLevel('stage-01'), hashLevel('stage-02'));
+});
+
+test('composed notes are real pitches inside the loop', () => {
+  const spec = composeTrack('stage-04');
+  const notes = notesFor(spec);
+  assert.ok(notes.length > 0);
+  const loop = loopLengthMs(spec);
+  for (const note of notes) {
+    assert.ok(Midi.toMidi(note.name) !== null, `${note.name} is a pitch tone can play`);
+    assert.ok(note.durationMs > 0);
+    assert.ok(note.timeMs >= 0 && note.timeMs < loop, 'notes fall inside the looping bar');
+  }
+  // The bass sits below the lead, so the two voices read as a tune rather than one blur.
+  const bass = notes.filter((n) => n.voice === 'bass');
+  const lead = notes.filter((n) => n.voice === 'lead');
+  assert.ok(bass.length > 0 && lead.length > 0);
+  assert.ok(Math.max(...bass.map((n) => Midi.toMidi(n.name)!)) < Math.min(...lead.map((n) => Midi.toMidi(n.name)!)));
+});
+
+test('music stays silent until audio is unlocked and running (M22)', () => {
+  // No context at all: a browser has not seen a gesture yet.
+  const silent = createMusicPlayer({ getContext: () => null });
+  silent.start('stage-01');
+  assert.equal(silent.playing(), false);
+  assert.equal(silent.trackName(), null);
+
+  // A suspended context is still not allowed to make sound.
+  const suspended = createMusicPlayer({ getContext: () => fakeWebAudio('suspended').context });
+  suspended.start('stage-01');
+  assert.equal(suspended.playing(), false);
+});
+
+test('sfx plays a blip for impact events', () => {
+  const bus = createEventBus();
+  const { context, oscillators, gains } = fakeWebAudio();
+  const sfx = createSfx(() => context);
+  sfx.attach(bus);
+  sfx.unlock();
+
+  bus.emit('impact', { aId: 'pig-1', bId: 'block-1', point: { x: 100, y: 100 }, energy: 1200 });
+  assert.equal(oscillators.length, 1, 'impact schedules one oscillator');
+
+  // Loudness follows energy, so a light touch is a quiet blip rather than a silence bug.
+  bus.emit('impact', { aId: 'pig-1', bId: 'block-2', point: { x: 100, y: 100 }, energy: 10 });
+  assert.equal(oscillators.length, 2, 'every impact sounds');
+  assert.ok(gains[1]! < gains[0]!, 'a light impact is quieter');
+
+  bus.emit('destroyed', { id: 'block-1', cause: 'impact' });
+  assert.equal(oscillators.length, 3, 'destruction adds a crack');
+
+  bus.emit('launch', { id: 'pig-1', velocity: { x: 10, y: -5 } });
+  assert.equal(oscillators.length, 4, 'launch whooshes');
+  assert.ok(oscillators[3]!.setFrequency > 100, 'launch tone is audible');
+
+  // Sound effects are derived from events, so an event that never fired makes no sound.
+  assert.ok(oscillators.every((osc) => osc.startedAt !== null));
+});
+
+test('sfx can be muted', () => {
+  const bus = createEventBus();
+  const { context, oscillators } = fakeWebAudio();
+  const sfx = createSfx(() => context);
+  sfx.attach(bus);
+  sfx.unlock();
+  sfx.setMuted(true);
+  bus.emit('launch', { id: 'pig-1', velocity: { x: 10, y: -5 } });
+  assert.equal(oscillators.length, 0);
+  sfx.setMuted(false);
+  bus.emit('launch', { id: 'pig-1', velocity: { x: 10, y: -5 } });
+  assert.equal(oscillators.length, 1);
+});
+
+test('sfx without a context never throws', () => {
+  const bus = createEventBus();
+  const sfx = createSfx(() => null);
+  sfx.attach(bus);
+  bus.emit('impact', { aId: 'pig-1', bId: 'block-1', point: { x: 0, y: 0 }, energy: 1200 });
+  bus.emit('destroyed', { id: 'block-1', cause: 'impact' });
 });

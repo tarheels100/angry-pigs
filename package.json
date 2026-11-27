@@ -16,7 +16,9 @@
     "check:determinism": "node scripts/determinism.js"
   },
   "dependencies": {
-    "matter-js": "^0.20.0"
+    "matter-js": "^0.20.0",
+    "tonal": "^6.16.0",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
     "@types/matter-js": "^0.20.2",

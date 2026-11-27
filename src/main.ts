@@ -16,7 +16,7 @@ import { createParticleSystem } from './fx/particles.ts';
 import { createTrail } from './fx/trail.ts';
 import { createDebris } from './fx/debris.ts';
 import { createSfx } from './audio/sfx.ts';
-import { createMusic } from './audio/music.ts';
+import { createMusicPlayer, type MusicPlayer } from './audio/playback.ts';
 import { createSaveStore, memoryStore, type KeyValueStore } from './game/save.ts';
 import { WORLD, LEVELS, levelAt, loadLevel } from './levels/index.ts';
 import { pigType } from './game/pigs.ts';
@@ -150,22 +150,17 @@ if (!canvas || !hudEl || !appEl) {
   /** Fragments of destroyed blocks: they fall, pile on the ground, and fade (M16). */
   const debris = createDebris({ groundTop: game.groundTop() });
   const sfx = createSfx();
-  /** Generated per-stage soundtrack (M17). Shares the audio context sfx unlocked.
-   * Its base clock is *current* simulated time, so a track never replays the notes that
-   * already passed — that backlog is what made enabling music mid-round a barrage. */
-  const music = createMusic({ createContext: () => sfx.unlock(), clock: () => stepsClock() });
+  /** Generated per-stage soundtrack (M22): composed from the level, played by Tone's
+   * transport. Silent until a pointer gesture unlocks audio, and a started track begins at
+   * Tone's current position, so a paused menu never queues a burst (docs/adr.md D40). */
+  const music = createMusicPlayer({ getContext: () => sfx.unlock() });
   sfx.attach(bus);
-
-  /** Simulated milliseconds elapsed since boot; the soundtrack schedules on this clock. */
-  function stepsClock(): number {
-    return loop.stepsTaken() * (1000 / 60);
-  }
 
   /** Name the stage, its track if music is on, and how to fire (M17, playtest item 2). */
   function announceTrack(levelId: string, ammo: number): void {
-    const flavour = options.music ? music.flavour() : null;
+    const track = options.music ? music.trackName() : null;
     hud.message(
-      `${levelId} · ${flavour?.name ?? (options.music ? 'no sound' : 'music off')} · ${ammo} pigs · drag to aim, release to fire · Esc menu`,
+      `${levelId} · ${track ?? (options.music ? 'no sound' : 'music off')} · ${ammo} pigs · drag to aim, release to fire · Esc menu`,
     );
   }
   // Registered after the game is built, so the first stage is announced explicitly.
@@ -351,9 +346,10 @@ if (!canvas || !hudEl || !appEl) {
         loadLevelIndex(levelIndex - 1);
         break;
       case 'm':
+        // M for music: the soundtrack is the one effect a player wants to opt into (item 2).
         sfx.unlock();
-        applyOptions({ ...options, sound: !options.sound });
-        hud.message(options.sound ? 'sound: on' : 'sound: off');
+        applyOptions({ ...options, music: !options.music });
+        hud.message(options.music ? 'music: on' : 'music: off');
         break;
       case 'Escape':
         // The menu is the way out of a stage you cannot clear; Esc also closes it.
@@ -425,9 +421,6 @@ if (!canvas || !hudEl || !appEl) {
       // system is neither updated nor painted (M19).
       if (options.trail) trail.update(game.entities.all());
       if (options.debris) debris.update();
-      // The soundtrack advances on simulated time, so a recorded run sounds the same.
-      // Off by default (playtest item 2), so this normally does nothing.
-      if (options.music) music.tick(loop.stepsTaken() * (1000 / 60));
     },
     render: (dt) => {
       lastFps = dt > 0 ? 1 / dt : 0;
@@ -439,8 +432,7 @@ if (!canvas || !hudEl || !appEl) {
   // Paint immediately: the title screen opens right after this and pauses the loop, so the
   // frozen frame has to be on the canvas already (playtest item 1).
   drawFrame();
-  // Announce and start the first stage's track *after* the loop exists, because the track's
-  // base clock reads `loop.stepsTaken()`.
+  // Announce the first stage after the loop exists; the track itself starts on Tone's clock.
   if (options.music) music.start(levelAt(levelIndex).name);
   announceTrack(levelAt(levelIndex).name, game.rules.snapshot().ammoLeft);
 

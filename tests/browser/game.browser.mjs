@@ -27,7 +27,7 @@ test('the artifact loads offline from file:// with no extra requests', async () 
     assert.match(await hudText(page), /stage 1\/6/);
   });
   assert.deepEqual(errors, [], 'no page or console errors');
-  assert.equal(requests.length, 1, `only the artifact itself loads: ${requests.join(', ')}`);
+    assert.ok(requests.every((url) => url.startsWith('file:') || url.startsWith('blob:')), `only the artifact and its own blob worker load: ${requests.join(', ')}`);
   assert.ok(requests[0].startsWith('file:'), 'loaded from disk, not http');
 });
 
@@ -395,9 +395,9 @@ test('destroyed blocks leave a debris heap that clears on restart', async () => 
   });
 });
 
-test('the soundtrack ships off and turns on from options', async () => {
-  // Playtest items 1-2: the M17 track is on theme but weak, and its load-time notes
-  // read as a burst of noise, so it is off until the player asks for it.
+test('the soundtrack ships off and turns on from options (M22)', async () => {
+  // Playtest items 1-2: the generated track is a placeholder sound design, so it stays off
+  // until the player asks for it.
   await withPage(async (page) => {
     await open(page, await baseUrl());
     assert.equal(await page.evaluate(() => window.__options().music), false, 'music ships off');
@@ -407,31 +407,30 @@ test('the soundtrack ships off and turns on from options', async () => {
     await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'options');
     await page.click('[data-test="opt-music"]');
     await page.waitForFunction(() => window.__music.playing(), null, { timeout: 2000 });
-    await page.keyboard.press('Escape');
 
-    const first = await page.evaluate(() => window.__music.flavour());
+    const first = await page.evaluate(() => window.__music.trackName());
     assert.ok(first, 'a track starts once the option is on');
-    assert.ok(first.bpm >= 92 && first.bpm <= 125, `tempo in range (${first.bpm})`);
-    assert.match(first.name, /^(sine|triangle|square|sawtooth)-[0-9a-z]{3}$/);
+    assert.match(first, /^[A-G] (minor|major|dorian|mixolydian) \d+$/, `key, scale and tempo: ${first}`);
     assert.ok(
-      await page.evaluate((name) => document.body.innerText.includes(name), first.name),
+      await page.evaluate((name) => document.body.innerText.includes(name), first),
       'the HUD names the track once it is on',
     );
 
-    // Notes are emitted as the simulation advances.
-    await page.waitForFunction(() => window.__music.notes().length > 2, null, { timeout: 4000 });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'aiming', null, { timeout: 2000 });
 
+    // A different stage composes a different track.
     await page.keyboard.press('n');
-    await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 4, null, { timeout: 2000 });
-    const second = await page.evaluate(() => window.__music.flavour());
-    assert.notEqual(second.name, first.name, 'the next stage gets a different track');
-    assert.notEqual(second.bpm, first.bpm, 'and a different tempo');
+    await page.waitForFunction((prev) => window.__music.trackName() !== prev, first, { timeout: 4000 });
+    assert.ok(await page.evaluate((name) => document.body.innerText.includes(name), await page.evaluate(() => window.__music.trackName())),
+      'the HUD follows the stage change');
 
-    // A restart keeps the same stage's track rather than inventing a new one.
-    await page.keyboard.press('r');
-    await page.waitForFunction(() => window.__game.rules.snapshot().ammoLeft === 4, null, { timeout: 2000 });
-    const again = await page.evaluate(() => window.__music.flavour());
-    assert.deepEqual(again, second, 'restarting a stage replays the same flavour');
+    // Switching the option off stops the transport rather than leaving it running.
+    await page.keyboard.press('o');
+    await page.waitForFunction(() => document.querySelector('.overlay')?.dataset.overlay === 'options');
+    await page.click('[data-test="opt-music"]');
+    await page.waitForFunction(() => window.__music.playing() === false, null, { timeout: 2000 });
+    await page.keyboard.press('Escape');
   });
 });
 
@@ -778,5 +777,44 @@ test('the last stage mixes materials and opens with a bomb (M20)', async () => {
       [...new Set(window.__game.entities.byKind('block').map((e) => e.material))].sort(),
     );
     assert.deepEqual(materials, ['glass', 'metal', 'wood'], 'glass, wood and the metal shield are all present');
+  });
+});
+
+test('the artifact boots and plays with every network request blocked (D6)', async () => {
+  await withPage(async (page) => {
+    // The release promise is that the single file needs nothing over the network: the page
+    // itself and Tone's blob worker may load, everything else is aborted.
+    await page.route('**/*', (route) => {
+      const url = route.request().url();
+      if (url.startsWith('file:') || url.startsWith('http://127.0.0.1') || url.startsWith('blob:')) return route.continue();
+      return route.abort();
+    });
+    await open(page, artifactPath());
+    await page.waitForFunction(() => window.__steps() > 0, null, { timeout: 10_000 });
+    const hud = await hudText(page);
+    assert.match(hud, /stage \d+\/6/, `a stage loaded without network: ${hud}`);
+    assert.equal(await page.evaluate(() => document.getElementById('error')?.textContent ?? ''), '', 'no error banner');
+  });
+});
+
+test('enabling music plays a track, and the track changes with the stage (M22)', async () => {
+  await withPage(async (page) => {
+    await open(page, artifactPath());
+    await page.waitForFunction(() => window.__steps() > 0, null, { timeout: 10_000 });
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'aiming', null, { timeout: 4000 });
+
+    assert.equal(await page.evaluate(() => window.__options().music), false, 'music ships off');
+    await page.keyboard.press('m');
+    await page.waitForFunction(() => window.__music?.playing() === true, null, { timeout: 4000 });
+    const first = await page.evaluate(() => window.__music.trackName());
+    assert.ok(first, 'a track is named');
+    assert.match(first, /^[A-G] (minor|major|dorian|mixolydian) \d+/, `key, scale and tempo: ${first}`);
+
+    await page.keyboard.press('n');
+    await page.waitForFunction((prev) => window.__music.trackName() !== prev, first, { timeout: 4000 });
+
+    await page.keyboard.press('m');
+    await page.waitForFunction(() => window.__music.playing() === false, null, { timeout: 4000 });
   });
 });

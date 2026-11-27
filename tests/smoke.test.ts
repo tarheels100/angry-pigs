@@ -197,11 +197,12 @@ test('main.ts wires level + physics + renderer + input without throwing', async 
     assert.ok(canvas.listeners.has('pointerdown'), 'pointer listeners installed');
 
     // Options are persisted settings, and the menu pauses the loop (M19).
-    const debug = win as unknown as { __options?: () => { themeId: string; sound: boolean; debris: boolean; trail: boolean } };
+    const debug = win as unknown as { __options?: () => { themeId: string; sound: boolean; music: boolean; debris: boolean; trail: boolean } };
     assert.ok(debug.__options, 'options seam is exposed for tests');
-    const soundBefore = debug.__options!().sound;
+    const musicBefore = debug.__options!().music;
     canvas.dispatch('keydown', { key: 'm' });
-    assert.equal(debug.__options!().sound, !soundBefore, 'M flips sound and stores it');
+    assert.equal(debug.__options!().music, !musicBefore, 'M flips music and stores it');
+    assert.equal(debug.__options!().sound, true, 'sound stays on; M is the music key (M22)');
 
     canvas.dispatch('keydown', { key: 'Escape' });
     assert.equal(app.children.length, 1, 'the title overlay is mounted');
