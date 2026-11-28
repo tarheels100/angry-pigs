@@ -43,7 +43,7 @@
 - [x] Docs: `docs/level-format.md` editor section, `docs/adr.md` entries, `docs/checklist.md`,
       `docs/level-editor.md`.
 - [x] Full gates: `npm run check`, `npm run test:browser`, `npm run check:determinism`.
-- [ ] Commit and push.
+- [x] Commit and push.
 
 ## Running log
 
@@ -94,7 +94,7 @@
 
 ## State to resume
 
-- branch `main`; HEAD at start `4a83c84`.
+- branch `main`; HEAD at start `4a83c84`, push closed at `8876c23` (pushed to `origin/main`).
 - last green gate run: `npm run check` + `npm run test:browser` + `npm run check:determinism`, all
   green, with `IMPULSE_SCALE = 2`, glass `health` 3 / `damageThreshold` 2.5.
 - constants discovered: shove clamp 0.35..1.2, `LIFT` 0.4, `SPIN` 0.06, determinism ceiling
