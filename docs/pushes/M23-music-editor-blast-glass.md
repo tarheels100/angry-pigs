@@ -91,6 +91,13 @@
 - **Gates.** `npm run check`: typecheck clean, 181 headless tests pass, build ok.
   `npm run test:browser`: 32 pass, 0 fail. `npm run check:determinism`: 144 combos, 0 mismatches,
   DETERMINISTIC.
+- **Clarification (after the push).** The music document has to stand on its own — the composing
+  agent reads only `docs/music-interface.md`, nothing else in the repo. Rewrote it as a self-
+  contained contract: the library file with its exact imports, the full `TrackSpec` with defaults,
+  the degree → pitch formula plus degree tables per root (computed with `tonal`, not guessed), the
+  eighth-note time maths, the loudness model (`lead` −16 dB triangle, `bass` −22 dB sine, per-note
+  gain as velocity), the validation rules, a worked example with the pitches it actually sounds as
+  per bar, the gate commands, and a pre-flight checklist. Commit `1551431`; `npm run check` green.
 
 ## State to resume
 
