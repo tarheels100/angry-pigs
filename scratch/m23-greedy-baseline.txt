@@ -1,0 +1,13 @@
+stage-01: 2/4 pigs, cleared=true
+  plan: 90@-20 90@-5
+stage-02: 2/4 pigs, cleared=true
+  plan: 75@-35 75@-25
+stage-03: 2/4 pigs, cleared=true
+  plan: 90@-10 90@-20
+stage-04: 3/5 pigs, cleared=true
+  plan: 90@-20 75@-35 90@-15
+stage-05: 3/5 pigs, cleared=true
+  plan: 75@-40 63@-30 90@-5
+stage-06: 3/5 pigs, cleared=true
+  plan: 90@-45 90@-30 75@-45
+DONE_GREEDY

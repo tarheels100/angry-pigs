@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { composeTrack, hashLevel, loopLengthMs, notesFor } from '../src/audio/composition.ts';
+import { composeTrack, hashLevel, loopLengthMs, notesFor, type TrackSpec } from '../src/audio/composition.ts';
 import { createMusicPlayer } from '../src/audio/playback.ts';
+import { authoredTracks, clearTracks, isAuthored, registerTrack, trackFor, unregisterTrack, validateTrack } from '../src/audio/tracks.ts';
+import { AUTHORED_TRACKS, installAuthoredTracks } from '../src/audio/trackLibrary.ts';
 import { createSfx, type AudioContextLike, type GainNodeLike, type OscillatorNodeLike } from '../src/audio/sfx.ts';
 import { createEventBus } from '../src/core/eventBus.ts';
 import { Midi } from 'tonal';
@@ -153,4 +155,79 @@ test('sfx without a context never throws', () => {
   sfx.attach(bus);
   bus.emit('impact', { aId: 'pig-1', bId: 'block-1', point: { x: 0, y: 0 }, energy: 1200 });
   bus.emit('destroyed', { id: 'block-1', cause: 'impact' });
+});
+
+/** A minimal authored spec, the shape a composer writes by hand (docs/music-interface.md). */
+function authored(): TrackSpec {
+  return {
+    levelId: 'stage-03',
+    name: 'E minor 100 (authored)',
+    seed: 0,
+    bpm: 100,
+    root: 'E',
+    scaleType: 'minor',
+    chords: ['E minor', 'G major', 'A minor', 'E minor'],
+    melody: [1, 0, 3, 0, 5, 0, 3, 2, 4, 0, 6, 0, 5, 0, 3, 0, 1, 0, 3, 0, 7, 0, 5, 3, 6, 0, 5, 0, 3, 0, 2, 0],
+    bass: [1, 3, 5, 1],
+    bars: 4,
+    leadGain: 0.5,
+    bassGain: 0.3,
+  };
+}
+
+test('an authored track replaces the generated one for its stage', () => {
+  clearTracks();
+  registerTrack(authored());
+  assert.ok(isAuthored('stage-03'));
+  assert.deepEqual(authoredTracks(), ['stage-03']);
+  assert.equal(trackFor('stage-03').name, 'E minor 100 (authored)');
+  // A stage with no authored track still gets a generated one.
+  assert.equal(trackFor('stage-04').name, composeTrack('stage-04').name);
+  unregisterTrack('stage-03');
+  assert.equal(isAuthored('stage-03'), false);
+  clearTracks();
+});
+
+test('rests keep their slots, so the rhythm reads', () => {
+  const spec = authored();
+  const lead = notesFor(spec).filter((n) => n.voice === 'lead');
+  // 32 slots, 8 of them rests: notes land on their own slot times, not packed together.
+  assert.equal(spec.melody.length, 32);
+  assert.equal(lead.length, spec.melody.filter((degree) => degree !== 0).length);
+  assert.equal(lead[0]!.timeMs, 0);
+  const eighth = 60_000 / spec.bpm / 2;
+  assert.equal(lead[1]!.timeMs, 2 * eighth, 'the rest at slot 1 leaves a gap');
+  assert.ok(notesFor(spec).every((n) => n.timeMs < loopLengthMs(spec)));
+});
+
+test('a bad authored track is rejected at the seam, naming the field', () => {
+  clearTracks();
+  assert.throws(() => registerTrack({ ...authored(), bpm: 300 }), /track "bpm"/);
+  assert.throws(() => registerTrack({ ...authored(), scaleType: 'lydian' }), /track "scaleType"/);
+  assert.throws(() => registerTrack({ ...authored(), melody: [1, 2, 3] }), /track "melody"/);
+  assert.throws(() => registerTrack({ ...authored(), melody: Array(32).fill(30) }), /track "melody\[0\]"/);
+  assert.throws(() => registerTrack({ ...authored(), bass: [1, 2] }), /track "bass"/);
+  assert.throws(() => registerTrack({ ...authored(), chords: ['Eleven blues'] }), /track "chords"/);
+  assert.throws(() => registerTrack({ ...authored(), leadGain: 2 }), /track "leadGain"/);
+  assert.throws(() => registerTrack({ ...authored(), root: 'X' }), /track "root"/);
+  assert.deepEqual(authoredTracks(), [], 'a rejected track is not registered');
+  clearTracks();
+});
+
+test('the shipped library validates and wins over the generator', () => {
+  clearTracks();
+  installAuthoredTracks();
+  assert.ok(AUTHORED_TRACKS.length > 0);
+  for (const track of AUTHORED_TRACKS) {
+    assert.doesNotThrow(() => validateTrack(track), `${track.name} must be playable`);
+    assert.equal(trackFor(track.levelId).name, track.name, 'the authored track is what the stage plays');
+    assert.equal(isAuthored(track.levelId), true);
+  }
+  // Headless has no Tone context, so the transport stays silent — the browser test is where
+  // scheduling is proven. The seam itself is data, and the data is the authored track.
+  const music = createMusicPlayer({ getContext: () => null });
+  music.start(AUTHORED_TRACKS[0]!.levelId);
+  assert.equal(music.playing(), false, 'no gesture means no sound');
+  assert.equal(music.spec(), null, 'nothing is composed before a context exists');
+  clearTracks();
 });

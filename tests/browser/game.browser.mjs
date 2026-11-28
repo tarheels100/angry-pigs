@@ -6,7 +6,7 @@ after(() => closeServer());
 import { withPage, baseUrl, artifactPath, screenOf, snapshot, hudText, closeServer } from './harness.mjs';
 
 /** Measured winner for stage-01 after the M21 re-author (scratch/greedy-probe.ts, docs/tuning.md). */
-const WIN = { pull: 90, deg: -20 };
+const WIN = { pull: 75, deg: -20 };;
 
 /**
  * Load the artifact and dismiss the title screen, so a test acts on the live round.
@@ -410,7 +410,7 @@ test('the soundtrack ships off and turns on from options (M22)', async () => {
 
     const first = await page.evaluate(() => window.__music.trackName());
     assert.ok(first, 'a track starts once the option is on');
-    assert.match(first, /^[A-G] (minor|major|dorian|mixolydian) \d+$/, `key, scale and tempo: ${first}`);
+    assert.match(first, /^[A-G] (minor|major|dorian|mixolydian) \d+( \(authored\))?$/, `key, scale and tempo: ${first}`);
     assert.ok(
       await page.evaluate((name) => document.body.innerText.includes(name), first),
       'the HUD names the track once it is on',
@@ -548,9 +548,9 @@ async function fireShot(page, pull = WIN.pull, deg = WIN.deg) {
   }, { pull, rad });
 }
 
-/** The measured stage-01 opener (docs/tuning.md): 90 pull at 20 degrees up. */
+/** The measured stage-01 opener (docs/tuning.md): 75 pull at 20 degrees up. */
 async function fireWinner(page) {
-  await fireShot(page);
+  await fireShot(page, 75, -20);
 }
 
 /**
@@ -558,12 +558,13 @@ async function fireWinner(page) {
  * Sheltered stages need more than one pig, so winning in the browser means replaying a plan.
  */
 const PLANS = [
-  [[90, -20], [90, -5]],
-  [[75, -35], [75, -25]],
-  [[90, -10], [90, -20]],
-  [[90, -20], [75, -35], [90, -15]],
-  [[75, -40], [63, -30], [90, -5]],
-  [[90, -45], [90, -30], [75, -45]],
+  // Re-measured after M23 (softer glass, mass-aware blast at scale 2), matching tests/levels.test.ts.
+  [[75, -20], [90, -10]],
+  [[63, -10], [90, -25], [90, 5]],
+  [[75, -20], [63, -45]],
+  [[90, -5], [75, -45]],
+  [[75, -25], [90, 0], [90, -10]],
+  [[75, -40], [90, -35], [90, -25]],
 ];
 
 /** Fire the measured plan for a stage until it is won (docs/adr.md D26 allows shots while debris settles). */
@@ -809,12 +810,120 @@ test('enabling music plays a track, and the track changes with the stage (M22)',
     await page.waitForFunction(() => window.__music?.playing() === true, null, { timeout: 4000 });
     const first = await page.evaluate(() => window.__music.trackName());
     assert.ok(first, 'a track is named');
-    assert.match(first, /^[A-G] (minor|major|dorian|mixolydian) \d+/, `key, scale and tempo: ${first}`);
+    assert.match(first, /^[A-G] (minor|major|dorian|mixolydian) \d+( \(authored\))?/, `key, scale and tempo: ${first}`);
 
     await page.keyboard.press('n');
     await page.waitForFunction((prev) => window.__music.trackName() !== prev, first, { timeout: 4000 });
 
     await page.keyboard.press('m');
     await page.waitForFunction(() => window.__music.playing() === false, null, { timeout: 4000 });
+  });
+});
+
+test('a blast shoves surviving bodies away from the bomb (M23)', async () => {
+  // The complaint the fix answers: a detonation used to chip health and leave the heap
+  // standing where it was. Bodies that survive the blast must be displaced.
+  await withPage(async (page) => {
+    await open(page, artifactPath());
+    await page.keyboard.press('n');
+    await waitStat(page, 'level', 'stage 2/6', 'stage 02 loaded');
+    await waitStat(page, 'next-pig', 'next bomb', 'the chamber holds a bomb');
+
+    // The blast has to land on structure for the measurement to mean anything, so a few
+    // measured aims are tried until one detonates inside the shelter band. Each try restarts
+    // the stage, which puts every body back on its authored position.
+    const band = { left: 620, right: 1520, top: 540, bottom: 880 };
+    const aims = [[63, -10], [75, -20], [90, -5], [45, -25]];
+    let blast = null;
+    let before = [];
+    for (const [pull, deg] of aims) {
+      await page.keyboard.press('r');
+      await waitShootable(page);
+      before = await page.evaluate(() =>
+        window.__game.entities.all().filter((e) => e.kind !== 'pig').map((e) => ({ id: e.id, x: e.x, y: e.y })),
+      );
+      const seen = await page.evaluate(() => (window.__blasts ?? []).length);
+      await fireShot(page, pull, deg);
+      await page.waitForFunction((n) => (window.__blasts ?? []).length > n, seen, { timeout: 4000 });
+      // Sample a short flight after the detonation: the shove is what is being measured, not
+      // the pile that settles minutes later.
+      const stepAt = await page.evaluate(() => window.__steps());
+      await page.waitForFunction((s) => window.__steps() >= s + 18, stepAt, { timeout: 4000 });
+      const last = await page.evaluate(() => (window.__blasts ?? []).slice(-1)[0]);
+      if (last && last.x >= band.left && last.x <= band.right && last.y >= band.top && last.y <= band.bottom) {
+        blast = last;
+        break;
+      }
+    }
+    assert.ok(blast, `a bomb must detonate on the structure band for any aim: ${JSON.stringify(aims)}`);
+
+    const after = await page.evaluate(() =>
+      window.__game.entities.all().filter((e) => e.kind !== 'pig').map((e) => ({ id: e.id, x: e.x, y: e.y })),
+    );
+    const near = after
+      .map((a) => {
+        const b = before.find((x) => x.id === a.id);
+        if (!b) return null;
+        return Math.hypot(b.x - blast.x, b.y - blast.y) <= blast.radius * 1.5 ? Math.hypot(a.x - b.x, a.y - b.y) : null;
+      })
+      .filter((d) => d !== null);
+    assert.ok(near.length >= 1, 'the blast must leave something standing inside its reach');
+    const max = Math.max(...near);
+    assert.ok(max > 20, `the blast shoved a survivor (max displacement ${max.toFixed(1)} units, ${near.length} bodies in reach)`);
+  });
+});
+
+test('the level editor places pieces and exports a level (M23)', async () => {
+  await withPage(async (page) => {
+    await open(page, artifactPath());
+    assert.equal(await page.evaluate(() => window.__editor.isOpen()), false, 'editing starts closed');
+
+    await page.keyboard.press('e');
+    await page.waitForFunction(() => window.__editor.isOpen(), null, { timeout: 2000 });
+    assert.equal(await page.evaluate(() => document.querySelector('.editor-panel')?.style.display), 'flex', 'the panel is visible');
+    assert.match(await hudText(page), /level editor/, 'the HUD says the editor is open');
+
+    // Palette slot 9 is the bird; a press on the stage places it at that world x.
+    await page.keyboard.press('9');
+    const screen = await screenOf(page, { x: 900, y: 800 });
+    await page.mouse.click(screen.x, screen.y);
+    await page.waitForFunction(() => window.__editor.draft().pieces.some((p) => p.kind === 'bird'), null, { timeout: 2000 });
+    // The preview really reloaded the game: the stage is now the draft, one bird.
+    await page.waitForFunction(() => window.__game.rules.snapshot().targetsTotal === 1, null, { timeout: 4000 });
+    assert.match(await hudText(page), /edit:/, 'the HUD reports the placement');
+
+    const json = await page.evaluate(() => window.__editor.exportJson());
+    const def = JSON.parse(json);
+    assert.ok(def.targets.length >= 1, 'the export carries the bird');
+    assert.ok(def.statics.length >= 1, 'the export carries the ground');
+    assert.ok(def.cannon.ammo.length >= 1, 'the export carries ammo');
+    assert.match(await hudText(page), /edit ·/, 'the HUD labels the edited stage');
+
+    // Leaving the editor hands the pointer back to aiming: a drag fires again.
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => !window.__editor.isOpen(), null, { timeout: 2000 });
+    assert.equal(await page.evaluate(() => document.querySelector('.editor-panel')?.style.display), 'none');
+    await waitShootable(page);
+    await fireShot(page, 60, -15);
+    await page.waitForFunction(() => window.__game.rules.snapshot().phase === 'in_flight', null, { timeout: 4000 });
+  });
+});
+
+test('a hand-authored track plays on its stage (M23)', async () => {
+  await withPage(async (page) => {
+    await open(page, artifactPath());
+    await page.keyboard.press('m');
+    await page.waitForFunction(() => window.__music.playing(), null, { timeout: 4000 });
+    const spec = await page.evaluate(() => window.__music.spec());
+    assert.ok(spec, 'a track spec is exposed while playing');
+    assert.equal(spec.levelId, 'stage-01');
+    assert.match(spec.name, /\(authored\)$/, 'stage 01 plays the authored track');
+    assert.ok(spec.melody.length === spec.bars * 8, 'the authored melody keeps its eighth-note slots');
+    // A stage with no authored track falls back to the generator.
+    await page.keyboard.press('n');
+    await page.waitForFunction((prev) => window.__music.spec()?.levelId !== prev, 'stage-01', { timeout: 4000 });
+    const next = await page.evaluate(() => window.__music.spec());
+    assert.doesNotMatch(next.name, /\(authored\)$/, 'stage 02 falls back to the generated track');
+    await page.keyboard.press('m');
   });
 });

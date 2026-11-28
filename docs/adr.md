@@ -486,3 +486,77 @@ guarantee is the browser test that boots the artifact with every network request
 
 Consequence: the bundle grew to ~450 KB minified, still one file, and headless tests cover the
 composition while the browser covers playback.
+
+## D41 — a blast shoves bodies by mass, and the shove is capped for determinism
+
+**Date:** M23 · **Status:** accepted
+
+The bomb "chipped health and left the heap standing where it was": `explode` added a fixed
+velocity to everything inside the radius, so a stone block and a glass pane moved the same tiny
+amount, and the push ran *after* damage, so bodies about to die absorbed it.
+
+`explode` (`src/physics/matterAdapter.ts`) now:
+
+- wakes each body first, then applies the push, then applies damage — a survivor moves;
+- scales the push by `REFERENCE_SHOVE_MASS / body.mass`, clamped to 0.35..1.2, so light bodies
+  fly and heavy ones still move instead of ignoring the blast;
+- tilts the push upward (`LIFT`) and adds angular velocity proportional to the outward direction
+  (`SPIN`), so a heap pops and tumbles rather than sliding as one neat line. No RNG.
+
+`IMPULSE_SCALE` in `src/game/game.ts` is **2**, not higher. At 2.5 and 3 the heap is chaotic
+enough that last-ulp float differences between the node and chromium V8 builds flip sleep and
+settle transitions, and `check:determinism` reports mismatches. The measurement is in
+docs/tuning.md: scale 2 moves survivors up to 141 units (mean 53, peak 5.5 units/step against a
+full-pull pig at ~27) and keeps node and chromium identical.
+
+Consequence: rounds that take a blast settle slower (the sweep's settle timeouts go 8/144 →
+14/144), and every recorded winning plan was re-derived against the new physics.
+
+## D42 — authored tracks plug in through a registry, not through playback
+
+**Date:** M23 · **Status:** accepted
+
+D40 made the soundtrack *generated* from the stage name, which is a placeholder sound design. A
+real composition has to be writable as data without touching the player, so `src/audio/tracks.ts`
+adds one seam: `trackFor(levelId)` returns a registered authored `TrackSpec` or falls back to
+`composeTrack(levelId)`.
+
+- Authored tracks live in `src/audio/trackLibrary.ts` as plain data. `installAuthoredTracks()` is
+  called once from `src/main.ts`.
+- `registerTrack` validates before storing and throws with a field-qualified message, the same
+  convention the level loader uses: a track that cannot be played is refused at the seam instead
+  of going quiet mid-round.
+- Keys are level **names**, because that is what `music.start()` receives and what the generator
+  hashes.
+- `TrackSpec` gained optional voice parameters (`leadGain`, `bassGain`, `leadNote`, `bassNote`)
+  and a rest convention: `melody` is one entry per eighth-note slot, `0` is a rest that keeps its
+  slot, so rhythm is authored rather than implied.
+
+D6/D7 stand: no audio assets, one bundled file, one audio context, silent before the gesture,
+music off by default. `docs/music-interface.md` is the handoff document for whoever writes tracks.
+
+Consequence: `MusicPlayer.spec()` exposes the scheduled spec (authored or generated) so the HUD
+and browser tests can tell which one is playing; `stop()` clears it.
+
+## D43 — the level editor edits pieces, and pieces expand through the builders
+
+**Date:** M23 · **Status:** accepted
+
+A level editor could have been a coordinate grid over `LevelObject`s, which would put hand-placed
+blocks back into levels — the thing rule 11 (docs/level-format.md) exists to prevent. Instead the
+editor's model is a **draft**: a list of *pieces*, each one a call into `src/levels/pieces.ts`
+(`hut`, `tower`, `platform`, `bridge`, `barrierWall`, `stackUp`, `bird`, …).
+
+- `src/levels/draft.ts` is the model, headless and testable: `draftToLevelDef` expands a draft, and
+  the existing `validateLevel` / `loadLevel` are the only path to the game, so an edited stage is
+  the same kind of data a shipped stage is.
+- `src/ui/editor.ts` is DOM chrome with no simulation and no level state; its only route to the
+  game is `onPreview(def)` → `game.loadLevel(loadLevel(def))`.
+- Importing a shipped stage yields its expanded objects, so re-exporting reproduces the level
+  literally rather than recovering the builder call that made it.
+- Solvability stays the probes' job (D38): the panel reports legality (loader errors plus
+  overlap, scenery-over-playfield, missing ground/plinth warnings), never "this is winnable".
+
+Consequence: the editor is shipped in the artifact, opened with `E` or the HUD button, and drafts
+persist to `localStorage`. Editing never enters a recorded run — the simulation does not read the
+DOM. `docs/level-editor.md` documents the palette and the export.

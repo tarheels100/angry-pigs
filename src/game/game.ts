@@ -50,7 +50,7 @@ const FLASH_STEPS = 10;
 const RECOIL_DECAY = 0.05;
 
 /** Velocity multiplier for blast push, matching the impact impulse convention (D33). */
-const IMPULSE_SCALE = 0.02;
+const IMPULSE_SCALE = 2;
 /** How far the waiting pig sits down the barrel, as a fraction of the pull (D28).
  * 0.2 keeps a full 90-unit pull inside the barrel (18 units), so the pig in the
  * chamber never sticks out past the breech.

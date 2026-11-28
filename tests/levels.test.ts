@@ -79,12 +79,14 @@ function newStage(levelIndex: number) {
  * replays a measured plan rather than aiming at birds.
  */
 const WINNING_PLANS: Record<string, Array<{ pull: number; deg: number }>> = {
-  'stage-01': [{ pull: 90, deg: -20 }, { pull: 90, deg: -5 }],
-  'stage-02': [{ pull: 75, deg: -35 }, { pull: 75, deg: -25 }],
-  'stage-03': [{ pull: 90, deg: -10 }, { pull: 90, deg: -20 }],
-  'stage-04': [{ pull: 90, deg: -20 }, { pull: 75, deg: -35 }, { pull: 90, deg: -15 }],
-  'stage-05': [{ pull: 75, deg: -40 }, { pull: 63, deg: -30 }, { pull: 90, deg: -5 }],
-  'stage-06': [{ pull: 90, deg: -45 }, { pull: 90, deg: -30 }, { pull: 75, deg: -45 }],
+  // Re-measured after M23 (softer glass, mass-aware blast): scratch/greedy-probe.ts replays
+  // these and reports pigs used per stage.
+  'stage-01': [{ pull: 75, deg: -20 }, { pull: 90, deg: -10 }],
+  'stage-02': [{ pull: 63, deg: -10 }, { pull: 90, deg: -25 }, { pull: 90, deg: 5 }],
+  'stage-03': [{ pull: 75, deg: -20 }, { pull: 63, deg: -45 }],
+  'stage-04': [{ pull: 90, deg: -5 }, { pull: 75, deg: -45 }],
+  'stage-05': [{ pull: 75, deg: -25 }, { pull: 90, deg: 0 }, { pull: 90, deg: -10 }],
+  'stage-06': [{ pull: 75, deg: -40 }, { pull: 90, deg: -35 }, { pull: 90, deg: -25 }],
 };
 
 /**

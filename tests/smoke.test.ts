@@ -204,16 +204,19 @@ test('main.ts wires level + physics + renderer + input without throwing', async 
     assert.equal(debug.__options!().music, !musicBefore, 'M flips music and stores it');
     assert.equal(debug.__options!().sound, true, 'sound stays on; M is the music key (M22)');
 
+    const overlays = () => app.children.filter((c) => c.dataset.overlay !== undefined);
     canvas.dispatch('keydown', { key: 'Escape' });
-    assert.equal(app.children.length, 1, 'the title overlay is mounted');
-    assert.equal(app.children[0]!.dataset.overlay, 'title');
-    assert.ok(app.children[0]!.children[0]!.children.length > 0, 'the title panel lists stages');
+    // The editor panel (M23) shares the container, so overlays are counted by their
+    // `dataset.overlay` rather than by index.
+    assert.equal(overlays().length, 1, 'the title overlay is mounted');
+    assert.equal(overlays()[0]!.dataset.overlay, 'title');
+    assert.ok(overlays()[0]!.children[0]!.children.length > 0, 'the title panel lists stages');
     // A menu must not step physics: while it is open the loop stops requesting frames.
     while (frameCallbacks.length > 0) frameCallbacks.shift()?.(stamp += 16.7);
     assert.equal(frameCallbacks.length, 0, 'the paused loop queues no further frames');
 
     canvas.dispatch('keydown', { key: 'Escape' });
-    assert.equal(app.children[0]!.dataset.overlay, '', 'Esc closes the overlay');
+    assert.equal(overlays()[0]!.dataset.overlay, '', 'Esc closes the overlay');
     assert.ok(frameCallbacks.length > 0, 'closing the menu resumes the loop');
   } finally {
     (globalThis as Record<string, unknown>).window = previousWindow;

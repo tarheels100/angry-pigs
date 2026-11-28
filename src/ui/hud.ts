@@ -15,6 +15,8 @@ export interface Hud {
   onRestart(handler: () => void): () => void;
   /** Wire the menu control, which opens the title screen (M19); returns an unsubscribe. */
   onMenu(handler: () => void): () => void;
+  /** Wire the level editor control (M23); returns an unsubscribe. */
+  onEdit(handler: () => void): () => void;
 }
 
 /**
@@ -36,6 +38,7 @@ export function createHud(el: HTMLElement): Hud {
     <div class="hud-message" data-stat="message"></div>
     <div class="hud-actions">
       <button class="hud-restart" type="button">restart</button>
+      <button class="hud-edit" type="button">edit</button>
       <button class="hud-menu" type="button">menu</button>
     </div>
   `;
@@ -52,6 +55,7 @@ export function createHud(el: HTMLElement): Hud {
     message: el.querySelector('[data-stat="message"]') as HTMLElement | null,
     restart: el.querySelector('.hud-restart') as HTMLButtonElement | null,
     menu: el.querySelector('.hud-menu') as HTMLButtonElement | null,
+    edit: el.querySelector('.hud-edit') as HTMLButtonElement | null,
   };
 
   return {
@@ -86,6 +90,11 @@ export function createHud(el: HTMLElement): Hud {
       if (!stats.menu) return () => {};
       stats.menu.addEventListener('click', handler);
       return () => stats.menu!.removeEventListener('click', handler);
+    },
+    onEdit(handler) {
+      if (!stats.edit) return () => {};
+      stats.edit.addEventListener('click', handler);
+      return () => stats.edit!.removeEventListener('click', handler);
     },
   };
 }

@@ -1,0 +1,11 @@
+detonations: 1 at x=947 y=817 r=130
+destroyed: 3, birds left: 1
+surviving bodies, distance moved from the authored position:
+  block-2 stone: dist-from-blast 91, moved 0 units
+  block-3 wood: dist-from-blast 145, moved 0 units
+  block-4 wood: dist-from-blast 182, moved 0 units
+  block-5 glass: dist-from-blast 236, moved 0 units
+  block-6 wood: dist-from-blast 355, moved 0 units
+  bird-2 feather: dist-from-blast 293, moved 0 units
+survivors: 6, max moved 0, mean moved 0
+peak speed in the 40 steps after detonation: 0.06 units/step (a full-pull pig flies at ~27)

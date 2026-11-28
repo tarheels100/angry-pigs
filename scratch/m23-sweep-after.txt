@@ -1,0 +1,19 @@
+stage-01: 495 combos (pull 20..90 step 5, angle -40..40 step 2.5); won 0, one-shot clears 0, kills 144/1485, blocks gone min=0 max=4 none=348, rounds with partial damage 449, timeouts 101
+simulateTrajectory: 0.10 ms per call (120 steps, 25 bodies)
+levels bundled: 6
+stage-02: 495 combos (pull 20..90 step 5, angle -40..40 step 2.5); won 1, one-shot clears 1, kills 332/1980, blocks gone min=0 max=10 none=196, rounds with partial damage 416, timeouts 106
+simulateTrajectory: 0.05 ms per call (120 steps, 28 bodies)
+levels bundled: 6
+stage-03: 495 combos (pull 20..90 step 5, angle -40..40 step 2.5); won 1, one-shot clears 1, kills 689/1980, blocks gone min=0 max=12 none=71, rounds with partial damage 472, timeouts 116
+simulateTrajectory: 0.05 ms per call (120 steps, 32 bodies)
+levels bundled: 6
+stage-04: 495 combos (pull 20..90 step 5, angle -40..40 step 2.5); won 0, one-shot clears 0, kills 412/1980, blocks gone min=0 max=9 none=296, rounds with partial damage 442, timeouts 77
+simulateTrajectory: 0.11 ms per call (120 steps, 23 bodies)
+levels bundled: 6
+stage-05: 495 combos (pull 20..90 step 5, angle -40..40 step 2.5); won 1, one-shot clears 1, kills 353/2475, blocks gone min=0 max=14 none=140, rounds with partial damage 357, timeouts 43
+simulateTrajectory: 0.07 ms per call (120 steps, 27 bodies)
+levels bundled: 6
+stage-06: 495 combos (pull 20..90 step 5, angle -40..40 step 2.5); won 1, one-shot clears 1, kills 157/2475, blocks gone min=0 max=17 none=265, rounds with partial damage 437, timeouts 174
+simulateTrajectory: 0.09 ms per call (120 steps, 37 bodies)
+levels bundled: 6
+DONE

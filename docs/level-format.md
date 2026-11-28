@@ -155,3 +155,12 @@ A bird object may carry `variant`: `runner`, `worker`, or `broody`. It is presen
 (docs/theme-contract.md) — the physics adapter rides it into `EntityState` so the theme picks a
 silhouette. Mixing variants in a stage is what makes a nest read as a nest instead of a row of
 copies (docs/adr.md D39).
+
+## authoring a stage in the editor
+
+Press `E` in the running game to open the level editor (docs/level-editor.md). It edits a *draft*
+of pieces — each piece is a call into `src/levels/pieces.ts` — and exports the expanded
+`LevelDef` as JSON, which is exactly what `src/levels/lXX.ts` holds. The draft goes through the
+same `validateLevel` and `loadLevel` as a shipped stage, so rule 1 holds in the editor too: an
+exported stage is builder output, not hand-placed coordinates. Importing a shipped stage gives its
+expanded objects, so round-tripping through the editor reproduces the level literally.

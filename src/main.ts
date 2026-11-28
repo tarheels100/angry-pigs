@@ -17,8 +17,11 @@ import { createTrail } from './fx/trail.ts';
 import { createDebris } from './fx/debris.ts';
 import { createSfx } from './audio/sfx.ts';
 import { createMusicPlayer, type MusicPlayer } from './audio/playback.ts';
+import { installAuthoredTracks } from './audio/trackLibrary.ts';
 import { createSaveStore, memoryStore, type KeyValueStore } from './game/save.ts';
 import { WORLD, LEVELS, levelAt, loadLevel } from './levels/index.ts';
+import { draftFromJson, draftToJson, type Draft } from './levels/draft.ts';
+import { createEditor } from './ui/editor.ts';
 import { pigType } from './game/pigs.ts';
 
 /**
@@ -155,6 +158,9 @@ if (!canvas || !hudEl || !appEl) {
    * Tone's current position, so a paused menu never queues a burst (docs/adr.md D40). */
   const music = createMusicPlayer({ getContext: () => sfx.unlock() });
   sfx.attach(bus);
+  // Hand-authored tracks win over generated ones for the stages they are keyed to
+  // (docs/music-interface.md). Registered once, before any track starts.
+  installAuthoredTracks();
 
   /** Name the stage, its track if music is on, and how to fire (M17, playtest item 2). */
   function announceTrack(levelId: string, ammo: number): void {
@@ -182,11 +188,27 @@ if (!canvas || !hudEl || !appEl) {
     __music?: unknown;
     /** Blasts observed since load; the browser test asserts a bomb actually detonated. */
     __explosions?: number;
+    /** Where each blast happened and how far it reached, so a test can measure displacement
+     * of the bodies the blast actually covered (M23).
+     */
+    __blasts?: Array<{ x: number; y: number; radius: number }>;
     /** Current persisted options, read as a snapshot (M19). */
     __options?: () => Options;
     /** Simulation steps taken since load; used by browser probes and tests.
      * Tells "the loop is not stepping" apart from "stepping, nothing moving". */
     __steps?: () => number;
+    /** The level editor (M23). Editing is presentation, so this seam exists for browser
+     * tests to drive the panel; the simulation never reads it.
+     */
+    __editor?: {
+      isOpen: () => boolean;
+      open: () => void;
+      close: () => void;
+      pointerDown: (point: { x: number; y: number }) => void;
+      key: (key: string) => boolean;
+      draft: () => Draft;
+      exportJson: () => string;
+    };
   };
 
   bus.on('levelLoaded', (e) => {
@@ -207,6 +229,7 @@ if (!canvas || !hudEl || !appEl) {
     // A blast gets a wider burst and a harder shake than an ordinary impact (M18).
     // The counter is exposed for browser tests: a bomb must actually detonate.
     debug.__explosions = (debug.__explosions ?? 0) + 1;
+    (debug.__blasts ??= []).push({ x: e.x, y: e.y, radius: e.radius });
     particles.spawnBurst({ x: e.x, y: e.y }, theme.palette.flash, 26, e.radius * 2.2);
     camera.shake(1);
     if (options.debris) {
@@ -241,14 +264,65 @@ if (!canvas || !hudEl || !appEl) {
     debris.clear();
   });
 
+  // Level editor (M23). It owns a draft of pieces and hands back a LevelDef; the preview is
+  // an ordinary `loadLevel`, so an edited stage goes through the same validation and physics
+  // as a shipped one (docs/level-format.md). Editing is presentation: the simulation never
+  // reads the DOM, and the draft is never part of a recorded run.
+  const DRAFT_KEY = 'angry-pigs:draft';
+  const editor = createEditor(
+    {
+      onPreview: (def) => {
+        game.loadLevel(loadLevel(def));
+        hud.setLevel(`edit · ${def.name}`);
+      },
+      onClose: () => {
+        hud.setLevel(levelLabel(levelIndex));
+        hud.message(null);
+      },
+      onSave: (next) => {
+        store.set(DRAFT_KEY, draftToJson(next));
+        hud.message('edit: draft saved');
+      },
+      onLoad: () => {
+        const text = store.get(DRAFT_KEY);
+        if (!text) return null;
+        try {
+          return draftFromJson(text);
+        } catch (error) {
+          hud.message(`edit: saved draft unreadable — ${error instanceof Error ? error.message : String(error)}`);
+          return null;
+        }
+      },
+      stageDefs: () => LEVELS,
+      onMessage: (text) => hud.message(text),
+    },
+    appEl,
+  );
+
+  hud.onEdit(() => {
+    editor.open();
+    hud.message('level editor — pick a piece, click the stage');
+  });
+
   const pointer = createPointerSource(canvas);
-  pointer.onDown(() => {
+  pointer.onDown((p) => {
     // Audio needs a user gesture; the first press is the natural unlock point.
     sfx.unlock();
+    // While the editor is open a press places or selects a piece instead of aiming (M23).
+    if (editor.isOpen()) {
+      editor.pointerDown(camera.screenToWorld(p));
+      return;
+    }
     game.beginAim();
   });
-  pointer.onMove((p) => game.dragAim(camera.screenToWorld(p)));
-  pointer.onUp(() => game.releaseAim());
+  pointer.onMove((p) => {
+    if (editor.isOpen()) return;
+    game.dragAim(camera.screenToWorld(p));
+  });
+  pointer.onUp(() => {
+    if (editor.isOpen()) return;
+    game.releaseAim();
+  });
   pointer.onCancel(() => game.cancelAim());
 
   hud.onRestart(() => {
@@ -327,7 +401,14 @@ if (!canvas || !hudEl || !appEl) {
   }, { passive: false });
 
   window.addEventListener('keydown', (e) => {
+    // While the editor is open its own keys take precedence (1..9 pick a piece, u undo,
+    // d delete, [ ] nudge, Enter or Esc leave).
+    if (editor.isOpen() && editor.key(e.key)) return;
     switch (e.key) {
+      case 'e':
+        editor.open();
+        hud.message('level editor — pick a piece, click the stage');
+        break;
       case 't': {
         const ids = listThemes();
         const next = ids[(ids.indexOf(options.themeId) + 1) % ids.length]!;
@@ -458,6 +539,16 @@ if (!canvas || !hudEl || !appEl) {
   debug.__debris = debris;
   // Same seam for the generated soundtrack (M17): the HUD and tests read the track name.
   debug.__music = music;
+  // The editor is presentation chrome; browser tests drive it through this seam (M23).
+  debug.__editor = {
+    isOpen: () => editor.isOpen(),
+    open: () => editor.open(),
+    close: () => editor.close(),
+    pointerDown: (point) => editor.pointerDown(point),
+    key: (key) => editor.key(key),
+    draft: () => editor.draft(),
+    exportJson: () => editor.exportJson(),
+  };
   // Steps taken, so a browser probe can tell "not stepping" from "stepping, nothing moving".
   debug.__steps = () => loop.stepsTaken();
   // Options are asserted across a reload by the browser test (M19).

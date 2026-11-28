@@ -31,8 +31,8 @@ function prng(seed: number): () => number {
   };
 }
 
-/** The scale types a stage may draw from, with the semitone offsets Tonal reports for each degree. */
-const SCALE_TYPES: Record<string, number[]> = {
+/** Scale tables, exported so a track author and the validator can check a scale id. */
+export const SCALE_TYPES: Record<string, number[]> = {
   minor: [0, 2, 3, 5, 7, 8, 10],
   major: [0, 2, 4, 5, 7, 9, 11],
   dorian: [0, 2, 3, 5, 7, 9, 10],
@@ -59,12 +59,22 @@ export interface TrackSpec {
   scaleType: string;
   /** Chord names for the progression, e.g. ["A minor", "F major"]. */
   chords: string[];
-  /** Scale degrees (1-based) for the melody, one per eighth note. */
+  /**
+   * Scale degrees (1-based) for the melody, **one entry per eighth-note slot** of the loop.
+   * `0` is a rest, so a rhythm pattern keeps its shape; degrees above the scale length wrap
+   * into the octave above.
+   */
   melody: number[];
   /** Scale degrees for the bass, one per bar. */
   bass: number[];
   /** Bars the loop lasts; playback cycles this forever. */
   bars: number;
+  /** Voice gains, 0..1. Omitted means the playback default (0.5 lead, 0.35 bass). */
+  leadGain?: number;
+  bassGain?: number;
+  /** Note length as a fraction of an eighth-note slot. Omitted means 1.6 lead, 6 bass. */
+  leadNote?: number;
+  bassNote?: number;
 }
 
 /** Stage name -> track spec. Pure and deterministic: the same inputs always compose the same track. */
@@ -103,7 +113,10 @@ export function composeTrack(levelId: string, seed = hashLevel(levelId)): TrackS
     const bar = Math.floor(step / 8);
     const beat = step % 8;
     const length = rhythm[beat]!;
-    if (length === 0) continue; // rest
+    if (length === 0) {
+      melody.push(0); // a rest is a slot with no pitch, so the rhythm keeps its shape
+      continue;
+    }
     const tones = chordDegreesOf(bar);
     const degree = tones[Math.floor(rnd() * tones.length)]!;
     // Every third phrase lifts an octave, so the two voices read as a tune.
@@ -139,17 +152,24 @@ export function notesFor(spec: TrackSpec): TrackNote[] {
   const notes: TrackNote[] = [];
   for (let step = 0; step < spec.melody.length; step++) {
     const degree = spec.melody[step]!;
+    if (degree === 0) continue; // rest slot
     // The melody sits an octave above the bass root; odd bars lift another octave.
     notes.push({
       timeMs: step * eighth,
       name: pitch(degree, 1 + (Math.floor(step / 8) % 2)),
-      durationMs: eighth * 1.6,
-      gain: 0.5,
+      durationMs: eighth * (spec.leadNote ?? 1.6),
+      gain: spec.leadGain ?? 0.5,
       voice: 'lead',
     });
   }
   for (let bar = 0; bar < spec.bass.length; bar++) {
-    notes.push({ timeMs: bar * eighth * 8, name: pitch(spec.bass[bar]!, 0), durationMs: eighth * 6, gain: 0.35, voice: 'bass' });
+    notes.push({
+      timeMs: bar * eighth * 8,
+      name: pitch(spec.bass[bar]!, 0),
+      durationMs: eighth * 8 * (spec.bassNote ?? 0.75),
+      gain: spec.bassGain ?? 0.35,
+      voice: 'bass',
+    });
   }
   return notes;
 }

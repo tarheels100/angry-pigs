@@ -23,10 +23,11 @@ export interface MaterialSpec {
 // is deliberately low: Matter takes max(frictionA, frictionB), so a grabby pig
 // against the ground stops rolling within ~400 units instead of crossing the stage.
 export const MATERIALS: Record<MaterialId, MaterialSpec> = {
-  // Glass is brittle but not paper: a graze chips it, a solid hit shatters it. The
-  // threshold was raised from 3 because playtests erased glass on almost any contact
-  // (docs/post-m13-notes.md "breaks a bit too easily"); see docs/tuning.md.
-  glass: { density: 0.0012, friction: 0.05, frictionStatic: 0.05, restitution: 0.05, health: 4, damageThreshold: 4 },
+  // Glass is the material that is meant to give way (M23): the threshold came back down
+  // from 4 and health from 4 to 3, so a graze cracks a pane and a solid hit shatters it.
+  // The post-M13 playtest raised it because glass erased on almost any contact
+  // (docs/post-m13-notes.md); M23 lands between the two. See docs/tuning.md.
+  glass: { density: 0.0012, friction: 0.05, frictionStatic: 0.05, restitution: 0.05, health: 3, damageThreshold: 2.5 },
   // Wood: tougher than glass, weaker than stone. Friction high enough that a plank
   // holds a stack instead of sliding, and a roof that breaks rather than vanishing.
   wood: { density: 0.0011, friction: 0.35, frictionStatic: 0.35, restitution: 0.04, health: 6, damageThreshold: 5 },

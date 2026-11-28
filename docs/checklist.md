@@ -283,3 +283,23 @@ never repeats a shot that killed nothing. The single-shot sweep still measures t
       changes when the stage changes, and turning it off stops the transport.
 - [/] Listening judgement. Headless Chromium has no audio output to hear, so the sound design
       itself is a human check; it stays deferred to the real sound-design pass.
+
+## 8. Blast, glass, authored tracks, editor (M23, D41–D43)
+
+- [x] Blast shove measured: `scratch/blast-probe.ts` — survivors of a stage-02 detonation move up
+      to 141 units (mean 53), peak 5.53 units/step vs a full-pull pig at ~27. Before M23: 0 units.
+      `IMPULSE_SCALE` 2; 2.5 and 3 shove harder but break node/chromium determinism (docs/tuning.md).
+- [x] Browser: a bomb that detonates on the structure band leaves bodies standing *and* displaced
+      (`a blast shoves surviving bodies away from the bomb`).
+- [x] Glass softer: `health` 4 → 3, `damageThreshold` 4 → 2.5. Sweep re-run per stage; no stage
+      became unwinnable, winning plans re-derived (docs/tuning.md).
+- [x] Authored-track seam: `src/audio/tracks.ts` registry, validated on registration by field name;
+      `trackFor` prefers the authored spec, falls back to the generator. Headless test asserts a
+      rejected spec names the field; browser test asserts the HUD names the authored track.
+      Handoff document: `docs/music-interface.md`.
+- [x] Level editor: draft model (`src/levels/draft.ts`) + DOM panel (`src/ui/editor.ts`), opened
+      with `E` / the HUD button. Headless: expansion, footprint, validation, JSON round-trip,
+      pointer place/select/delete/undo/export. Browser: places pieces and exports JSON that
+      `validateLevel` accepts, including an authored bird. Docs: `docs/level-editor.md`.
+- [ ] Listening judgement for the authored track still needs a human ear; headless Chromium has no
+      audio output.

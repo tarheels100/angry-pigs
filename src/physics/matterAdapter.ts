@@ -18,6 +18,16 @@ const STEP_MS = 1000 / 60;
  * rest of the stopping power comes from contact friction. */
 const ROLLING_DAMPING = 0.98;
 
+/**
+ * Blast shove constants (M23, docs/adr.md D41). `impulse` reaches the adapter as the
+ * velocity added at the blast centre for a body of `REFERENCE_SHOVE_MASS`, so a heavier
+ * body gets proportionally less shove and a lighter one gets more. `LIFT` tilts the push
+ * upward so a heap pops rather than slides sideways; `SPIN` tumbles the block.
+ */
+const REFERENCE_SHOVE_MASS = 4;
+const LIFT = 0.4;
+const SPIN = 0.06;
+
 const CATEGORY = { static: 0x0001, object: 0x0002, target: 0x0004, projectile: 0x0008 };
 
 type FilterGroup = 'static' | 'object' | 'target' | 'projectile';
@@ -344,9 +354,15 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
   }
 
   /**
-   * Radial blast (M18 bomb pigs). Damage is applied before the push so a body the blast
-   * destroys is not also flung. Falloff is linear with distance, and the push lifts
-   * slightly so a heap pops rather than slides sideways (docs/adr.md D33).
+   * Radial blast (M18 bomb pigs, reworked in M23 so it actually shoves things).
+   *
+   * The push is *impulse-like*, not a bare velocity change: a body set to a velocity
+   * moves the same regardless of how heavy it is, so stone flew as far as glass. The
+   * shove is therefore scaled by the reference mass (a basic pig), clamped so a heavy
+   * body still moves and a feather bird is not launched absurdly. Damage is applied
+   * after the push, so a body the blast destroys leaves as crumble rather than being
+   * flung, and a body that survives carries the shove into the next step
+   * (docs/adr.md D41).
    */
   function explode(center: Vec2, options: ExplosionOptions): void {
     for (const t of [...tracked.values()]) {
@@ -357,13 +373,21 @@ export function createMatterAdapter(init: WorldInit): PhysicsAdapter {
       // A body exactly at the centre takes the full blast (dist 0), not nothing.
       if (dist > options.radius) continue;
       const falloff = 1 - dist / options.radius;
-      applyDamage(t.id, options.damage * falloff);
-      if (t.destroyed) continue;
+      const dir = dist < 1e-6 ? { x: 0, y: -1 } : { x: dx / dist, y: dy / dist };
+      // Mass-aware: lighter bodies get more shove. The clamp keeps stone moving (a
+      // blast that ignores heavy bodies reads as a blast that did nothing) and stops a
+      // feather bird from leaving the world outright.
+      const heft = Math.min(1.2, Math.max(0.35, REFERENCE_SHOVE_MASS / Math.max(0.1, t.body.mass)));
+      const shove = options.impulse * falloff * heft;
       Sleeping.set(t.body, false);
       Body.setVelocity(t.body, {
-        x: t.body.velocity.x + (dx / dist) * options.impulse * falloff,
-        y: t.body.velocity.y + (dy / dist) * options.impulse * falloff - options.impulse * falloff * 0.35,
+        x: t.body.velocity.x + dir.x * shove,
+        y: t.body.velocity.y + dir.y * shove - shove * LIFT,
       });
+      // Tumble: spin follows the outward direction, so a block flies and rotates rather
+      // than sliding as one neat line. Deterministic — no RNG (docs/checklist.md §2).
+      Body.setAngularVelocity(t.body, t.body.angularVelocity + dir.x * shove * SPIN);
+      applyDamage(t.id, options.damage * falloff);
     }
   }
 

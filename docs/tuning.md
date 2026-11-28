@@ -236,3 +236,55 @@ dead and the world at rest):
 The "descend onto roof" count is what a player can actually hit with a direct arc; the bot's pig
 count includes shots that kill by collapse or crush. `scratch/roof-reach-report.ts` shows every
 bird sheltered, none reachable by a descending shot from the launcher (D38).
+
+## M23 — blast shove, glass softness
+
+**Blast (`scratch/blast-probe.ts`).** One bomb dropped onto stage-02's shelter from the measured
+opener; the probe measures how far bodies that *survive* the blast move from their authored
+position, and the peak speed in the 40 steps after detonation. A full-pull pig flies at ~27
+units/step, so a survivor at 5 units/step is visibly flying, not settling.
+
+| `IMPULSE_SCALE` (`src/game/game.ts`) | survivors | max moved | mean moved | peak speed | determinism |
+| --- | --- | --- | --- | --- | --- |
+| 0.02 (before M23) | 6 | 0 units | 0 units | 0.06/step | clean |
+| 1.5 | 6 | 137 units | 53 units | 4.10/step | clean |
+| 2 | 6 | 141 units | 53 units | 5.53/step | clean |
+| 2.5 | 4 | 252 units | 142 units | 5.12/step | **5 mismatches, node vs chromium** |
+| 3 | 4 | 202 units | 110 units | 8.00/step | **5 mismatches, node vs chromium** |
+
+The push is mass-aware (`REFERENCE_SHOVE_MASS / body.mass`, clamped 0.35..1.2), applied before
+damage, tilted upward by `LIFT` 0.4 and spun by `SPIN` 0.06 (`src/physics/matterAdapter.ts`).
+Above 2 the heap becomes chaotic enough that last-ulp float differences between V8 builds flip
+sleep/settle transitions, which is what `check:determinism` reports; 2 is therefore the shipped
+value. Settle timeouts in the sweep rose from 8/144 to 14/144 — a shoved heap takes longer to come
+to rest, which is the intended behaviour, and no combo changed its outcome.
+
+**Glass (`src/physics/materials.ts`).** `health` 4 → 3, `damageThreshold` 4 → 2.5. M13 raised both
+because glass erased on almost any contact; M23 lands between the two: a pane still takes two hits
+from a basic pig, but a beam it lands on cracks rather than surviving. `scratch/sweep-probe.ts`
+after the change (single-shot combos, pull 20..90, angle -40..40):
+
+| stage | kills | blocks gone max | combos with no damage | combos with partial damage |
+| --- | --- | --- | --- | --- |
+| stage-01 | 144/1485 | 4 | 348 | 449 |
+| stage-02 | 332/1980 | 10 | 196 | 416 |
+| stage-03 | 689/1980 | 12 | 71 | 472 |
+| stage-04 | 412/1980 | 9 | 296 | 442 |
+| stage-05 | 353/2475 | 14 | 140 | 357 |
+| stage-06 | 157/2475 | 17 | 265 | 437 |
+
+**Winning plans after M23 (`scratch/greedy-probe.ts`).** Re-derived; the softer glass and the
+shove moved the arcs, so `tests/levels.test.ts` and the browser `PLANS` mirror these:
+
+| stage | pigs used | plan |
+| --- | --- | --- |
+| stage-01 | 2/4 | 75@-20, 90@-10 |
+| stage-02 | 3/4 | 63@-10, 90@-25, 90@5 |
+| stage-03 | 2/4 | 75@-20, 63@-45 |
+| stage-04 | 2/5 | 90@-5, 75@-45 |
+| stage-05 | 3/5 | 75@-25, 90@0, 90@-10 |
+| stage-06 | 3/5 | 75@-40, 90@-35, 90@-25 |
+
+Baseline before M23 was 2, 2, 2, 3, 3, 3 pigs; stage-02 costs one more pig now that its shelter
+survives the first blast, and stage-04 costs one fewer because glass gives way. No stage became
+unwinnable.

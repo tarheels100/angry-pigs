@@ -1,0 +1,13 @@
+stage-01: 2/4 pigs, cleared=true
+  plan: 75@-20 90@-10
+stage-02: 2/4 pigs, cleared=true
+  plan: 45@-25 90@-5
+stage-03: 2/4 pigs, cleared=true
+  plan: 90@0 90@-5
+stage-04: 3/5 pigs, cleared=true
+  plan: 90@-5 75@-35 90@-20
+stage-05: 2/5 pigs, cleared=true
+  plan: 63@-20 75@-25
+stage-06: 2/5 pigs, cleared=true
+  plan: 90@-25 75@-45
+DONE

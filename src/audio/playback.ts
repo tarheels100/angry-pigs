@@ -10,7 +10,8 @@
 import * as Tone from 'tone';
 
 import type { AudioContextLike } from './sfx.ts';
-import { composeTrack, loopLengthMs, notesFor, type TrackSpec } from './composition.ts';
+import { loopLengthMs, notesFor, type TrackSpec } from './composition.ts';
+import { trackFor } from './tracks.ts';
 
 export interface MusicPlayer {
   /** Start (or restart) the track for a stage. Silent when no audio context is unlocked yet. */
@@ -19,6 +20,8 @@ export interface MusicPlayer {
   playing(): boolean;
   /** Name of the track currently scheduled, for the HUD. */
   trackName(): string | null;
+  /** The spec playing — authored or generated. Handy for a HUD line or a browser test. */
+  spec(): TrackSpec | null;
   dispose(): void;
 }
 
@@ -30,6 +33,10 @@ export interface MusicPlayerOptions {
   /** Voice volumes in dB; mixed low so the soundtrack sits under the impact blips. */
   leadVolume?: number;
   bassVolume?: number;
+  /** Where tracks come from. Defaults to `trackFor`: an authored track when registered, else
+   * the generated one (docs/music-interface.md).
+   */
+  tracks?: (levelId: string) => TrackSpec;
 }
 
 export function createMusicPlayer(options: MusicPlayerOptions = {}): MusicPlayer {
@@ -70,7 +77,7 @@ export function createMusicPlayer(options: MusicPlayerOptions = {}): MusicPlayer
       if (!context || context.state !== 'running') return;
       buildVoices(context);
 
-      spec = composeTrack(levelId);
+      spec = (options.tracks ?? trackFor)(levelId);
       clearPart();
       const transport = Tone.getTransport();
       // In a headless environment Tone has no context, so its transport cannot schedule.
@@ -101,6 +108,7 @@ export function createMusicPlayer(options: MusicPlayerOptions = {}): MusicPlayer
       transport.stop?.();
       transport.cancel?.();
       playing = false;
+      spec = null;
     },
 
     playing(): boolean {
@@ -109,6 +117,12 @@ export function createMusicPlayer(options: MusicPlayerOptions = {}): MusicPlayer
 
     trackName(): string | null {
       return spec ? spec.name : null;
+    },
+
+    spec(): TrackSpec | null {
+      // The HUD and browser tests read this to label the track. It reports the composed spec
+      // even when the transport could not schedule (headless), so a track is inspectable.
+      return spec;
     },
 
     dispose(): void {

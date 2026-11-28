@@ -1,0 +1,215 @@
+
+> angry-pigs@0.0.0 test:browser
+> npm run build && node --test "tests/browser/*.browser.mjs"
+
+
+> angry-pigs@0.0.0 build
+> esbuild src/main.ts --bundle --minify --legal-comments=none --format=iife --outfile=dist/main.js && node build-html.js
+
+
+  dist\main.js  458.4kb
+
+⚡ Done in 178ms
+dist/index.html written (458.4 KB inline)
+TAP version 13
+# Subtest: the artifact loads offline from file:// with no extra requests
+ok 1 - the artifact loads offline from file:// with no extra requests
+  ---
+  duration_ms: 679.1657
+  type: 'test'
+  ...
+# Subtest: the artifact loads over http with no runtime fetch
+ok 2 - the artifact loads over http with no runtime fetch
+  ---
+  duration_ms: 315.3106
+  type: 'test'
+  ...
+# Subtest: a drag aims, a release fires, and ammo is spent
+ok 3 - a drag aims, a release fires, and ammo is spent
+  ---
+  duration_ms: 363.8743
+  type: 'test'
+  ...
+# Subtest: pressing without dragging never fires
+ok 4 - pressing without dragging never fires
+  ---
+  duration_ms: 291.96
+  type: 'test'
+  ...
+# Subtest: a touch tap on the canvas spends no ammo
+ok 5 - a touch tap on the canvas spends no ammo
+  ---
+  duration_ms: 342.6856
+  type: 'test'
+  ...
+# Subtest: a touch tap on the HUD restart button restarts the stage
+ok 6 - a touch tap on the HUD restart button restarts the stage
+  ---
+  duration_ms: 325.8951
+  type: 'test'
+  ...
+# Subtest: theme swap changes painted pixels
+ok 7 - theme swap changes painted pixels
+  ---
+  duration_ms: 569.2349
+  type: 'test'
+  ...
+# Subtest: resizing during a drag still completes the gesture
+ok 8 - resizing during a drag still completes the gesture
+  ---
+  duration_ms: 442.105
+  type: 'test'
+  ...
+# Subtest: device pixel ratio maps the backing store
+ok 9 - device pixel ratio maps the backing store
+  ---
+  duration_ms: 428.2484
+  type: 'test'
+  ...
+# Subtest: a winning shot reports stars and advances to the next stage
+ok 10 - a winning shot reports stars and advances to the next stage
+  ---
+  duration_ms: 7470.7312
+  type: 'test'
+  ...
+# Subtest: restart restores the authored stage
+ok 11 - restart restores the authored stage
+  ---
+  duration_ms: 319.6241
+  type: 'test'
+  ...
+# Subtest: a loaded stage is settled and undamaged before the player fires
+ok 12 - a loaded stage is settled and undamaged before the player fires
+  ---
+  duration_ms: 270.4534
+  type: 'test'
+  ...
+# Subtest: best results persist across a reload
+ok 13 - best results persist across a reload
+  ---
+  duration_ms: 6019.308
+  type: 'test'
+  ...
+# Subtest: aiming tilts the barrel and compresses the spring
+ok 14 - aiming tilts the barrel and compresses the spring
+  ---
+  duration_ms: 845.1114
+  type: 'test'
+  ...
+# Subtest: a flying pig leaves a motion trail
+ok 15 - a flying pig leaves a motion trail
+  ---
+  duration_ms: 595.5076
+  type: 'test'
+  ...
+# Subtest: destroyed blocks leave a debris heap that clears on restart
+ok 16 - destroyed blocks leave a debris heap that clears on restart
+  ---
+  duration_ms: 1038.0588
+  type: 'test'
+  ...
+# Subtest: the soundtrack ships off and turns on from options (M22)
+ok 17 - the soundtrack ships off and turns on from options (M22)
+  ---
+  duration_ms: 411.8598
+  type: 'test'
+  ...
+# Subtest: resume hands control back to the round
+ok 18 - resume hands control back to the round
+  ---
+  duration_ms: 891.786
+  type: 'test'
+  ...
+# Subtest: nothing floats with no support under it
+ok 19 - nothing floats with no support under it
+  ---
+  duration_ms: 4568.1624
+  type: 'test'
+  ...
+# Subtest: the HUD names the pig waiting in the chamber (M18)
+ok 20 - the HUD names the pig waiting in the chamber (M18)
+  ---
+  duration_ms: 3934.6564
+  type: 'test'
+  ...
+# Subtest: a bomb detonates against structure (M18)
+ok 21 - a bomb detonates against structure (M18)
+  ---
+  duration_ms: 768.9904
+  type: 'test'
+  ...
+# Subtest: the title screen lists stages with best scores and starts the picked one (M19)
+ok 22 - the title screen lists stages with best scores and starts the picked one (M19)
+  ---
+  duration_ms: 290.583
+  type: 'test'
+  ...
+# Subtest: the title screen can be opened and closed with Escape, and digits pick stages (M19)
+ok 23 - the title screen can be opened and closed with Escape, and digits pick stages (M19)
+  ---
+  duration_ms: 610.8391
+  type: 'test'
+  ...
+# Subtest: an option change survives a reload (M19)
+ok 24 - an option change survives a reload (M19)
+  ---
+  duration_ms: 413.8227
+  type: 'test'
+  ...
+# Subtest: turning trail and debris off stops those effects (M19)
+ok 25 - turning trail and debris off stops those effects (M19)
+  ---
+  duration_ms: 2939.5749
+  type: 'test'
+  ...
+# Subtest: forgetting best scores clears the title screen records (M19)
+ok 26 - forgetting best scores clears the title screen records (M19)
+  ---
+  duration_ms: 6095.8837
+  type: 'test'
+  ...
+# Subtest: the last stage mixes materials and opens with a bomb (M20)
+ok 27 - the last stage mixes materials and opens with a bomb (M20)
+  ---
+  duration_ms: 331.9368
+  type: 'test'
+  ...
+# Subtest: the artifact boots and plays with every network request blocked (D6)
+ok 28 - the artifact boots and plays with every network request blocked (D6)
+  ---
+  duration_ms: 331.8203
+  type: 'test'
+  ...
+# Subtest: enabling music plays a track, and the track changes with the stage (M22)
+ok 29 - enabling music plays a track, and the track changes with the stage (M22)
+  ---
+  duration_ms: 367.0402
+  type: 'test'
+  ...
+# Subtest: a blast shoves surviving bodies away from the bomb (M23)
+ok 30 - a blast shoves surviving bodies away from the bomb (M23)
+  ---
+  duration_ms: 1071.9479
+  type: 'test'
+  ...
+# Subtest: the level editor places pieces and exports a level (M23)
+ok 31 - the level editor places pieces and exports a level (M23)
+  ---
+  duration_ms: 330.2146
+  type: 'test'
+  ...
+# Subtest: a hand-authored track plays on its stage (M23)
+ok 32 - a hand-authored track plays on its stage (M23)
+  ---
+  duration_ms: 319.3649
+  type: 'test'
+  ...
+1..32
+# tests 32
+# suites 0
+# pass 32
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 44341.8737

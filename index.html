@@ -64,6 +64,51 @@
     .stage-list { list-style: none; margin: 0; padding: 0; }
     .opt-row { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
     .opt-row button { text-align: right; }
+
+    /* Level editor (M23). A floating panel rather than a full overlay: a press on the
+     * canvas still reaches the game, which is how pieces get placed. */
+    .editor-panel {
+      position: absolute;
+      left: 12px;
+      top: 12px;
+      width: 320px;
+      max-height: calc(100% - 24px);
+      overflow: auto;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      border: 1px solid rgba(110, 243, 255, 0.5);
+      background: rgba(6, 12, 20, 0.92);
+      padding: 12px;
+      font-size: 12px;
+      z-index: 3;
+    }
+    .editor-title { color: #6ef3ff; letter-spacing: 0.15em; }
+    .editor-palette, .editor-actions, .editor-row { display: flex; flex-wrap: wrap; gap: 4px; }
+    .editor-pieces { display: flex; flex-direction: column; gap: 4px; max-height: 150px; overflow: auto; }
+    .editor-panel button {
+      color: #cfe9f5;
+      background: none;
+      border: 1px solid rgba(110, 243, 255, 0.3);
+      font: inherit;
+      padding: 4px 8px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .editor-panel button:hover { background: rgba(110, 243, 255, 0.12); }
+    .editor-arm.is-active, .editor-piece.is-selected { background: rgba(110, 243, 255, 0.18); border-color: #6ef3ff; }
+    .editor-delete { color: #ff7a7a; border-color: rgba(255, 122, 122, 0.4); }
+    .editor-error { color: #ff7a7a; }
+    .editor-warning { color: #ffd28a; }
+    .editor-ok { color: #7fd6a0; }
+    .editor-hint, .editor-empty, .editor-selected { color: #8fb6c8; }
+    .editor-export {
+      width: 100%;
+      background: rgba(4, 6, 13, 0.6);
+      color: #cfe9f5;
+      border: 1px solid rgba(110, 243, 255, 0.3);
+      font: inherit;
+    }
   </style>
 </head>
 <body>
